@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 
 const GITHUB_USERNAME = "ifwian";
-const CELL_SPAN = 14; // px per week-column, dot centered inside
 
 interface ContributionDay {
   date: string;
@@ -37,7 +36,7 @@ function toWeeks(days: ContributionDay[]): (ContributionDay | null)[][] {
 
 function MonthLabels({ weeks }: { weeks: (ContributionDay | null)[][] }) {
   let lastMonth: number | null = null;
-  const labels: { text: string; left: number }[] = [];
+  const labels: { text: string; leftPct: number }[] = [];
 
   weeks.forEach((week, weekIndex) => {
     const firstRealDay = week.find((d) => d);
@@ -46,23 +45,22 @@ function MonthLabels({ weeks }: { weeks: (ContributionDay | null)[][] }) {
     if (month !== lastMonth) {
       labels.push({
         text: monthFormatter.format(new Date(`${firstRealDay.date}T00:00:00`)),
-        left: weekIndex * CELL_SPAN,
+        leftPct: (weekIndex / weeks.length) * 100,
       });
       lastMonth = month;
     }
   });
 
   return (
-    <div className="micro-label relative mb-2 h-3.5 min-w-max">
+    <div className="micro-label relative mb-2 h-3.5 w-full">
       {labels.map((label, i) => (
-        <span key={i} className="absolute whitespace-nowrap" style={{ left: label.left }}>
+        <span key={i} className="absolute whitespace-nowrap" style={{ left: `${label.leftPct}%` }}>
           {label.text}
         </span>
       ))}
     </div>
   );
 }
-
 // Dot size + tone scale with contribution level, echoing the
 // bryl-minimal reference graph (variable dot size, not a color ramp).
 const LEVEL_DOT: Record<number, { size: number; color: string }> = {
@@ -125,11 +123,16 @@ export default function GithubActivity() {
         </p>
 
         <div className="card p-7">
-          <div className="overflow-x-auto pb-1">
+          <div className="w-full pb-1">
             {weeks && <MonthLabels weeks={weeks} />}
             <div
-              className="grid min-w-max"
-              style={{ gridAutoFlow: "column", gridTemplateRows: "repeat(7, 14px)" }}
+              className="grid w-full"
+              style={{
+                gridTemplateColumns: `repeat(${weeks?.length ?? 53}, 1fr)`,
+                gridTemplateRows: "repeat(7, 1fr)",
+                gridAutoFlow: "column",
+                aspectRatio: `${weeks?.length ?? 53} / 7`,
+              }}
               aria-hidden="true"
             >
               {weeks?.map((week, wi) =>
@@ -139,14 +142,14 @@ export default function GithubActivity() {
                     <div
                       key={`${wi}-${di}`}
                       title={day ? `${day.count} contribution${day.count === 1 ? "" : "s"} on ${day.date}` : undefined}
-                      className="flex h-[14px] w-[14px] items-center justify-center"
+                      className="flex items-center justify-center"
                     >
                       {dot && (
                         <span
                           style={{
                             display: "block",
-                            width: dot.size,
-                            height: dot.size,
+                            width: `${(dot.size / 14) * 100}%`,
+                            aspectRatio: "1 / 1",
                             borderRadius: "50%",
                             backgroundColor: dot.color,
                           }}
@@ -158,7 +161,6 @@ export default function GithubActivity() {
               )}
             </div>
           </div>
-
           <p className="mt-4 text-sm" style={{ color: "var(--gray-500)" }}>
             {error
               ? "Couldn't load live GitHub activity right now — check back later."

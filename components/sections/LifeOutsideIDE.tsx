@@ -1,4 +1,4 @@
-import DepthCarousel from "@/components/ui/DepthCarousel";
+import Stack from "@/components/ui/Stack";
 
 const INTERESTS = ["Photography", "Reading", "Gaming", "Hiking", "Music", "Nature"];
 
@@ -31,19 +31,17 @@ export default function LifeOutsideIDE() {
           </div>
         </div>
 
-        <div className="h-105 w-full">
-          <DepthCarousel
-            items={GALLERY}
-            cardWidth={230}
-            cardHeight={300}
-            depth={160}
-            spread={60}
-            tilt={18}
-            visibleCards={3}
-            tint="var(--ink)"
-            autoplay
-            loop
-          />
+                <div className="flex h-105 w-full items-center justify-center">
+          <div style={{ width: 260, height: 320 }}>
+            <Stack
+              cards={GALLERY.map((g) => (
+                <img key={g.image} src={g.image} alt={g.alt} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ))}
+              randomRotation
+              sensitivity={180}
+              sendToBackOnClick
+            />
+          </div>
         </div>
       </div>
     </section>
