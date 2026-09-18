@@ -150,18 +150,16 @@ export default function Sidebar({ className = "" }: SidebarProps) {
         </div>
 
         <nav className="flex flex-1 flex-col justify-center gap-1 px-5">
-          {NAV_ITEMS.map((item, i) => {
+          {NAV_ITEMS.map((item) => {
             const isActive = active === item.href;
             return (
               <a
                 key={item.href}
                 href={item.href}
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 py-3 text-2xl font-medium lowercase"
+                className="group flex items-center gap-2.5 py-2 text-sm transition-colors"
                 style={{
                   fontFamily: "var(--font-display)",
                   color: isActive ? "var(--ink)" : "var(--gray-400)",
-                  borderTop: i === 0 ? "none" : "1px solid var(--gray-200)",
                 }}
                 onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = "var(--ink)"; }}
                 onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = "var(--gray-400)"; }}

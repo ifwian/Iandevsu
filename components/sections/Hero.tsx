@@ -12,7 +12,7 @@ export default function Hero() {
       <div className="mx-auto max-w-4xl lg:pl-56">
 
         {/* Profile Header (Flex Container) */}
-        <div className="flex items-center gap-5 mb-6">
+        <div className="flex items-start gap-5 mb-6">
           <PixelTransition
             firstContent={
               <img
@@ -31,19 +31,22 @@ export default function Hero() {
             gridSize={7}
             pixelColor="#ffffff"
             animationStepDuration={0.3}
-            // Sizing must be declared here on the component wrapper:
-            className="w-48 h-48 aspect-square rounded-2xl overflow-hidden shrink-0" 
+            className="mt-6 w-48 h-48 aspect-square rounded-2xl overflow-hidden shrink-0"
           />
 
-          {/* Name and links remain flex-col */}
+          {/* Name, tagline and links remain flex-col */}
           <div className="flex flex-col text-left">
             <p className="section-eyebrow mb-1 text-xs">01 &mdash; home</p>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Marianne Napa&ntilde;o
             </h1>
 
+            <h2 className="mt-1 text-base font-medium" style={{ color: "var(--gray-500)" }}>
+              Computer Science Student &amp; Aspiring Web Developer
+            </h2>
+
             {/* Social Links */}
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
               {LINKS.map((link) => (
                 <a
                   key={link.label}
@@ -60,12 +63,8 @@ export default function Hero() {
           </div>
         </div>
 
-        {/* Content Body remains wide */}
+        {/* Content Body */}
         <div className="w-full text-left">
-          <h2 className="mb-3 text-base font-medium" style={{ color: "var(--gray-500)" }}>
-            Computer Science Student &amp; Aspiring Web Developer
-          </h2>
-
           <div className="space-y-3 text-sm leading-relaxed" style={{ color: "var(--gray-500)", lineHeight: 1.65 }}>
             <p>
               I&rsquo;m a Computer Science student exploring web development
