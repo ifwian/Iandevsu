@@ -74,7 +74,7 @@ export default function Hero() {
         <p className="section-eyebrow mb-6 text-xs text-[var(--gray-400)]">01 &mdash; home</p>
 
         {/* Combined Hero Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] lg:grid-cols-[200px_1fr] items-center md:items-start gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] lg:grid-cols-[200px_1fr] items-center md:items-start justify-items-center md:justify-items-start gap-6">
           
           {/* Profile Picture */}
           <PixelTransition
@@ -95,7 +95,7 @@ export default function Hero() {
             gridSize={7}
             pixelColor="var(--bg)"
             animationStepDuration={0.3}
-            className="w-48 sm:w-56 lg:w-full aspect-[5/6] overflow-hidden shrink-0 rounded-none border border-[var(--gray-200)]"
+            className="w-48 sm:w-56 lg:w-full aspect-[5/6] mx-auto overflow-hidden shrink-0 rounded-none border border-[var(--gray-200)]"
           />
 
           {/* Right Column */}
