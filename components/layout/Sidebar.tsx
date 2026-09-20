@@ -115,9 +115,10 @@ export default function Sidebar({ className = "" }: SidebarProps) {
             className="flex h-9 w-9 items-center justify-center rounded-full border"
             style={{ borderColor: "var(--gray-200)" }}
           >
-            <span className="flex flex-col gap-1">
-              <span className="h-[1.5px] w-4" style={{ backgroundColor: "var(--ink)" }} />
-              <span className="h-[1.5px] w-4" style={{ backgroundColor: "var(--ink)" }} />
+            <span className="flex flex-col gap-[5px] justify-center">
+              <span className={`h-[1.5px] w-5 transition-all duration-300 rounded ${open ? "rotate-45 translate-y-[3.5px]" : ""}`} style={{ backgroundColor: "var(--ink)" }} />
+              <span className={`h-[1.5px] w-5 transition-all duration-300 rounded ${open ? "opacity-0" : ""}`} style={{ backgroundColor: "var(--ink)" }} />
+              <span className={`h-[1.5px] w-5 transition-all duration-300 rounded ${open ? "-rotate-45 -translate-y-[3.5px]" : ""}`} style={{ backgroundColor: "var(--ink)" }} />
             </span>
           </button>
         </div>
@@ -125,55 +126,63 @@ export default function Sidebar({ className = "" }: SidebarProps) {
 
       {/* Mobile Overlay Menu */}
       <div
-        className={`lg:hidden fixed inset-0 z-60 flex flex-col overflow-x-hidden transition-opacity duration-300 ${
-          open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+        className={`lg:hidden fixed inset-0 z-50 transition-opacity duration-300 ${
+          open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         style={{ backgroundColor: "var(--bg)" }}
         role="dialog"
         aria-modal="true"
+        onClick={() => setOpen(false)}
       >
-        <div className="flex items-center justify-between px-5 py-4">
-          <span className="text-base lowercase" style={{ fontFamily: "var(--font-display)" }}>
-            mrn<span style={{ color: "var(--gray-400)" }}>.</span>
-          </span>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Close navigation menu"
-            className="flex h-9 w-9 items-center justify-center rounded-full border"
-            style={{ borderColor: "var(--gray-200)" }}
-          >
-            <span className="font-mono text-sm" style={{ color: "var(--ink)" }}>
-              esc
+        {/* Backdrop overlay */}
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+        
+        {/* Slide-up drawer */}
+        <div className="fixed bottom-0 left-0 right-0 flex flex-col max-h-[85vh] overflow-y-auto rounded-t-2xl border-t" style={{ backgroundColor: "var(--bg)", borderColor: "var(--gray-200)" }} onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4">
+            <span className="text-base lowercase" style={{ fontFamily: "var(--font-display)" }}>
+              mrn<span style={{ color: "var(--gray-400)" }}>.</span>
             </span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close navigation menu"
+              className="flex h-9 w-9 items-center justify-center rounded-full border"
+              style={{ borderColor: "var(--gray-200)" }}
+            >
+              <span className="font-mono text-sm" style={{ color: "var(--ink)" }}>
+                ✕
+              </span>
+            </button>
+          </div>
 
-        <nav className="flex flex-1 flex-col justify-center gap-1 px-5">
-          {NAV_ITEMS.map((item) => {
-            const isActive = active === item.href;
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                className="group flex items-center gap-2.5 py-2 text-sm transition-colors"
-                style={{
-                  fontFamily: "var(--font-display)",
-                  color: isActive ? "var(--ink)" : "var(--gray-400)",
-                }}
-                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = "var(--ink)"; }}
-                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = "var(--gray-400)"; }}
-                onClick={() => setOpen(false)}
-              >
-                <item.Icon size={20} strokeWidth={1.8} style={{ flexShrink: 0 }} />
-                {item.label}
-              </a>
-            );
-          })}
-        </nav>
+          <nav className="flex flex-col gap-1 px-5 py-2" onClick={(e) => e.stopPropagation()}>
+            {NAV_ITEMS.map((item) => {
+              const isActive = active === item.href;
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="group flex items-center gap-3 py-3 px-4 text-base font-medium transition-colors rounded-lg"
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    color: isActive ? "var(--ink)" : "var(--gray-400)",
+                  }}
+                  onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = "var(--ink)"; }}
+                  onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = "var(--gray-400)"; }}
+                  onClick={() => setOpen(false)}
+                >
+                  <item.Icon size={20} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+                  {item.label}
+                </a>
+              );
+            })}
+          </nav>
 
-        <div className="flex items-center justify-between px-5 py-6">
-          <p className="micro-label">cs student</p>
+          <div className="flex items-center justify-between px-5 py-4 border-t" style={{ borderColor: "var(--gray-200)" }} onClick={(e) => e.stopPropagation()}>
+            <p className="micro-label">cs student</p>
+            <ThemeToggle />
+          </div>
         </div>
       </div>
     </>
