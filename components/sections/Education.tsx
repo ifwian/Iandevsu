@@ -52,8 +52,8 @@ function TimelineGroup({ heading, entries }: { heading: string; entries: Timelin
 
 export default function Education() {
   return (
-    <section id="education" className="px-5 py-16 lg:px-6">
-      <div className="mx-auto max-w-4xl lg:pl-56">
+    <section id="education" className="px-5 py-16 lg:px-6 lg:pl-56">
+      <div className="max-w-4xl">
         <p className="section-eyebrow">03 &mdash; education</p>
         <h2 className="mb-2 text-2xl font-semibold tracking-tight">education &amp; certifications</h2>
         <p className="mb-8 max-w-[46ch]" style={{ color: "var(--gray-500)" }}>

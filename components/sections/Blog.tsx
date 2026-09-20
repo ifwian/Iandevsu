@@ -6,21 +6,21 @@ interface Post {
 
 const POSTS: Post[] = [
   {
-    title: "What I Learned Building My Portfolio",
+    title: "Building My First Java Swing Game: Lessons from 'Snake Chase'",
     date: "draft",
-    description: "Notes on structuring HTML/CSS from scratch, and the small decisions that add up to a polished layout.",
+    description: "Breaking down how I handled game loops, custom grid logic, and basic hazard progression in pure Java.",
   },
   {
-    title: "Git & GitHub, Explained Simply",
+    title: "C++ Data Structures: Why Writing a Music Playlist Manager Clicked",
     date: "draft",
-    description: "A beginner-friendly walkthrough of the commands I actually use day to day.",
+    description: "Reflections on moving past textbook examples and implementing custom structs and memory management for a real project.",
   },
 ];
 
 export default function Blog() {
   return (
-    <section id="blog" className="px-5 py-16 lg:px-6">
-      <div className="mx-auto max-w-4xl lg:pl-56">
+    <section id="blog" className="px-5 py-16 lg:px-6 lg:pl-56">
+      <div className="max-w-4xl">
         <p className="section-eyebrow">06 &mdash; blog</p>
         <h2 className="mb-2 text-2xl font-semibold tracking-tight">blog</h2>
         <p className="mb-8 max-w-[46ch]" style={{ color: "var(--gray-500)" }}>

@@ -53,8 +53,8 @@ export default function TechStackShowcase() {
   const category = CATEGORIES.find((c) => c.key === activeCategory) ?? CATEGORIES[0];
 
   return (
-    <section id="stack" className="px-5 py-16 lg:px-6">
-      <div className="mx-auto max-w-4xl lg:pl-56">
+    <section id="stack" className="px-5 py-16 lg:px-6 lg:pl-56">
+      <div className="max-w-4xl">
         <p className="section-eyebrow">02 &mdash; stack</p>
         <h2 className="mb-2 text-2xl font-semibold tracking-tight">tech stack</h2>
         <p className="mb-8 max-w-[46ch]" style={{ color: "var(--gray-500)" }}>

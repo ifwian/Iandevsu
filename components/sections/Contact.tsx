@@ -17,10 +17,10 @@ const LINKS: ContactLink[] = [
  */
 export default function Contact() {
   return (
-    <section id="contact" className="relative overflow-hidden px-5 py-16 lg:px-6">
+    <section id="contact" className="relative overflow-hidden px-5 py-16 lg:px-6 lg:pl-56">
       <div className="halftone" style={{ opacity: 0.5 }} aria-hidden="true" />
 
-      <div className="relative mx-auto max-w-4xl lg:pl-56">
+      <div className="relative mx-auto max-w-4xl">
         <p className="section-eyebrow">08 &mdash; contact</p>
         <h2 className="mb-2 text-2xl font-semibold tracking-tight">contact</h2>
         <p className="mb-6 max-w-[46ch]" style={{ color: "var(--gray-500)" }}>
