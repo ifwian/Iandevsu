@@ -107,7 +107,7 @@ export default function BlogSection() {
               </div>
 
               {/* Title */}
-              <h3 className="text-sm sm:text-base font-bold text-[var(--gray-100)] group-hover:text-[var(--ink)] leading-snug tracking-tight transition-colors">
+              <h3 className="text-sm sm:text-base font-bold text-[var(--ink)] leading-snug tracking-tight">
                 {post.title}
               </h3>
             </a>
