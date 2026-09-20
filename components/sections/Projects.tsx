@@ -68,8 +68,8 @@ function PreviewFrame({ title }: { title: string }) {
 
 export default function Projects() {
   return (
-    <section id="projects" className="px-5 py-16 lg:px-6">
-      <div className="mx-auto max-w-4xl lg:pl-56">
+    <section id="projects" className="px-5 py-16 lg:px-6 lg:pl-56">
+      <div className="max-w-4xl">
         <p className="section-eyebrow">05 &mdash; projects</p>
         <h2 className="mb-2 text-2xl font-semibold tracking-tight">projects</h2>
         <p className="mb-8 max-w-[46ch]" style={{ color: "var(--gray-500)" }}>

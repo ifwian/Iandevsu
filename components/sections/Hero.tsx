@@ -6,13 +6,25 @@ const LINKS = [
   { label: "linkedin", href: "https://www.linkedin.com/in/ifwiannn/", external: true },
 ];
 
+const STATS = [
+  { label: "REPOS", value: "12 Public" },
+  { label: "COMMITS", value: "350+" },
+  { label: "PROJECTS", value: "5 Done" },
+  { label: "STATUS", value: "Ready" },
+];
+
 export default function Hero() {
   return (
-    <section id="home" className="px-5 py-16 lg:px-6">
-      <div className="mx-auto max-w-4xl lg:pl-56">
+    <section id="home" className="px-5 pt-12 pb-16 lg:px-6 lg:pl-56">
+      <div className="max-w-4xl">
 
-        {/* Profile Header (Flex Container) */}
-        <div className="flex items-start gap-5 mb-6">
+        {/* Eyebrow at the top */}
+        <p className="section-eyebrow mb-6 text-xs">01 &mdash; home</p>
+
+        {/* Combined Hero Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] lg:grid-cols-[200px_1fr] items-start gap-6">
+          
+          {/* Profile Picture (Sharp edges) */}
           <PixelTransition
             firstContent={
               <img
@@ -21,7 +33,7 @@ export default function Hero() {
                 className="h-full w-full object-cover block"
               />
             }
-            secondContent={
+            secondContent={   
               <img
                 src="/images/ianface.png"
                 alt="Photo of Marianne Hover"
@@ -31,22 +43,34 @@ export default function Hero() {
             gridSize={7}
             pixelColor="#ffffff"
             animationStepDuration={0.3}
-            className="mt-6 w-48 h-48 aspect-square rounded-2xl overflow-hidden shrink-0"
+            className="w-full aspect-[5/6] overflow-hidden shrink-0" /* REMOVED rounded-2xl */
           />
 
-          {/* Name, tagline and links remain flex-col */}
-          <div className="flex flex-col text-left">
-            <p className="section-eyebrow mb-1 text-xs">01 &mdash; home</p>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Marianne Napa&ntilde;o
-            </h1>
+          {/* Right Column: Clean, readable flow */}
+          <div className="flex flex-col text-left space-y-4">
+            
+            {/* Top section: Name and Subtitle */}
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                Marianne Napa&ntilde;o
+              </h1>
+              <h2 className="mt-1 text-sm font-medium sm:text-base" style={{ color: "var(--gray-500)" }}>
+                Computer Science Student &amp; Aspiring Web Developer
+              </h2>
+            </div>
 
-            <h2 className="mt-1 text-base font-medium" style={{ color: "var(--gray-500)" }}>
-              Computer Science Student &amp; Aspiring Web Developer
-            </h2>
+            {/* Middle section: Readable quote and notes */}
+            <div className="space-y-3 text-sm leading-relaxed" style={{ color: "var(--gray-500)", lineHeight: 1.65 }}>
+              <p>
+                <i>&ldquo;Too curious to stick to one thing.&rdquo;</i>
+              </p>
+              <p>
+                This portfolio is a work in progress: a space to share my journey and showcase projects as my skills grow.
+              </p>
+            </div>
 
-            {/* Social Links */}
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+            {/* Bottom section: Social Links */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1">
               {LINKS.map((link) => (
                 <a
                   key={link.label}
@@ -60,24 +84,34 @@ export default function Hero() {
                 </a>
               ))}
             </div>
+
           </div>
         </div>
 
-        {/* Content Body */}
-        <div className="w-full text-left">
-          <div className="space-y-3 text-sm leading-relaxed" style={{ color: "var(--gray-500)", lineHeight: 1.65 }}>
-            <p>
-              I&rsquo;m a Computer Science student exploring web development
-              and software engineering &mdash; I enjoy building simple
-              websites, learning new technologies, and I&rsquo;m currently
-              getting into backend development.
-            </p>
-            <p>
-              <i>&ldquo;Too curious to stick to one thing.&rdquo;</i> <br /><br />This portfolio
-              itself is a work in progress: a reflection of my journey, and a
-              space to showcase projects as my skills grow.
-            </p>
-          </div>
+        {/* Exact Bryl-style Stat Bar with sharp, squared-off borders */}
+        <div className="mt-14 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4">
+          {STATS.map((stat, idx) => (
+            <div 
+              key={stat.label}
+              className={`py-5 px-4 flex flex-col justify-center transition-colors hover:bg-white/[0.02] ${
+                idx !== 0 ? 'sm:border-l sm:border-white/15' : ''
+              } ${
+                idx % 2 === 1 ? 'border-l border-white/15 sm:border-l' : ''
+              } ${
+                idx >= 2 ? 'border-t sm:border-t-0 border-white/15' : ''
+              }`}
+            >
+              <div className="flex items-baseline gap-1.5" style={{ fontFamily: 'var(--font-mono), monospace' }}>
+                <span className="text-base sm:text-lg font-bold tracking-tight text-white">
+                  {stat.value}
+                </span>
+                <span className="text-[10px] font-mono text-white/40">{String.fromCharCode(8599)}</span>
+              </div>
+              <span className="mt-1.5 text-[10px] tracking-widest uppercase" style={{ color: "var(--gray-500)", fontFamily: 'var(--font-mono), monospace' }}>
+                {stat.label}
+              </span>
+            </div>
+          ))}
         </div>
 
       </div>
