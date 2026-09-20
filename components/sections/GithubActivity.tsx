@@ -23,9 +23,12 @@ function toWeeks(days: ContributionDay[]): (ContributionDay | null)[][] {
 
   days.forEach((day, i) => {
     const weekday = new Date(`${day.date}T00:00:00`).getDay();
-    if (i === 0) for (let pad = 0; pad < weekday; pad++) current.push(null);
+    if (i === 0) {
+      for (let pad = 0; pad < weekday; pad++) current.push(null);
+    }
     current.push(day);
     if (weekday === 6 || i === days.length - 1) {
+      while (current.length < 7) current.push(null);
       weeks.push(current);
       current = [];
     }
@@ -34,40 +37,12 @@ function toWeeks(days: ContributionDay[]): (ContributionDay | null)[][] {
   return weeks;
 }
 
-function MonthLabels({ weeks }: { weeks: (ContributionDay | null)[][] }) {
-  let lastMonth: number | null = null;
-  const labels: { text: string; leftPct: number }[] = [];
-
-  weeks.forEach((week, weekIndex) => {
-    const firstRealDay = week.find((d) => d);
-    if (!firstRealDay) return;
-    const month = new Date(`${firstRealDay.date}T00:00:00`).getMonth();
-    if (month !== lastMonth) {
-      labels.push({
-        text: monthFormatter.format(new Date(`${firstRealDay.date}T00:00:00`)),
-        leftPct: (weekIndex / weeks.length) * 100,
-      });
-      lastMonth = month;
-    }
-  });
-
-  return (
-    <div className="micro-label relative mb-2 h-3.5 w-full">
-      {labels.map((label, i) => (
-        <span key={i} className="absolute whitespace-nowrap" style={{ left: `${label.leftPct}%` }}>
-          {label.text}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-const LEVEL_DOT: Record<number, { size: number; color: string }> = {
-  0: { size: 2.5, color: "var(--gray-300)" },
-  1: { size: 4.5, color: "var(--gray-400)" },
-  2: { size: 6.5, color: "var(--gray-600)" },
-  3: { size: 8.5, color: "var(--ink)" },
-  4: { size: 10.5, color: "var(--ink)" },
+const LEVEL_CLASSES: Record<number, string> = {
+  0: "bg-white/5 border border-white/5 hover:border-white/20",
+  1: "bg-white/20 hover:bg-white/30",
+  2: "bg-white/40 hover:bg-white/50",
+  3: "bg-white/70 hover:bg-white/80",
+  4: "bg-white hover:bg-white/90",
 };
 
 export default function GithubActivity() {
@@ -79,7 +54,6 @@ export default function GithubActivity() {
     let cancelled = false;
     (async () => {
       try {
-        // Changed ?y=last to ?y=2026 to show Jan–Dec view
         const res = await fetch(`https://github-contributions-api.jogruber.de/v4/${GITHUB_USERNAME}?y=2026`);
         if (!res.ok) throw new Error(`Request failed: ${res.status}`);
         const data: ApiResponse = await res.json();
@@ -99,73 +73,144 @@ export default function GithubActivity() {
     };
   }, []);
 
+  const monthLabels = weeks
+    ? weeks.reduce<{ text: string; weekIndex: number }[]>((acc, week, i) => {
+        const firstDay = week.find((d) => d !== null);
+        if (!firstDay) return acc;
+        const monthText = monthFormatter.format(new Date(`${firstDay.date}T00:00:00`));
+        if (acc.length === 0 || acc[acc.length - 1].text !== monthText) {
+          acc.push({ text: monthText, weekIndex: i });
+        }
+        return acc;
+      }, [])
+    : [];
+
+  const totalWeeks = weeks?.length ?? 53;
+
   return (
-    <section id="github" className="px-5 py-16 lg:px-6 lg:pl-56">
+    <section 
+      id="github" 
+      className="px-5 py-16 lg:px-6 lg:pl-56"
+      style={{ fontFamily: "'Geist Mono', monospace" }}
+    >
       <div className="max-w-4xl">
+        {/* Eyebrow and Profile Link */}
         <div className="mb-2 flex items-baseline justify-between">
-          <p className="section-eyebrow" style={{ marginBottom: 0 }}>
+          <p 
+            className="section-eyebrow text-xs sm:text-sm mb-1.5 text-white/50 tracking-wider"
+            style={{ fontFamily: "'Kode Mono', monospace" }}
+          >
             04 &mdash; github
           </p>
           <a
             href={`https://github.com/${GITHUB_USERNAME}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="link-arrow"
+            className="text-xs text-white/70 hover:text-white transition-colors flex items-center gap-1"
+            style={{ fontFamily: "'Kode Mono', monospace" }}
           >
-            @{GITHUB_USERNAME} <span className="arrow-glyph">&#8599;</span>
+            @{GITHUB_USERNAME} <span className="text-[10px]">&#8599;</span>
           </a>
         </div>
-        <h2 className="mb-2 text-2xl font-semibold tracking-tight">github activity</h2>
-        <p className="mb-8 max-w-[46ch]" style={{ color: "var(--gray-500)" }}>
+
+        {/* Section Heading */}
+        <h2 
+          className="mb-2 text-xl sm:text-2xl font-bold tracking-tight text-white leading-tight"
+          style={{ fontFamily: "'Kode Mono', monospace" }}
+        >
+          github activity
+        </h2>
+
+        {/* Description */}
+        <p className="mb-8 max-w-xl text-xs sm:text-sm leading-relaxed text-white/60">
           A snapshot of my contribution history for 2026.
         </p>
 
-        <div className="card p-7">
-          <div className="w-full pb-1">
-            {weeks && <MonthLabels weeks={weeks} />}
+        {/* Card Container with Smooth Box Hover Effects */}
+        <div 
+          className="card flex flex-col p-5 sm:p-7 rounded-xl bg-white/[0.03] border border-white/10 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.05] hover:shadow-[0_8px_30px_rgb(0,0,0,0.3)]"
+        >
+          <div className="w-full">
+            
+            {/* Month Labels */}
+            <div 
+              className="relative h-4 w-full mb-3 text-[10px] sm:text-[11px] text-white/40 uppercase"
+              style={{ fontFamily: "'Kode Mono', monospace" }}
+            >
+              {monthLabels.map((m) => (
+                <span
+                  key={m.text + m.weekIndex}
+                  className="absolute whitespace-nowrap"
+                  style={{ left: `${(m.weekIndex / totalWeeks) * 100}%` }}
+                >
+                  {m.text}
+                </span>
+              ))}
+            </div>
+
+            {/* Contribution Grid */}
             <div
-              className="grid w-full"
+              className="grid w-full gap-[2px] sm:gap-[3px]"
               style={{
-                gridTemplateColumns: `repeat(${weeks?.length ?? 53}, 1fr)`,
+                gridTemplateColumns: `repeat(${totalWeeks}, 1fr)`,
                 gridTemplateRows: "repeat(7, 1fr)",
                 gridAutoFlow: "column",
-                aspectRatio: `${weeks?.length ?? 53} / 7`,
               }}
-              aria-hidden="true"
             >
               {weeks?.map((week, wi) =>
                 week.map((day, di) => {
-                  const dot = day ? LEVEL_DOT[day.level] ?? LEVEL_DOT[0] : null;
+                  const levelClass = day
+                    ? LEVEL_CLASSES[day.level] ?? LEVEL_CLASSES[0]
+                    : "bg-transparent border-transparent";
+                  
                   return (
                     <div
                       key={`${wi}-${di}`}
-                      title={day ? `${day.count} contribution${day.count === 1 ? "" : "s"} on ${day.date}` : undefined}
-                      className="flex items-center justify-center"
-                    >
-                      {dot && (
-                        <span
-                          style={{
-                            display: "block",
-                            width: `${(dot.size / 14) * 100}%`,
-                            aspectRatio: "1 / 1",
-                            borderRadius: "50%",
-                            backgroundColor: dot.color,
-                          }}
-                        />
-                      )}
-                    </div>
+                      title={
+                        day
+                          ? `${day.count} contribution${day.count === 1 ? "" : "s"} on ${day.date}`
+                          : undefined
+                      }
+                      className={`w-full aspect-square rounded-[2px] cursor-pointer transition-all duration-150 hover:scale-125 hover:z-10 ${levelClass}`}
+                    />
                   );
                 })
               )}
             </div>
+
           </div>
-          <p className="mt-4 text-sm" style={{ color: "var(--gray-500)" }}>
-            {error
-              ? "Couldn't load live GitHub activity right now — check back later."
-              : total !== null
-                ? `${total.toLocaleString()} contributions in 2026`
-                : "Loading contribution activity…"}
-          </p>
+
+          {/* Footer Summary & Legend */}
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-2 text-xs text-white/50 pt-3 border-t border-white/10">
+            <p 
+              style={{ 
+                fontFamily: total !== null ? "'Kode Mono', monospace" : "'Geist Mono', monospace"
+              }}
+            >
+              {error
+                ? "Couldn't load live GitHub activity right now — check back later."
+                : total !== null
+                  ? `${total.toLocaleString()} contributions in 2026`
+                  : "Loading contribution activity…"}
+            </p>
+
+            {/* Legend */}
+            <div 
+              className="flex items-center gap-1.5 text-[11px] text-white/40"
+              style={{ fontFamily: "'Kode Mono', monospace" }}
+            >
+              <span>Less</span>
+              <div className="flex gap-1">
+                <span className="w-2.5 h-2.5 rounded-[2px] bg-white/5 border border-white/5" />
+                <span className="w-2.5 h-2.5 rounded-[2px] bg-white/20" />
+                <span className="w-2.5 h-2.5 rounded-[2px] bg-white/40" />
+                <span className="w-2.5 h-2.5 rounded-[2px] bg-white/70" />
+                <span className="w-2.5 h-2.5 rounded-[2px] bg-white" />
+              </div>
+              <span>More</span>
+            </div>
+          </div>
+
         </div>
       </div>
     </section>

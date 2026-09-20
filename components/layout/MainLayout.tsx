@@ -11,7 +11,7 @@ interface MainLayoutProps {
 
 export default function MainLayout({ children }: MainLayoutProps) {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen font-geist-mono">
       {/* Sidebar wrapper */}
       <div className="w-56 shrink-0">
         <Sidebar />

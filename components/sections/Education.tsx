@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect } from 'react';
+
 interface TimelineEntry {
   date: string;
   title: string;
@@ -6,7 +10,7 @@ interface TimelineEntry {
 
 const EDUCATION: TimelineEntry[] = [
   {
-    date: "2025-2029 (soon) – Present",
+    date: "2025 - 2029 (Expected)",
     title: "BS in Computer Science",
     subtitle: ["City College of Calamba"],
   },
@@ -16,11 +20,11 @@ const CERTIFICATIONS: TimelineEntry[] = [
   {
     date: "2026",
     title: "HackerRank",
-    subtitle: ["– Python (Basic)", "– Java (Basic)", "– JavaScript (Intermediate)", "– C# (Basic)"],
+    subtitle: ["- Python (Basic)", "- Java (Basic)", "- JavaScript (Intermediate)", "- C# (Basic)"],
   },
   {
     date: "2025",
-    title: "Certification Name (on going)",
+    title: "Certification Name (Ongoing)",
     subtitle: ["Issuing Organization"],
   },
 ];
@@ -28,18 +32,41 @@ const CERTIFICATIONS: TimelineEntry[] = [
 function TimelineGroup({ heading, entries }: { heading: string; entries: TimelineEntry[] }) {
   return (
     <div>
-      <p className="micro-label mb-4">{heading}</p>
+      {/* Group Heading in Kode Mono */}
+      <p 
+        className="micro-label mb-4 text-[11px] font-medium uppercase tracking-wider text-white/50"
+        style={{ fontFamily: "'Kode Mono', monospace" }}
+      >
+        {heading}
+      </p>
       <div>
         {entries.map((entry, i) => (
           <div
             key={i}
-            className="py-5"
-            style={{ borderTop: i === 0 ? "none" : "1px solid var(--gray-200)" }}
+            className="py-4 border-t border-white/10 first:border-t-0"
           >
-            <p className="micro-label mb-1">{entry.date}</p>
-            <p className="text-[0.98rem] font-semibold">{entry.title}</p>
+            {/* Entry Date in Kode Mono */}
+            <p 
+              className="micro-label mb-1 text-[11px] uppercase tracking-wider text-white/50"
+              style={{ fontFamily: "'Kode Mono', monospace" }}
+            >
+              {entry.date}
+            </p>
+
+            {/* Entry Title in Kode Mono */}
+            <p 
+              className="text-sm sm:text-base font-semibold text-white tracking-tight"
+              style={{ fontFamily: "'Kode Mono', monospace" }}
+            >
+              {entry.title}
+            </p>
+
+            {/* Subtitle Lines in Geist Mono */}
             {entry.subtitle.map((line, j) => (
-              <p key={j} className="text-sm" style={{ color: "var(--gray-500)" }}>
+              <p 
+                key={j} 
+                className="text-xs sm:text-sm mt-1 leading-relaxed text-white/70"
+              >
                 {line}
               </p>
             ))}
@@ -51,20 +78,47 @@ function TimelineGroup({ heading, entries }: { heading: string; entries: Timelin
 }
 
 export default function Education() {
+  // Inject Google Fonts dynamically
+  useEffect(() => {
+    const linkKode = document.createElement('link');
+    linkKode.href = 'https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap';
+    linkKode.rel = 'stylesheet';
+    document.head.appendChild(linkKode);
+
+    const linkGeist = document.createElement('link');
+    linkGeist.href = 'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap';
+    linkGeist.rel = 'stylesheet';
+    document.head.appendChild(linkGeist);
+  }, []);
+
   return (
-    <section id="education" className="px-5 py-16 lg:px-6 lg:pl-56">
+    <section 
+      id="education" 
+      className="px-5 py-12 lg:px-6 lg:pl-56"
+      style={{ fontFamily: "'Geist Mono', monospace" }}
+    >
       <div className="max-w-4xl">
-        <p className="section-eyebrow">03 &mdash; education</p>
-        <h2 className="mb-2 text-2xl font-semibold tracking-tight">education &amp; certifications</h2>
-        <p className="mb-8 max-w-[46ch]" style={{ color: "var(--gray-500)" }}>
+        {/* Eyebrow Header */}
+        <p className="section-eyebrow text-xs mb-1 text-white/60 font-medium">05 &mdash; education</p>
+
+        {/* Main Heading in Kode Mono */}
+        <h2 
+          className="mb-2 text-2xl font-semibold tracking-tight text-white"
+          style={{ fontFamily: "'Kode Mono', monospace" }}
+        >
+          education &amp; certifications
+        </h2>
+
+        {/* Subtitle in Geist Mono */}
+        <p className="mb-8 max-w-[46ch] text-xs sm:text-sm leading-relaxed text-white/70" style={{ lineHeight: 1.6 }}>
           Where I&rsquo;ve studied, and what I&rsquo;ve earned along the way.
         </p>
 
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2" style={{ borderTop: "1px solid var(--gray-200)" }}>
-          <div style={{ borderRight: "1px solid var(--gray-200)", paddingTop: "1.5rem" }} className="md:pr-8">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 pt-6 border-t border-white/10">
+          <div className="md:pr-8 md:border-r md:border-white/10">
             <TimelineGroup heading="education" entries={EDUCATION} />
           </div>
-          <div style={{ paddingTop: "1.5rem" }}>
+          <div>
             <TimelineGroup heading="certifications" entries={CERTIFICATIONS} />
           </div>
         </div>

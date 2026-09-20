@@ -11,16 +11,16 @@ import Blog from "@/components/sections/Blog";
 export default function App() {
   return (
     <MainLayout>
-      {/* Changed max-w-2xl to max-w-4xl for a wider layout */}
+      {/* Container spacing adjusted for smooth flow */}
       <div className="w-full max-w-4xl space-y-16">
-        <section id="home"><Hero /></section>
-        <section id="about"><AboutMe /></section>
-        <section id="projects"><Projects /></section>
-        <section id="stack"><TechStackShowcase /></section>
-        <section id="education"><Education /></section>
-        <section id="life"><LifeOutsideIDE /></section>
-        <section id="github"><GithubActivity /></section>
-        <section id="blog"><Blog /></section>
+        <Hero />
+        <AboutMe />
+        <Projects />
+        <TechStackShowcase />
+        <Education />
+        <LifeOutsideIDE />
+        <GithubActivity />
+        <Blog />
       </div>
     </MainLayout>
   );
