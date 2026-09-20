@@ -25,6 +25,7 @@ const NAV_ITEMS: NavItem[] = [
 interface SidebarProps {
   className?: string;
 }
+
 export default function Sidebar({ className = "" }: SidebarProps) {
   const [active, setActive] = useState<string>("#home");
   const [open, setOpen] = useState(false);
@@ -56,7 +57,7 @@ export default function Sidebar({ className = "" }: SidebarProps) {
     };
   }, [open]);
 
-  return (
+  return ( 
     <>
       {/* Desktop Sidebar */}
       <aside
@@ -71,7 +72,7 @@ export default function Sidebar({ className = "" }: SidebarProps) {
         </div>
 
         <nav className="flex flex-col">
-          {NAV_ITEMS.map((item, i) => {
+          {NAV_ITEMS.map((item) => {
             const isActive = active === item.href;
             return (
               <a
@@ -81,7 +82,6 @@ export default function Sidebar({ className = "" }: SidebarProps) {
                 style={{
                   fontFamily: "var(--font-display)",
                   color: isActive ? "var(--ink)" : "var(--gray-400)",
-                  borderTop: i === 0 ? "none" : "1px solid var(--gray-200)",
                 }}
                 onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = "var(--ink)"; }}
                 onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = "var(--gray-400)"; }}
@@ -125,7 +125,7 @@ export default function Sidebar({ className = "" }: SidebarProps) {
 
       {/* Mobile Overlay Menu */}
       <div
-        className={`lg:hidden fixed inset-0 z-[60] flex flex-col transition-opacity duration-300 ${
+        className={`lg:hidden fixed inset-0 z-60 flex flex-col transition-opacity duration-300 ${
           open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         }`}
         style={{ backgroundColor: "var(--bg)" }}
@@ -163,6 +163,7 @@ export default function Sidebar({ className = "" }: SidebarProps) {
                 }}
                 onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = "var(--ink)"; }}
                 onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = "var(--gray-400)"; }}
+                onClick={() => setOpen(false)}
               >
                 <item.Icon size={20} strokeWidth={1.8} style={{ flexShrink: 0 }} />
                 {item.label}
@@ -177,4 +178,4 @@ export default function Sidebar({ className = "" }: SidebarProps) {
       </div>
     </>
   );
-}
+} 
