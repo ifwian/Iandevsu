@@ -1,3 +1,4 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import Hero from "@/components/sections/Hero";
 import AboutMe from "@/components/sections/AboutMe";
@@ -7,11 +8,11 @@ import Education from "@/components/sections/Education";
 import LifeOutsideIDE from "@/components/sections/LifeOutsideIDE";
 import GithubActivity from "@/components/sections/GithubActivity";
 import Blog from "@/components/sections/Blog";
+import ProjectsPage from "@/pages/ProjectsPage";
 
-export default function App() {
+function Home() {
   return (
     <MainLayout>
-      {/* Container spacing adjusted for smooth flow */}
       <div className="w-full max-w-4xl space-y-16">
         <Hero />
         <AboutMe />
@@ -23,5 +24,16 @@ export default function App() {
         <Blog />
       </div>
     </MainLayout>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/projects" element={<ProjectsPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
