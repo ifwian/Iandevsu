@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marianne Napaño ― Computer Science Student &amp; Aspiring Web Developer</title>
+  <meta name="description" content="Portfolio of Marianne Napaño, a Computer Science student and aspiring web developer building projects with HTML, CSS, and JavaScript." />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="color-scheme" content="light dark" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="MRN | Computer Science Student &amp; Aspiring Web Developer" />
+  <meta property="og:description" content="Portfolio of Marianne Napaño, a Computer Science student and aspiring web developer building projects with HTML, CSS, and JavaScript." />
+  <meta property="og:image" content="/images/mypfp.jpg" />
+
+  <link rel="icon" type="image/jpeg" href="/images/mypfp.jpg" />
+  <link rel="icon" type="image/png" href="/images/mypfp.png" />
+  <!-- Tailwind CSS (utility classes for layout only -- colors and
+       typography come from the bryl-minimal tokens in src/styles/theme.css,
+       loaded via main.tsx). -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Devicon: technology icons used in the tech-stack section. -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@2.17.0/devicon.min.css" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap" rel="stylesheet">
+  <!-- No-flash theme init: read the stored/system preference before
+       first paint, so there's no light->dark flash on load. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem("theme");
+        if (stored === "light" || stored === "dark") {
+          document.documentElement.setAttribute("data-theme", stored);
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <script type="module" crossorigin src="/assets/index-DE6oOusR.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CfHTkuNG.css">
+</head>
+<body>
+  <div id="root"></div>
+</body>
+</html>
