@@ -104,7 +104,7 @@ export default function Hero() {
             {/* Top section: Name and Subtitle */}
             <div>
               <h1 
-                className="text-2xl font-semibold tracking-tight text-[var(--ink)] sm:text-3xl"
+                className="text-xl sm:text-2xl font-semibold tracking-tight text-[var(--ink)]"
                 style={{ fontFamily: "'Kode Mono', monospace" }}
               >
                 Marianne Napa&ntilde;o

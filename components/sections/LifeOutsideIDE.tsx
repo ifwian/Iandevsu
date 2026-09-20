@@ -35,7 +35,7 @@ export default function LifeOutsideIDE() {
       style={{ fontFamily: "'Geist Mono', monospace" }}
     >
       <div className="max-w-4xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 lg:gap-16 items-center">
           
           {/* Left Column: Text & Interests */}
           <div className="lg:col-span-7 flex flex-col justify-center">
@@ -76,7 +76,7 @@ export default function LifeOutsideIDE() {
 
           {/* Right Column: Square Interactive Image Stack */}
           <div className="lg:col-span-5 flex items-center justify-center lg:justify-end">
-            <div style={{ width: 280, height: 280 }} className="relative flex items-center justify-center">
+            <div className="relative aspect-square w-full max-w-[280px]">
               <Stack
                 cards={GALLERY.map((g) => (
                   <img 

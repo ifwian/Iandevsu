@@ -125,7 +125,7 @@ export default function Sidebar({ className = "" }: SidebarProps) {
 
       {/* Mobile Overlay Menu */}
       <div
-        className={`lg:hidden fixed inset-0 z-60 flex flex-col transition-opacity duration-300 ${
+        className={`lg:hidden fixed inset-0 z-60 flex flex-col overflow-x-hidden transition-opacity duration-300 ${
           open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         }`}
         style={{ backgroundColor: "var(--bg)" }}

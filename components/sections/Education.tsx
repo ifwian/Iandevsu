@@ -96,7 +96,7 @@ export default function Education() {
         <p className="section-eyebrow text-xs mb-1 text-[var(--gray-400)] font-medium">05 &mdash; education</p>
 
         <h2 
-          className="mb-2 text-2xl font-semibold tracking-tight text-[var(--ink)]"
+          className="mb-2 text-xl sm:text-2xl font-semibold tracking-tight text-[var(--ink)]"
           style={{ fontFamily: "'Kode Mono', monospace" }}
         >
           education &amp; certifications
@@ -106,7 +106,7 @@ export default function Education() {
           Where I&rsquo;ve studied, and what I&rsquo;ve earned along the way.
         </p>
 
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 pt-6 border-t border-[var(--gray-200)]">
+        <div className="grid grid-cols-1 gap-6 md:gap-8 md:grid-cols-2 pt-6 border-t border-[var(--gray-200)]">
           <div className="md:pr-8 md:border-r md:border-[var(--gray-200)]">
             <TimelineGroup heading="education" entries={EDUCATION} />
           </div>

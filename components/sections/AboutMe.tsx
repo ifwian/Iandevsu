@@ -45,7 +45,7 @@ export default function AboutMe() {
         </p>
         
         <h2 
-          className="mb-6 text-2xl font-semibold tracking-tight text-[var(--ink)] sm:text-3xl"
+          className="mb-6 text-xl sm:text-2xl lg:text-3xl font-semibold tracking-tight text-[var(--ink)]"
           style={{ fontFamily: "'Kode Mono', monospace" }}
         >
           about me
