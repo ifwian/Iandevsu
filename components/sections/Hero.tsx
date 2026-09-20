@@ -85,7 +85,7 @@ export default function Hero() {
                 className="h-full w-full object-cover block"
               />
             }
-            secondContent={   
+            secondContent={  
               <img
                 src="/images/ianface.png"
                 alt="Photo of Marianne Hover"
@@ -95,7 +95,7 @@ export default function Hero() {
             gridSize={7}
             pixelColor="#ffffff"
             animationStepDuration={0.3}
-            className="w-full aspect-[5/6] overflow-hidden shrink-0 rounded-xl border border-white/10"
+            className="w-full aspect-[5/6] overflow-hidden shrink-0 rounded-none border border-white/10"
           />
 
           {/* Right Column */}
