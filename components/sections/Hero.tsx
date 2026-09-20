@@ -95,7 +95,7 @@ export default function Hero() {
             gridSize={7}
             pixelColor="var(--bg)"
             animationStepDuration={0.3}
-            className="w-full aspect-[5/6] overflow-hidden shrink-0 rounded-none border border-[var(--gray-200)]"
+            className="w-48 aspect-[5/6] overflow-hidden shrink-0 rounded-none border border-[var(--gray-200)] sm:w-56 lg:w-full"
           />
 
           {/* Right Column */}
