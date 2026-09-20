@@ -74,7 +74,7 @@ export default function Hero() {
         <p className="section-eyebrow mb-6 text-xs text-[var(--gray-400)]">01 &mdash; home</p>
 
         {/* Combined Hero Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] lg:grid-cols-[200px_1fr] items-start gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] lg:grid-cols-[200px_1fr] items-start gap-4 sm:gap-6 overflow-hidden">
           
           {/* Profile Picture */}
           <PixelTransition
