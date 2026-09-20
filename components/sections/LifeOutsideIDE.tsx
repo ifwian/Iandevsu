@@ -65,7 +65,7 @@ export default function LifeOutsideIDE() {
               {INTERESTS.map((interest) => (
                 <span 
                   key={interest} 
-                  className="pill text-[11px] sm:text-xs font-medium px-3.5 py-1.5 rounded-full border border-[var(--gray-300)] bg-[var(--gray-100)] text-[var(--gray-200)] transition-colors hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)]"
+                  className="pill text-[11px] sm:text-xs font-medium px-3.5 py-1.5 rounded-full border border-[var(--gray-300)] bg-[var(--gray-100)] text-[var(--ink)] transition-colors hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)]"
                   style={{ fontFamily: "'Kode Mono', monospace" }}
                 >
                   {interest}
