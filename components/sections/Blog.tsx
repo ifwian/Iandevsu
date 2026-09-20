@@ -1,45 +1,116 @@
-interface Post {
+"use client";
+
+import { useEffect } from "react";
+
+interface BlogPost {
   title: string;
   date: string;
-  description: string;
+  readTime: string;
+  link: string;
+  status: string;
+  isLive: boolean;
+  image?: string;
 }
 
-const POSTS: Post[] = [
+const POSTS: BlogPost[] = [
   {
-    title: "Building My First Java Swing Game: Lessons from 'Snake Chase'",
-    date: "draft",
-    description: "Breaking down how I handled game loops, custom grid logic, and basic hazard progression in pure Java.",
+    title: "Why Every CS Student Needs a Portfolio (Even If You Feel Like You Have Nothing to Show)",
+    date: "Aug 2026",
+    readTime: "3 min",
+    link: "https://medium.com/@iandevsu/why-every-cs-student-needs-a-portfolio-even-if-you-feel-like-you-have-nothing-to-show-f731367ca2c0?sharedUserId=iandevsu",
+    status: "LIVE ON MEDIUM",
+    isLive: true,
+    image: "https://miro.medium.com/v2/resize:fit:640/format:webp/0*Wuo4CcK9AmfUH86Y", // Paste the copied Medium image link here
   },
   {
-    title: "C++ Data Structures: Why Writing a Music Playlist Manager Clicked",
-    date: "draft",
-    description: "Reflections on moving past textbook examples and implementing custom structs and memory management for a real project.",
+    title: "Designing My Personal Portfolio: From Vibe Coding to Production",
+    date: "Coming Soon",
+    readTime: "Draft",
+    link: "#",
+    status: "DRAFT",
+    isLive: false,
   },
 ];
 
-export default function Blog() {
+export default function BlogSection() {
+  // Dynamic Google Font Injection for Kode Mono & Geist Mono
+  useEffect(() => {
+    const linkKode = document.createElement("link");
+    linkKode.href = "https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap";
+    linkKode.rel = "stylesheet";
+    document.head.appendChild(linkKode);
+
+    const linkGeist = document.createElement("link");
+    linkGeist.href = "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap";
+    linkGeist.rel = "stylesheet";
+    document.head.appendChild(linkGeist);
+  }, []);
+
   return (
-    <section id="blog" className="px-5 py-16 lg:px-6 lg:pl-56">
-      <div className="max-w-4xl">
-        <p className="section-eyebrow">06 &mdash; blog</p>
-        <h2 className="mb-2 text-2xl font-semibold tracking-tight">blog</h2>
-        <p className="mb-8 max-w-[46ch]" style={{ color: "var(--gray-500)" }}>
-          Short write-ups on what I&rsquo;m learning and building &mdash; first posts coming soon.
+    <section 
+      id="blog" 
+      className="px-5 py-16 lg:px-6 lg:pl-56 flex justify-center"
+      style={{ fontFamily: "'Geist Mono', monospace" }}
+    >
+      <div className="w-full max-w-4xl mx-auto">
+        {/* Section Eyebrow in Kode Mono */}
+        <p 
+          className="section-eyebrow text-xs sm:text-sm mb-1.5 text-white/50 tracking-wider"
+          style={{ fontFamily: "'Kode Mono', monospace" }}
+        >
+          06 &mdash; blog
         </p>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* Section Heading in Kode Mono */}
+        <h2 
+          className="mb-2 text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight"
+          style={{ fontFamily: "'Kode Mono', monospace" }}
+        >
+          blog
+        </h2>
+
+        {/* Personality-driven Subtitle */}
+        <p className="mb-10 text-xs sm:text-sm text-white/60">
+          Documenting the sophomore grind, surviving data structures, and mastering the art of vibe coding.
+        </p>
+
+        {/* Blog Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {POSTS.map((post) => (
-            <div key={post.title} className="card flex flex-col justify-between p-5">
-              <div>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <h3 className="text-base font-semibold">{post.title}</h3>
-                  <span className="pill flex-shrink-0">{post.date}</span>
-                </div>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--gray-500)" }}>
-                  {post.description}
-                </p>
+            <a 
+              key={post.title}
+              href={post.link}
+              target={post.isLive ? "_blank" : "_self"}
+              rel="noopener noreferrer"
+              className={`group flex flex-col bg-transparent rounded-2xl overflow-hidden transition-all ${!post.isLive ? "pointer-events-none opacity-60" : ""}`}
+            >
+              {/* Thumbnail Preview Box */}
+              <div className="w-full h-48 sm:h-52 rounded-2xl overflow-hidden border border-white/10 bg-white/[0.03] mb-4 relative flex items-center justify-center">
+                {post.isLive && post.image ? (
+                  <img 
+                    src={post.image} 
+                    alt={post.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                ) : (
+                  <span className="text-xs uppercase tracking-widest text-white/30 font-mono" style={{ fontFamily: "'Kode Mono', monospace" }}>
+                    Coming Soon...
+                  </span>
+                )}
               </div>
-            </div>
+
+              {/* Metadata (Date & Read Time) */}
+              <div className="flex items-center gap-2 text-[11px] text-white/40 mb-2" style={{ fontFamily: "'Kode Mono', monospace" }}>
+                <span>{post.date}</span>
+                <span>&bull;</span>
+                <span>{post.readTime}</span>
+              </div>
+
+              {/* Title */}
+              <h3 className="text-sm sm:text-base font-bold text-white/90 group-hover:text-white leading-snug tracking-tight transition-colors">
+                {post.title}
+              </h3>
+            </a>
           ))}
         </div>
       </div>

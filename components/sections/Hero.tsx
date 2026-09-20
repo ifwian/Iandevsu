@@ -1,30 +1,82 @@
-﻿import PixelTransition from '@/components/ui/PixelTransition';
+﻿"use client";
 
-const LINKS = [
+import { useEffect, useState } from 'react';
+import PixelTransition from '@/components/ui/PixelTransition';
+
+interface LinkItem {
+  label: string;
+  href: string;
+  external: boolean;
+}
+
+interface StatItem {
+  label: string;
+  value: string;
+  href: string;
+  external: boolean;
+}
+
+const LINKS: LinkItem[] = [
   { label: "instagram", href: "https://www.instagram.com/ifwiannn/", external: true },
   { label: "github", href: "https://github.com/ifwian", external: true },
   { label: "linkedin", href: "https://www.linkedin.com/in/ifwiannn/", external: true },
 ];
 
-const STATS = [
-  { label: "REPOS", value: "12 Public" },
-  { label: "COMMITS", value: "350+" },
-  { label: "PROJECTS", value: "5 Done" },
-  { label: "STATUS", value: "Ready" },
-];
-
 export default function Hero() {
+  const [commitCount, setCommitCount] = useState<string>("Loading...");
+
+  // Load both Kode Mono and Geist Mono fonts dynamically
+  useEffect(() => {
+    const linkKode = document.createElement('link');
+    linkKode.href = 'https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap';
+    linkKode.rel = 'stylesheet';
+    document.head.appendChild(linkKode);
+
+    const linkGeist = document.createElement('link');
+    linkGeist.href = 'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap';
+    linkGeist.rel = 'stylesheet';
+    document.head.appendChild(linkGeist);
+
+    async function fetchCommits() {
+      try {
+        const response = await fetch('https://api.github.com/search/commits?q=author:ifwian');
+        if (response.ok) {
+          const data = await response.json();
+          setCommitCount(`${data.total_count}+`);
+        } else {
+          setCommitCount("350+");
+        }
+      } catch (error) {
+        console.error('Error fetching commits:', error);
+        setCommitCount("350+");
+      }
+    }
+
+    fetchCommits();
+  }, []);
+
+  const STATS: StatItem[] = [
+    { label: "REPOS", value: "12 Public", href: "https://github.com/ifwian?tab=repositories", external: true },
+    { label: "COMMITS", value: commitCount, href: "https://github.com/ifwian", external: true },
+    { label: "PROJECTS", value: "5 Done", href: "#projects", external: false },
+    { label: "STATUS", value: "Busy", href: "#contact", external: false },
+  ];
+
   return (
-    <section id="home" className="px-5 pt-12 pb-16 lg:px-6 lg:pl-56">
+    <section 
+      id="home" 
+      className="px-5 pt-12 pb-16 lg:px-6 lg:pl-56"
+      style={{ fontFamily: "'Geist Mono', monospace" }}
+    >
       <div className="max-w-4xl">
 
         {/* Eyebrow at the top */}
-        <p className="section-eyebrow mb-6 text-xs">01 &mdash; home</p>
+        <p className="section-eyebrow mb-6 text-xs text-white/50">01 &mdash; home</p>
 
         {/* Combined Hero Grid */}
         <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] lg:grid-cols-[200px_1fr] items-start gap-6">
           
-          {/* Profile Picture (Sharp edges) */}
+          {/* Profile Picture */}
           <PixelTransition
             firstContent={
               <img
@@ -43,44 +95,49 @@ export default function Hero() {
             gridSize={7}
             pixelColor="#ffffff"
             animationStepDuration={0.3}
-            className="w-full aspect-[5/6] overflow-hidden shrink-0" /* REMOVED rounded-2xl */
+            className="w-full aspect-[5/6] overflow-hidden shrink-0 rounded-xl border border-white/10"
           />
 
-          {/* Right Column: Clean, readable flow */}
+          {/* Right Column */}
           <div className="flex flex-col text-left space-y-4">
             
             {/* Top section: Name and Subtitle */}
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              <h1 
+                className="text-2xl font-semibold tracking-tight text-white sm:text-3xl"
+                style={{ fontFamily: "'Kode Mono', monospace" }}
+              >
                 Marianne Napa&ntilde;o
               </h1>
-              <h2 className="mt-1 text-sm font-medium sm:text-base" style={{ color: "var(--gray-500)" }}>
+              <h2 className="mt-1 text-xs font-medium sm:text-sm text-white/70" style={{ fontFamily: "'Kode Mono', monospace" }}>
                 Computer Science Student &amp; Aspiring Web Developer
               </h2>
             </div>
 
-            {/* Middle section: Readable quote and notes */}
-            <div className="space-y-3 text-sm leading-relaxed" style={{ color: "var(--gray-500)", lineHeight: 1.65 }}>
-              <p>
-                <i>&ldquo;Too curious to stick to one thing.&rdquo;</i>
+            {/* Middle section: Quote and notes */}
+            <div className="space-y-2.5 text-xs sm:text-sm leading-relaxed text-white/70" style={{ lineHeight: 1.6 }}>
+              <p className="italic text-white/50">
+                &ldquo;Too curious to stick to one thing.&rdquo;
               </p>
-              <p>
+              <p className="max-w-lg">
                 This portfolio is a work in progress: a space to share my journey and showcase projects as my skills grow.
               </p>
             </div>
 
             {/* Bottom section: Social Links */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1">
-              {LINKS.map((link) => (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1" style={{ fontFamily: "'Kode Mono', monospace" }}>
+              {LINKS.map((link: LinkItem) => (
                 <a
                   key={link.label}
                   href={link.href}
                   target={link.external ? "_blank" : undefined}
                   rel={link.external ? "noopener noreferrer" : undefined}
-                  className="link-arrow text-xs"
+                  className="link-arrow group text-xs text-white/70 hover:text-white transition-colors flex items-center gap-1"
                 >
                   {link.label}{" "}
-                  <span className="arrow-glyph">{String.fromCharCode(8599)}</span>
+                  <span className="arrow-glyph text-[10px] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5">
+                    {String.fromCharCode(8599)}
+                  </span>
                 </a>
               ))}
             </div>
@@ -88,12 +145,15 @@ export default function Hero() {
           </div>
         </div>
 
-        {/* Exact Bryl-style Stat Bar with sharp, squared-off borders */}
-        <div className="mt-14 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4">
-          {STATS.map((stat, idx) => (
-            <div 
+        {/* Stat Bar */}
+        <div className="mt-12 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4">
+          {STATS.map((stat: StatItem, idx: number) => (
+            <a 
               key={stat.label}
-              className={`py-5 px-4 flex flex-col justify-center transition-colors hover:bg-white/[0.02] ${
+              href={stat.href}
+              target={stat.external ? "_blank" : undefined}
+              rel={stat.external ? "noopener noreferrer" : undefined}
+              className={`group py-4 px-4 flex flex-col justify-center transition-colors hover:bg-white/5 cursor-pointer ${
                 idx !== 0 ? 'sm:border-l sm:border-white/15' : ''
               } ${
                 idx % 2 === 1 ? 'border-l border-white/15 sm:border-l' : ''
@@ -101,16 +161,32 @@ export default function Hero() {
                 idx >= 2 ? 'border-t sm:border-t-0 border-white/15' : ''
               }`}
             >
-              <div className="flex items-baseline gap-1.5" style={{ fontFamily: 'var(--font-mono), monospace' }}>
-                <span className="text-base sm:text-lg font-bold tracking-tight text-white">
+              <div 
+                className="flex items-baseline gap-1" 
+                style={{ fontFamily: "'Kode Mono', monospace" }}
+              >
+                <span className="text-base sm:text-lg font-semibold tracking-tight text-white group-hover:text-white/90">
                   {stat.value}
                 </span>
-                <span className="text-[10px] font-mono text-white/40">{String.fromCharCode(8599)}</span>
+
+                {stat.label === "STATUS" && (
+                  <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse ml-0.5 self-center" />
+                )}
+
+                <span className="text-[10px] text-white/40 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white">
+                  {String.fromCharCode(8599)}
+                </span>
               </div>
-              <span className="mt-1.5 text-[10px] tracking-widest uppercase" style={{ color: "var(--gray-500)", fontFamily: 'var(--font-mono), monospace' }}>
+              <span 
+                className="mt-1 text-[10px] tracking-widest uppercase font-normal transition-colors group-hover:text-white/70" 
+                style={{ 
+                  color: "var(--gray-500)", 
+                  fontFamily: "'Kode Mono', monospace" 
+                }}
+              >
                 {stat.label}
               </span>
-            </div>
+            </a>
           ))}
         </div>
 

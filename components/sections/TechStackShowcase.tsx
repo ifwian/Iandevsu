@@ -1,110 +1,158 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface StackItem {
   name: string;
-  icon: string;
-  note: string;
+  icon?: string;
+  category: "frontend" | "backend" | "tools";
 }
 
-interface StackCategory {
-  key: string;
-  label: string;
-  items: StackItem[];
-}
+// Curated peek selection
+const PEEK_STACK: StackItem[] = [
+  { name: "HTML5", icon: "devicon-html5-plain colored", category: "frontend" },
+  { name: "CSS3", icon: "devicon-css3-plain colored", category: "frontend" },
+  { name: "JavaScript", icon: "devicon-javascript-plain colored", category: "frontend" },
+  { name: "React", icon: "devicon-react-original colored", category: "frontend" },
+  { name: "Tailwind CSS", icon: "devicon-tailwindcss-original colored", category: "frontend" },
+  { name: "Git", icon: "devicon-git-plain colored", category: "tools" },
+  { name: "GitHub", icon: "devicon-github-original text-white", category: "tools" },
+];
 
-const CATEGORIES: StackCategory[] = [
+// Full categorized dataset
+const FULL_STACK_DATA: { categoryLabel: string; items: StackItem[] }[] = [
   {
-    key: "core",
-    label: "core",
+    categoryLabel: "FRONTEND",
     items: [
-      { name: "HTML", icon: "devicon-html5-plain colored", note: "Semantic, accessible markup for every project." },
-      { name: "CSS", icon: "devicon-css3-plain colored", note: "Layout, responsive design, and small polish details." },
-      { name: "JavaScript", icon: "devicon-javascript-plain colored", note: "DOM manipulation, fetch calls, and interactivity." },
+      { name: "HTML5", icon: "devicon-html5-plain colored", category: "frontend" },
+      { name: "CSS3", icon: "devicon-css3-plain colored", category: "frontend" },
+      { name: "JavaScript", icon: "devicon-javascript-plain colored", category: "frontend" },
+      { name: "React", icon: "devicon-react-original colored", category: "frontend" },
+      { name: "Tailwind CSS", icon: "devicon-tailwindcss-original colored", category: "frontend" },
     ],
   },
   {
-    key: "tools",
-    label: "tools",
+    categoryLabel: "BACKEND",
     items: [
-      { name: "Git", icon: "devicon-git-plain colored", note: "Version control for every project, big or small." },
-      { name: "GitHub", icon: "devicon-github-original", note: "Where all of this is hosted and versioned." },
-      { name: "Figma", icon: "devicon-figma-plain colored", note: "Wireframing and UI mockups before I write code." },
+      { name: "Node.js", icon: "devicon-nodejs-plain colored", category: "backend" },
+      { name: "Express.js", icon: "devicon-express-original colored", category: "backend" },
+      { name: "Python", icon: "devicon-python-plain colored", category: "backend" },
+      { name: "Java", icon: "devicon-java-plain colored", category: "backend" },
+      { name: "PostgreSQL", icon: "devicon-postgresql-plain colored", category: "backend" },
+      { name: "MySQL", icon: "devicon-mysql-plain colored", category: "backend" },
+      { name: "Prisma", icon: "devicon-prisma-original colored", category: "backend" },
     ],
   },
   {
-    key: "learning",
-    label: "now learning",
+    categoryLabel: "TOOLS & DEVOPS",
     items: [
-      { name: "React", icon: "devicon-react-original colored", note: "Building component-driven UIs, like this site." },
-      { name: "Node.js", icon: "devicon-nodejs-plain colored", note: "Backend basics — APIs and small servers." },
-      { name: "SQL", icon: "devicon-mysql-plain colored", note: "Querying and structuring relational data." },
-      { name: "Java", icon: "devicon-java-plain colored", note: "OOP fundamentals from coursework." },
-      { name: "Python", icon: "devicon-python-plain colored", note: "Scripting and problem-solving practice." },
+      { name: "Git", icon: "devicon-git-plain colored", category: "tools" },
+      { name: "GitHub", icon: "devicon-github-original text-white", category: "tools" },
+      { name: "Figma", icon: "devicon-figma-plain colored", category: "tools" },
+      { name: "VS Code", icon: "devicon-vscode-plain colored", category: "tools" },
     ],
   },
 ];
 
 export default function TechStackShowcase() {
-  const [activeCategory, setActiveCategory] = useState(CATEGORIES[0].key);
-  const [activeItem, setActiveItem] = useState<StackItem>(CATEGORIES[0].items[0]);
+  const [showAll, setShowAll] = useState(false);
 
-  const category = CATEGORIES.find((c) => c.key === activeCategory) ?? CATEGORIES[0];
+  // Dynamic Google Font Injection
+  useEffect(() => {
+    const linkKode = document.createElement("link");
+    linkKode.href = "https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap";
+    linkKode.rel = "stylesheet";
+    document.head.appendChild(linkKode);
+
+    const linkGeist = document.createElement("link");
+    linkGeist.href = "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap";
+    linkGeist.rel = "stylesheet";
+    document.head.appendChild(linkGeist);
+  }, []);
 
   return (
-    <section id="stack" className="px-5 py-16 lg:px-6 lg:pl-56">
-      <div className="max-w-4xl">
-        <p className="section-eyebrow">02 &mdash; stack</p>
-        <h2 className="mb-2 text-2xl font-semibold tracking-tight">tech stack</h2>
-        <p className="mb-8 max-w-[46ch]" style={{ color: "var(--gray-500)" }}>
-          Tools I use regularly, and what I&rsquo;m picking up right now.
+    <section 
+      id="stack" 
+      className="snap-start px-5 py-16 lg:px-6 lg:pl-56"
+      style={{ fontFamily: "'Geist Mono', monospace" }}
+    >
+      <div className="w-full max-w-4xl mx-auto">
+        {/* Eyebrow Header + View All Stack Toggle Link */}
+        <div className="mb-1.5 flex items-baseline justify-between">
+          <p 
+            className="section-eyebrow text-xs sm:text-sm font-medium text-white/50 mb-0 tracking-wider"
+            style={{ fontFamily: "'Kode Mono', monospace" }}
+          >
+            04 &mdash; stack
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setShowAll(!showAll)}
+            className="group text-xs transition-colors text-white/60 hover:text-white cursor-pointer bg-transparent border-none p-0 flex items-center gap-1"
+            style={{ fontFamily: "'Kode Mono', monospace" }}
+          >
+            <span>{showAll ? "show peek" : "view all stack"}</span>
+            <span className={`inline-block transition-transform duration-200 ${showAll ? "rotate-45" : "group-hover:-translate-y-0.5 group-hover:translate-x-0.5"}`}>
+              &#8599;
+            </span>
+          </button>
+        </div>
+
+        {/* Heading in Kode Mono */}
+        <h2 
+          className="mb-2 text-xl sm:text-2xl font-bold tracking-tight text-white leading-tight"
+          style={{ fontFamily: "'Kode Mono', monospace" }}
+        >
+          tech stack
+        </h2>
+
+        {/* Subtitle in Geist Mono */}
+        <p className="mb-6 max-w-xl text-xs sm:text-sm leading-relaxed text-white/60">
+          The tools, frameworks, and platforms I reach for across my projects.
         </p>
 
-        <div className="mb-6 flex gap-2">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.key}
-              type="button"
-              onClick={() => {
-                setActiveCategory(cat.key);
-                setActiveItem(cat.items[0]);
-              }}
-              className={`pill ${activeCategory === cat.key ? "pill-inverted" : ""}`}
-              style={{ fontSize: "10px", padding: "4px 12px" }}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="mb-6 flex flex-wrap gap-2.5">
-          {category.items.map((item) => (
-            <button
-              key={item.name}
-              type="button"
-              onMouseEnter={() => setActiveItem(item)}
-              onFocus={() => setActiveItem(item)}
-              onClick={() => setActiveItem(item)}
-              className="flex items-center gap-2 rounded-xl border px-4 py-3 text-sm transition-colors"
-              style={{
-                borderColor: activeItem.name === item.name ? "var(--ink)" : "var(--gray-200)",
-                backgroundColor: activeItem.name === item.name ? "var(--gray-50)" : "transparent",
-                color: activeItem.name === item.name ? "var(--ink)" : "var(--gray-500)",
-              }}
-            >
-              <i className={`${item.icon} text-lg`} aria-hidden="true" />
-              {item.name}
-            </button>
-          ))}
-        </div>
-
-        <div className="card p-5">
-          <p className="mb-1 text-sm font-semibold">{activeItem.name}</p>
-          <p className="text-sm" style={{ color: "var(--gray-500)" }}>
-            {activeItem.note}
-          </p>
-        </div>
+        {showAll ? (
+          /* ================= EXPANDED CATEGORIZED VIEW ================= */
+          <div className="space-y-4">
+            {FULL_STACK_DATA.map((group) => (
+              <div key={group.categoryLabel}>
+                <p 
+                  className="micro-label mb-2 text-[10px] font-medium uppercase tracking-wider text-white/40"
+                  style={{ fontFamily: "'Kode Mono', monospace" }}
+                >
+                  {group.categoryLabel}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {group.items.map((item) => (
+                    <div
+                      key={item.name}
+                      className="card flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/10 text-white/80 transition-all duration-200 hover:border-white/30 hover:bg-white/[0.07] hover:text-white cursor-default"
+                      style={{ fontFamily: "'Kode Mono', monospace" }}
+                    >
+                      {item.icon && <i className={`${item.icon} text-sm`} aria-hidden="true" />}
+                      <span className="text-xs font-medium">{item.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* ================= CURATED PEEK VIEW ================= */
+          <div className="flex flex-wrap gap-2">
+            {PEEK_STACK.map((item) => (
+              <div
+                key={item.name}
+                className="card flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/10 text-white/80 transition-all duration-200 hover:border-white/30 hover:bg-white/[0.07] hover:text-white cursor-default"
+                style={{ fontFamily: "'Kode Mono', monospace" }}
+              >
+                {item.icon && <i className={`${item.icon} text-sm`} aria-hidden="true" />}
+                <span className="text-xs font-medium">{item.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

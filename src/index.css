@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 @import "@fontsource/space-mono";
+@import url('https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -11,6 +12,8 @@
     @apply font-sans;
     max-width: 100vw;
     overflow-x: hidden;
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
   }
   body {
     background-color: #000000;

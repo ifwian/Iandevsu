@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect } from 'react';
 import Stack from "@/components/ui/Stack";
 
 const INTERESTS = ["Photography", "Reading", "Gaming", "Hiking", "Music", "Nature"];
@@ -12,36 +15,85 @@ const GALLERY = [
 ];
 
 export default function LifeOutsideIDE() {
+  // Dynamic Google Font Injection
+  useEffect(() => {
+    const linkKode = document.createElement('link');
+    linkKode.href = 'https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap';
+    linkKode.rel = 'stylesheet';
+    document.head.appendChild(linkKode);
+
+    const linkGeist = document.createElement('link');
+    linkGeist.href = 'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap';
+    linkGeist.rel = 'stylesheet';
+    document.head.appendChild(linkGeist);
+  }, []);
+
   return (
-    <section id="life" className="px-5 py-16 lg:px-6 lg:pl-56">
-      <div className="grid max-w-4xl gap-10 md:grid-cols-2 md:items-center">
-        <div>
-          <p className="section-eyebrow">07 &mdash; life</p>
-          <h2 className="mb-2 text-2xl font-semibold tracking-tight">life outside the ide</h2>
-          <p className="mb-8 max-w-[46ch]" style={{ color: "var(--gray-500)" }}>
-            A few things I enjoy when I&rsquo;m away from the keyboard.
-          </p>
+    <section 
+      id="life" 
+      className="px-5 py-16 lg:px-6 lg:pl-56"
+      style={{ fontFamily: "'Geist Mono', monospace" }}
+    >
+      <div className="max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
+          
+          {/* Left Column: Text & Interests */}
+          <div className="lg:col-span-7 flex flex-col justify-center">
+            {/* Section Eyebrow Header */}
+            <p 
+              className="section-eyebrow text-xs sm:text-sm mb-2 text-white/50 tracking-wider"
+              style={{ fontFamily: "'Kode Mono', monospace" }}
+            >
+              06 &mdash; life
+            </p>
 
-          <div className="flex flex-wrap gap-2">
-            {INTERESTS.map((interest) => (
-              <span key={interest} className="pill">
-                {interest}
-              </span>
-            ))}
-          </div>
-        </div>
+            {/* Main Title */}
+            <h2 
+              className="mb-4 text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-white leading-tight"
+              style={{ fontFamily: "'Kode Mono', monospace" }}
+            >
+              Outside the IDE
+            </h2>
 
-                <div className="flex h-105 w-full items-center justify-center">
-          <div style={{ width: 260, height: 320 }}>
-            <Stack
-              cards={GALLERY.map((g) => (
-                <img key={g.image} src={g.image} alt={g.alt} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            {/* Description */}
+            <p className="mb-6 text-xs sm:text-sm leading-relaxed text-white/70 max-w-lg">
+              When I step away from the tech world, I recharge through physical activity and creative hobbies, returning to my projects with fresh energy and perspective.
+            </p>
+
+            {/* Interest Pills */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {INTERESTS.map((interest) => (
+                <span 
+                  key={interest} 
+                  className="pill text-[11px] sm:text-xs font-medium px-3.5 py-1.5 rounded-full border border-white/20 bg-white/5 text-white/80 transition-colors hover:border-white/40 hover:bg-white/10"
+                  style={{ fontFamily: "'Kode Mono', monospace" }}
+                >
+                  {interest}
+                </span>
               ))}
-              randomRotation
-              sensitivity={180}
-              sendToBackOnClick
-            />
+            </div>
           </div>
+
+          {/* Right Column: Square Interactive Image Stack */}
+          <div className="lg:col-span-5 flex items-center justify-center lg:justify-end">
+            <div style={{ width: 280, height: 280 }} className="relative flex items-center justify-center">
+              <Stack
+                cards={GALLERY.map((g) => (
+                  <img 
+                    key={g.image} 
+                    src={g.image} 
+                    alt={g.alt} 
+                    className="rounded-2xl shadow-2xl border border-white/10" 
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                  />
+                ))}
+                randomRotation
+                sensitivity={180}
+                sendToBackOnClick
+              />
+            </div>
+          </div>
+
         </div>
       </div>
     </section>
