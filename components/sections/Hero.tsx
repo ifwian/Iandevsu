@@ -71,7 +71,7 @@ export default function Hero() {
       <div className="max-w-4xl">
 
         {/* Eyebrow at the top */}
-        <p className="section-eyebrow mb-6 text-xs text-white/50">01 &mdash; home</p>
+        <p className="section-eyebrow mb-6 text-xs text-[var(--gray-400)]">01 &mdash; home</p>
 
         {/* Combined Hero Grid */}
         <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] lg:grid-cols-[200px_1fr] items-start gap-6">
@@ -93,9 +93,9 @@ export default function Hero() {
               />
             }
             gridSize={7}
-            pixelColor="#ffffff"
+            pixelColor="var(--ink)"
             animationStepDuration={0.3}
-            className="w-full aspect-[5/6] overflow-hidden shrink-0 rounded-none border border-white/10"
+            className="w-full aspect-[5/6] overflow-hidden shrink-0 rounded-none border border-[var(--gray-200)]"
           />
 
           {/* Right Column */}
@@ -104,19 +104,19 @@ export default function Hero() {
             {/* Top section: Name and Subtitle */}
             <div>
               <h1 
-                className="text-2xl font-semibold tracking-tight text-white sm:text-3xl"
+                className="text-2xl font-semibold tracking-tight text-[var(--ink)] sm:text-3xl"
                 style={{ fontFamily: "'Kode Mono', monospace" }}
               >
                 Marianne Napa&ntilde;o
               </h1>
-              <h2 className="mt-1 text-xs font-medium sm:text-sm text-white/70" style={{ fontFamily: "'Kode Mono', monospace" }}>
+              <h2 className="mt-1 text-xs font-medium sm:text-sm text-[var(--gray-400)]" style={{ fontFamily: "'Kode Mono', monospace" }}>
                 Computer Science Student &amp; Aspiring Web Developer
               </h2>
             </div>
 
             {/* Middle section: Quote and notes */}
-            <div className="space-y-2.5 text-xs sm:text-sm leading-relaxed text-white/70" style={{ lineHeight: 1.6 }}>
-              <p className="italic text-white/50">
+            <div className="space-y-2.5 text-xs sm:text-sm leading-relaxed text-[var(--gray-400)]" style={{ lineHeight: 1.6 }}>
+              <p className="italic text-[var(--gray-400)]">
                 &ldquo;Too curious to stick to one thing.&rdquo;
               </p>
               <p className="max-w-lg">
@@ -132,7 +132,7 @@ export default function Hero() {
                   href={link.href}
                   target={link.external ? "_blank" : undefined}
                   rel={link.external ? "noopener noreferrer" : undefined}
-                  className="link-arrow group text-xs text-white/70 hover:text-white transition-colors flex items-center gap-1"
+                  className="link-arrow group text-xs text-[var(--gray-400)] hover:text-[var(--ink)] transition-colors flex items-center gap-1"
                 >
                   {link.label}{" "}
                   <span className="arrow-glyph text-[10px] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5">
@@ -146,26 +146,26 @@ export default function Hero() {
         </div>
 
         {/* Stat Bar */}
-        <div className="mt-12 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4">
+        <div className="mt-12 border-t border-[var(--gray-200)] grid grid-cols-2 sm:grid-cols-4">
           {STATS.map((stat: StatItem, idx: number) => (
             <a 
               key={stat.label}
               href={stat.href}
               target={stat.external ? "_blank" : undefined}
               rel={stat.external ? "noopener noreferrer" : undefined}
-              className={`group py-4 px-4 flex flex-col justify-center transition-colors hover:bg-white/5 cursor-pointer ${
-                idx !== 0 ? 'sm:border-l sm:border-white/15' : ''
+              className={`group py-4 px-4 flex flex-col justify-center transition-colors hover:bg-[var(--gray-100)] cursor-pointer ${
+                idx !== 0 ? 'sm:border-l sm:border-[var(--gray-200)]' : ''
               } ${
-                idx % 2 === 1 ? 'border-l border-white/15 sm:border-l' : ''
+                idx % 2 === 1 ? 'border-l border-[var(--gray-200)] sm:border-l' : ''
               } ${
-                idx >= 2 ? 'border-t sm:border-t-0 border-white/15' : ''
+                idx >= 2 ? 'border-t sm:border-t-0 border-[var(--gray-200)]' : ''
               }`}
             >
               <div 
                 className="flex items-baseline gap-1" 
                 style={{ fontFamily: "'Kode Mono', monospace" }}
               >
-                <span className="text-base sm:text-lg font-semibold tracking-tight text-white group-hover:text-white/90">
+                <span className="text-base sm:text-lg font-semibold tracking-tight text-[var(--ink)] group-hover:text-[var(--gray-100)]">
                   {stat.value}
                 </span>
 
@@ -173,12 +173,12 @@ export default function Hero() {
                   <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse ml-0.5 self-center" />
                 )}
 
-                <span className="text-[10px] text-white/40 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white">
+                <span className="text-[10px] text-[var(--gray-400)] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[var(--ink)]">
                   {String.fromCharCode(8599)}
                 </span>
               </div>
               <span 
-                className="mt-1 text-[10px] tracking-widest uppercase font-normal transition-colors group-hover:text-white/70" 
+                className="mt-1 text-[10px] tracking-widest uppercase font-normal transition-colors group-hover:text-[var(--gray-400)]" 
                 style={{ 
                   color: "var(--gray-500)", 
                   fontFamily: "'Kode Mono', monospace" 

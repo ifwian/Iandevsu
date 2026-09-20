@@ -10,7 +10,7 @@ export default function Projects() {
       <div className="max-w-4xl">
         <p className="section-eyebrow text-xs mb-1">03 &mdash; projects</p>
 
-        <h2 className="mb-2 text-2xl font-semibold tracking-tight text-white" style={{ fontFamily: "'Kode Mono', monospace" }}>
+        <h2 className="mb-2 text-2xl font-semibold tracking-tight text-[var(--ink)]" style={{ fontFamily: "'Kode Mono', monospace" }}>
           projects
         </h2>
 
@@ -27,7 +27,7 @@ export default function Projects() {
         <div className="mt-8 flex justify-center">
           <Link
             to="/projects"
-            className="link-arrow group text-sm transition-colors hover:text-white"
+            className="link-arrow group text-sm transition-colors hover:text-[var(--ink)]"
             style={{ fontFamily: "'Kode Mono', monospace" }}
           >
             view all projects{" "}

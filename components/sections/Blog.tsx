@@ -55,7 +55,7 @@ export default function BlogSection() {
       <div className="w-full max-w-4xl mx-auto">
         {/* Section Eyebrow in Geist Mono */}
         <p 
-          className="section-eyebrow text-xs sm:text-sm mb-1.5 text-white/50 tracking-wider"
+          className="section-eyebrow text-xs sm:text-sm mb-1.5 text-[var(--gray-400)] tracking-wider"
           style={{ fontFamily: "'Geist Mono', monospace" }}
         >
           08 &mdash; blog
@@ -63,14 +63,14 @@ export default function BlogSection() {
 
         {/* Section Heading in Kode Mono */}
         <h2 
-          className="mb-2 text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight"
+          className="mb-2 text-2xl sm:text-3xl font-bold tracking-tight text-[var(--ink)] leading-tight"
           style={{ fontFamily: "'Kode Mono', monospace" }}
         >
           blog
         </h2>
 
         {/* Personality-driven Subtitle */}
-        <p className="mb-10 text-xs sm:text-sm text-white/60">
+        <p className="mb-10 text-xs sm:text-sm text-[var(--gray-500)]">
           Documenting the sophomore grind, surviving data structures, and mastering the art of vibe coding.
         </p>
 
@@ -85,7 +85,7 @@ export default function BlogSection() {
               className={`group flex flex-col bg-transparent rounded-2xl overflow-hidden transition-all ${!post.isLive ? "pointer-events-none opacity-60" : ""}`}
             >
               {/* Thumbnail Preview Box */}
-              <div className="w-full h-48 sm:h-52 rounded-2xl overflow-hidden border border-white/10 bg-white/[0.03] mb-4 relative flex items-center justify-center">
+              <div className="w-full h-48 sm:h-52 rounded-2xl overflow-hidden border border-[var(--gray-200)] bg-[var(--gray-50)] mb-4 relative flex items-center justify-center">
                 {post.isLive && post.image ? (
                   <img 
                     src={post.image} 
@@ -93,21 +93,21 @@ export default function BlogSection() {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 ) : (
-                  <span className="text-xs uppercase tracking-widest text-white/30 font-mono" style={{ fontFamily: "'Kode Mono', monospace" }}>
+                  <span className="text-xs uppercase tracking-widest text-[var(--gray-400)] font-mono" style={{ fontFamily: "'Kode Mono', monospace" }}>
                     Coming Soon...
                   </span>
                 )}
               </div>
 
               {/* Metadata (Date & Read Time) */}
-              <div className="flex items-center gap-2 text-[11px] text-white/40 mb-2" style={{ fontFamily: "'Kode Mono', monospace" }}>
+              <div className="flex items-center gap-2 text-[11px] text-[var(--gray-400)] mb-2" style={{ fontFamily: "'Kode Mono', monospace" }}>
                 <span>{post.date}</span>
                 <span>&bull;</span>
                 <span>{post.readTime}</span>
               </div>
 
               {/* Title */}
-              <h3 className="text-sm sm:text-base font-bold text-white/90 group-hover:text-white leading-snug tracking-tight transition-colors">
+              <h3 className="text-sm sm:text-base font-bold text-[var(--gray-100)] group-hover:text-[var(--ink)] leading-snug tracking-tight transition-colors">
                 {post.title}
               </h3>
             </a>

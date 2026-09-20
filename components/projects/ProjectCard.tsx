@@ -25,19 +25,19 @@ function PreviewFrame({ title }: { title: string }) {
 
 export default function ProjectCard({ project }: { project: Project }) {
   return (
-    <div className="card flex flex-col overflow-hidden p-0 rounded-xl bg-white/[0.03] border border-white/10">
+    <div className="card flex flex-col overflow-hidden p-0 rounded-xl bg-[var(--gray-50)] border border-[var(--gray-200)]">
       <PreviewFrame title={project.title} />
 
       <div className="flex flex-1 flex-col justify-between p-5">
         <div>
           <div className="mb-1 flex items-center justify-between gap-2">
-            <h3 className="text-base font-semibold text-white tracking-tight" style={{ fontFamily: "'Kode Mono', monospace" }}>
+            <h3 className="text-base font-semibold text-[var(--ink)] tracking-tight" style={{ fontFamily: "'Kode Mono', monospace" }}>
               {project.title}
             </h3>
 
             {project.status && (
               <span
-                className="pill shrink-0 text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border border-white/15 bg-white/5 text-white/50"
+                className="pill shrink-0 text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border border-[var(--gray-200)] bg-[var(--gray-100)] text-[var(--gray-400)]"
                 style={{ fontFamily: "'Kode Mono', monospace" }}
               >
                 {project.status}
@@ -60,13 +60,13 @@ export default function ProjectCard({ project }: { project: Project }) {
           </div>
         </div>
 
-        <div className="flex items-center justify-end pt-3" style={{ borderTop: "1px solid var(--gray-200, rgba(255, 255, 255, 0.1))" }}>
+        <div className="flex items-center justify-end pt-3" style={{ borderTop: "1px solid var(--gray-200)" }}>
           {project.href ? (
             <a
               href={project.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="link-arrow group text-xs transition-colors hover:text-white"
+              className="link-arrow group text-xs transition-colors hover:text-[var(--ink)]"
               style={{ fontFamily: "'Kode Mono', monospace" }}
             >
               visit site{" "}
@@ -75,7 +75,7 @@ export default function ProjectCard({ project }: { project: Project }) {
               </span>
             </a>
           ) : (
-            <span className="micro-label text-[10px] uppercase tracking-widest text-white/40" style={{ fontFamily: "'Kode Mono', monospace" }}>
+            <span className="micro-label text-[10px] uppercase tracking-widest text-[var(--gray-400)]" style={{ fontFamily: "'Kode Mono', monospace" }}>
               not live yet
             </span>
           )}
