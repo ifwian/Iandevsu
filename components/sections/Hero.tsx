@@ -77,7 +77,7 @@ export default function Hero() {
         <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 lg:gap-8 overflow-hidden">
           
           {/* Profile Picture */}
-          <div className="w-48 h-48 sm:w-64 sm:h-64 max-w-full flex-shrink-0">
+          <div className="w-48 aspect-[5/6] sm:w-56 lg:w-full max-w-full flex-shrink-0">
             <PixelTransition
             firstContent={
               <img
