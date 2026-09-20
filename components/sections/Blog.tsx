@@ -75,7 +75,7 @@ export default function BlogSection() {
         </p>
 
         {/* Blog Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           {POSTS.map((post) => (
             <a 
               key={post.title}

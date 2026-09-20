@@ -13,7 +13,7 @@ function PreviewFrame({ title }: { title: string }) {
       </div>
       <div className="halftone" style={{ opacity: 0.5 }} aria-hidden="true" />
       <span
-        className="relative text-4xl"
+        className="relative text-2xl sm:text-3xl"
         style={{ fontFamily: "'Kode Mono', monospace", color: "var(--gray-300, rgba(255, 255, 255, 0.3))" }}
         aria-hidden="true"
       >
