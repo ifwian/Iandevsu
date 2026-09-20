@@ -8,7 +8,6 @@ interface StackItem {
   category: "frontend" | "backend" | "tools";
 }
 
-// Curated peek selection
 const PEEK_STACK: StackItem[] = [
   { name: "HTML5", icon: "devicon-html5-plain colored", category: "frontend" },
   { name: "CSS3", icon: "devicon-css3-plain colored", category: "frontend" },
@@ -19,7 +18,6 @@ const PEEK_STACK: StackItem[] = [
   { name: "GitHub", icon: "devicon-github-original", category: "tools" },
 ];
 
-// Full categorized dataset
 const FULL_STACK_DATA: { categoryLabel: string; items: StackItem[] }[] = [
   {
     categoryLabel: "FRONTEND",
@@ -47,7 +45,7 @@ const FULL_STACK_DATA: { categoryLabel: string; items: StackItem[] }[] = [
     categoryLabel: "TOOLS & DEVOPS",
     items: [
       { name: "Git", icon: "devicon-git-plain colored", category: "tools" },
-{ name: "GitHub", icon: "devicon-github-original", category: "tools" },
+      { name: "GitHub", icon: "devicon-github-original", category: "tools" },
       { name: "Figma", icon: "devicon-figma-plain colored", category: "tools" },
       { name: "VS Code", icon: "devicon-vscode-plain colored", category: "tools" },
     ],
@@ -57,7 +55,6 @@ const FULL_STACK_DATA: { categoryLabel: string; items: StackItem[] }[] = [
 export default function TechStackShowcase() {
   const [showAll, setShowAll] = useState(false);
 
-  // Dynamic Google Font Injection
   useEffect(() => {
     const linkKode = document.createElement("link");
     linkKode.href = "https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap";
@@ -77,7 +74,6 @@ export default function TechStackShowcase() {
       style={{ fontFamily: "'Geist Mono', monospace" }}
     >
       <div className="w-full max-w-4xl mx-auto">
-        {/* Eyebrow Header + View All Stack Toggle Link */}
         <div className="mb-1.5 flex items-baseline justify-between">
           <p 
             className="section-eyebrow text-xs sm:text-sm font-medium text-[var(--gray-400)] mb-0 tracking-wider"
@@ -99,7 +95,6 @@ export default function TechStackShowcase() {
           </button>
         </div>
 
-        {/* Heading in Kode Mono */}
         <h2 
           className="mb-2 text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)] leading-tight"
           style={{ fontFamily: "'Kode Mono', monospace" }}
@@ -107,18 +102,16 @@ export default function TechStackShowcase() {
           tech stack
         </h2>
 
-        {/* Subtitle in Geist Mono */}
         <p className="mb-6 max-w-xl text-xs sm:text-sm leading-relaxed text-[var(--gray-500)]">
           The tools, frameworks, and platforms I reach for across my projects.
         </p>
 
         {showAll ? (
-          /* ================= EXPANDED CATEGORIZED VIEW ================= */
           <div className="space-y-4">
             {FULL_STACK_DATA.map((group) => (
               <div key={group.categoryLabel}>
                 <p 
-                  className="micro-label mb-2 text-[10px] font-medium uppercase tracking-wider text-[var(--gray-400)]"
+                  className="micro-label mb-2 text-[10px] font-medium uppercase tracking-wider text-[var(--gray-500)]"
                   style={{ fontFamily: "'Kode Mono', monospace" }}
                 >
                   {group.categoryLabel}
@@ -139,7 +132,6 @@ export default function TechStackShowcase() {
             ))}
           </div>
         ) : (
-          /* ================= CURATED PEEK VIEW ================= */
           <div className="flex flex-wrap gap-2">
             {PEEK_STACK.map((item) => (
               <div

@@ -21,7 +21,6 @@ const GOALS: string[] = [
 ];
 
 export default function AboutMe() {
-  // Load both Kode Mono and Geist Mono fonts dynamically
   useEffect(() => {
     const linkKode = document.createElement('link');
     linkKode.href = 'https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap';
@@ -65,7 +64,7 @@ export default function AboutMe() {
           {FACTS.map((f: Fact) => (
             <div key={f.label} className="card p-4 border border-[var(--gray-200)] bg-[var(--gray-100)]">
               <p 
-                className="micro-label mb-1 text-[10px] uppercase tracking-widest text-[var(--gray-400)]" 
+                className="micro-label mb-1 text-[10px] uppercase tracking-widest text-[var(--gray-500)]" 
                 style={{ fontFamily: "'Kode Mono', monospace" }}
               >
                 {f.label}
@@ -78,7 +77,7 @@ export default function AboutMe() {
         {/* Current Goals */}
         <div>
           <p 
-            className="micro-label mb-3 text-[10px] uppercase tracking-widest text-[var(--gray-400)]" 
+            className="micro-label mb-3 text-[10px] uppercase tracking-widest text-[var(--gray-500)]" 
             style={{ fontFamily: "'Kode Mono', monospace" }}
           >
             right now, I&rsquo;m working toward

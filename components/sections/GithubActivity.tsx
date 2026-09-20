@@ -133,7 +133,7 @@ export default function GithubActivity() {
           <div className="w-full">
             
             {/* Month Labels */}
-            <div 
+<div 
               className="relative h-4 w-full mb-3 text-[10px] sm:text-[11px] text-[var(--gray-400)] uppercase"
               style={{ fontFamily: "'Kode Mono', monospace" }}
             >
@@ -195,7 +195,7 @@ export default function GithubActivity() {
             </p>
 
             {/* Legend */}
-            <div 
+<div 
               className="flex items-center gap-1.5 text-[11px] text-[var(--gray-400)]"
               style={{ fontFamily: "'Kode Mono', monospace" }}
             >

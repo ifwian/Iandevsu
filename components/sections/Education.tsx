@@ -32,9 +32,8 @@ const CERTIFICATIONS: TimelineEntry[] = [
 function TimelineGroup({ heading, entries }: { heading: string; entries: TimelineEntry[] }) {
   return (
     <div>
-      {/* Group Heading in Kode Mono */}
       <p 
-        className="micro-label mb-4 text-[11px] font-medium uppercase tracking-wider text-[var(--gray-400)]"
+        className="micro-label mb-4 text-[11px] font-medium uppercase tracking-wider text-[var(--gray-500)]"
         style={{ fontFamily: "'Kode Mono', monospace" }}
       >
         {heading}
@@ -45,15 +44,13 @@ function TimelineGroup({ heading, entries }: { heading: string; entries: Timelin
             key={i}
             className="py-4 border-t border-[var(--gray-200)] first:border-t-0"
           >
-            {/* Entry Date in Kode Mono */}
             <p 
-              className="micro-label mb-1 text-[11px] uppercase tracking-wider text-[var(--gray-400)]"
+              className="micro-label mb-1 text-[11px] uppercase tracking-wider text-[var(--gray-500)]"
               style={{ fontFamily: "'Kode Mono', monospace" }}
             >
               {entry.date}
             </p>
 
-            {/* Entry Title in Kode Mono */}
             <p 
               className="text-sm sm:text-base font-semibold text-[var(--ink)] tracking-tight"
               style={{ fontFamily: "'Kode Mono', monospace" }}
@@ -61,7 +58,6 @@ function TimelineGroup({ heading, entries }: { heading: string; entries: Timelin
               {entry.title}
             </p>
 
-            {/* Subtitle Lines in Geist Mono */}
             {entry.subtitle.map((line, j) => (
               <p 
                 key={j} 
@@ -78,7 +74,6 @@ function TimelineGroup({ heading, entries }: { heading: string; entries: Timelin
 }
 
 export default function Education() {
-  // Inject Google Fonts dynamically
   useEffect(() => {
     const linkKode = document.createElement('link');
     linkKode.href = 'https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap';
@@ -98,10 +93,8 @@ export default function Education() {
       style={{ fontFamily: "'Geist Mono', monospace" }}
     >
       <div className="max-w-4xl">
-        {/* Eyebrow Header */}
-        <p className="section-eyebrow text-xs mb-1 text-[var(--gray-500)] font-medium">05 &mdash; education</p>
+        <p className="section-eyebrow text-xs mb-1 text-[var(--gray-400)] font-medium">05 &mdash; education</p>
 
-        {/* Main Heading in Kode Mono */}
         <h2 
           className="mb-2 text-2xl font-semibold tracking-tight text-[var(--ink)]"
           style={{ fontFamily: "'Kode Mono', monospace" }}
@@ -109,7 +102,6 @@ export default function Education() {
           education &amp; certifications
         </h2>
 
-        {/* Subtitle in Geist Mono */}
         <p className="mb-8 max-w-[46ch] text-xs sm:text-sm leading-relaxed text-[var(--gray-400)]" style={{ lineHeight: 1.6 }}>
           Where I&rsquo;ve studied, and what I&rsquo;ve earned along the way.
         </p>

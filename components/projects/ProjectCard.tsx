@@ -37,7 +37,7 @@ export default function ProjectCard({ project }: { project: Project }) {
 
             {project.status && (
               <span
-                className="pill shrink-0 text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border border-[var(--gray-200)] bg-[var(--gray-100)] text-[var(--gray-400)]"
+                className="pill shrink-0 text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border border-[var(--gray-200)] bg-[var(--gray-100)] text-[var(--gray-500)]"
                 style={{ fontFamily: "'Kode Mono', monospace" }}
               >
                 {project.status}
@@ -75,7 +75,7 @@ export default function ProjectCard({ project }: { project: Project }) {
               </span>
             </a>
           ) : (
-            <span className="micro-label text-[10px] uppercase tracking-widest text-[var(--gray-400)]" style={{ fontFamily: "'Kode Mono', monospace" }}>
+            <span className="micro-label text-[10px] uppercase tracking-widest text-[var(--gray-500)]" style={{ fontFamily: "'Kode Mono', monospace" }}>
               not live yet
             </span>
           )}
