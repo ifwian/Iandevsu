@@ -73,11 +73,12 @@ export default function Hero() {
         {/* Eyebrow at the top */}
         <p className="section-eyebrow mb-6 text-xs text-[var(--gray-400)]">01 &mdash; home</p>
 
-        {/* Combined Hero Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] lg:grid-cols-[200px_1fr] items-start gap-4 sm:gap-6 overflow-hidden">
+        {/* Combined Hero Layout */}
+        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 lg:gap-8 overflow-hidden">
           
           {/* Profile Picture */}
-          <PixelTransition
+          <div className="w-48 h-48 sm:w-64 sm:h-64 max-w-full flex-shrink-0">
+            <PixelTransition
             firstContent={
               <img
                 src="/images/anime.jfif"
@@ -97,9 +98,10 @@ export default function Hero() {
             animationStepDuration={0.3}
             className="w-48 aspect-[5/6] overflow-hidden shrink-0 rounded-none border border-[var(--gray-200)] sm:w-56 lg:w-full"
           />
+          </div>
 
           {/* Right Column */}
-          <div className="flex flex-col text-left space-y-4">
+          <div className="flex flex-col items-center text-center lg:items-start lg:text-left space-y-4">
             
             {/* Top section: Name and Subtitle */}
             <div>
