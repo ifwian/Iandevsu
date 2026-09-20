@@ -120,11 +120,11 @@ export default function TechStackShowcase() {
                   {group.items.map((item) => (
                     <div
                       key={item.name}
-                      className="card flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--gray-50)] border border-[var(--gray-200)] text-[var(--gray-200)] transition-all duration-200 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)] hover:text-[var(--ink)] cursor-default"
+                      className="card flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--gray-50)] border border-[var(--gray-200)] text-[var(--ink)] transition-all duration-200 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)] cursor-default"
                       style={{ fontFamily: "'Kode Mono', monospace" }}
                     >
                       {item.icon && <i className={`${item.icon} text-sm`} aria-hidden="true" />}
-                      <span className="text-xs font-medium">{item.name}</span>
+                      <span className="text-xs font-medium text-[var(--ink)]">{item.name}</span>
                     </div>
                   ))}
                 </div>
@@ -136,11 +136,11 @@ export default function TechStackShowcase() {
             {PEEK_STACK.map((item) => (
               <div
                 key={item.name}
-                className="card flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--gray-50)] border border-[var(--gray-200)] text-[var(--gray-200)] transition-all duration-200 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)] hover:text-[var(--ink)] cursor-default"
+                className="card flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--gray-50)] border border-[var(--gray-200)] text-[var(--ink)] transition-all duration-200 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)] cursor-default"
                 style={{ fontFamily: "'Kode Mono', monospace" }}
               >
                 {item.icon && <i className={`${item.icon} text-sm`} aria-hidden="true" />}
-                <span className="text-xs font-medium">{item.name}</span>
+                <span className="text-xs font-medium text-[var(--ink)]">{item.name}</span>
               </div>
             ))}
           </div>

@@ -82,7 +82,7 @@ export default function BlogSection() {
               href={post.link}
               target={post.isLive ? "_blank" : "_self"}
               rel="noopener noreferrer"
-              className={`group flex flex-col bg-transparent rounded-2xl overflow-hidden transition-all ${!post.isLive ? "pointer-events-none opacity-60" : ""}`}
+              className={`group flex flex-col bg-transparent rounded-2xl overflow-hidden transition-all`}
             >
               {/* Thumbnail Preview Box */}
               <div className="w-full h-48 sm:h-52 rounded-2xl overflow-hidden border border-[var(--gray-200)] bg-[var(--gray-50)] mb-4 relative flex items-center justify-center">
