@@ -12,7 +12,7 @@ interface ContributionDay {
 
 interface ApiResponse {
   contributions?: ContributionDay[];
-  total?: Record<string, number>;
+  total?: Record<string, number> | number;
 }
 
 const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "short" });
@@ -61,8 +61,7 @@ function MonthLabels({ weeks }: { weeks: (ContributionDay | null)[][] }) {
     </div>
   );
 }
-// Dot size + tone scale with contribution level, echoing the
-// bryl-minimal reference graph (variable dot size, not a color ramp).
+
 const LEVEL_DOT: Record<number, { size: number; color: string }> = {
   0: { size: 2.5, color: "var(--gray-300)" },
   1: { size: 4.5, color: "var(--gray-400)" },
@@ -80,18 +79,17 @@ export default function GithubActivity() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`https://github-contributions-api.jogruber.de/v4/${GITHUB_USERNAME}?y=last`);
+        // Changed ?y=last to ?y=2026 to show Jan–Dec view
+        const res = await fetch(`https://github-contributions-api.jogruber.de/v4/${GITHUB_USERNAME}?y=2026`);
         if (!res.ok) throw new Error(`Request failed: ${res.status}`);
         const data: ApiResponse = await res.json();
         const contributions = data.contributions ?? [];
         if (!contributions.length) throw new Error("No contribution data returned");
         if (cancelled) return;
+
         setWeeks(toWeeks(contributions));
-        setTotal(
-          data.total?.lastYear ??
-            (data.total ? Object.values(data.total)[0] : undefined) ??
-            contributions.reduce((sum, day) => sum + day.count, 0)
-        );
+        const calculatedTotal = contributions.reduce((sum, day) => sum + day.count, 0);
+        setTotal(calculatedTotal);
       } catch {
         if (!cancelled) setError(true);
       }
@@ -102,8 +100,8 @@ export default function GithubActivity() {
   }, []);
 
   return (
-    <section id="github" className="px-5 py-16 lg:px-6">
-      <div className="mx-auto max-w-4xl lg:pl-56">
+    <section id="github" className="px-5 py-16 lg:px-6 lg:pl-56">
+      <div className="max-w-4xl">
         <div className="mb-2 flex items-baseline justify-between">
           <p className="section-eyebrow" style={{ marginBottom: 0 }}>
             04 &mdash; github
@@ -119,7 +117,7 @@ export default function GithubActivity() {
         </div>
         <h2 className="mb-2 text-2xl font-semibold tracking-tight">github activity</h2>
         <p className="mb-8 max-w-[46ch]" style={{ color: "var(--gray-500)" }}>
-          A snapshot of my contribution history over the past year.
+          A snapshot of my contribution history for 2026.
         </p>
 
         <div className="card p-7">
@@ -165,7 +163,7 @@ export default function GithubActivity() {
             {error
               ? "Couldn't load live GitHub activity right now — check back later."
               : total !== null
-                ? `${total.toLocaleString()} contributions in the last year`
+                ? `${total.toLocaleString()} contributions in 2026`
                 : "Loading contribution activity…"}
           </p>
         </div>
