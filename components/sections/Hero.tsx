@@ -77,8 +77,7 @@ export default function Hero() {
         <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 lg:gap-8 overflow-hidden">
           
           {/* Profile Picture */}
-          <div className="w-48 aspect-[5/6] sm:w-56 lg:w-full max-w-full flex-shrink-0">
-            <PixelTransition
+          <PixelTransition
             firstContent={
               <img
                 src="/images/anime.jfif"
@@ -96,9 +95,8 @@ export default function Hero() {
             gridSize={7}
             pixelColor="var(--bg)"
             animationStepDuration={0.3}
-            className="w-48 aspect-[5/6] overflow-hidden shrink-0 rounded-none border border-[var(--gray-200)] sm:w-56 lg:w-full"
+            className="w-full aspect-[5/6] overflow-hidden shrink-0 rounded-none border border-[var(--gray-200)]"
           />
-          </div>
 
           {/* Right Column */}
           <div className="flex flex-col items-center text-center lg:items-start lg:text-left space-y-4">
