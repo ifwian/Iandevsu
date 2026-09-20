@@ -8,7 +8,7 @@ export default function Projects() {
   return (
     <section id="projects" className="px-5 py-16 lg:px-6 lg:pl-56 flex justify-center" style={{ fontFamily: "'Geist Mono', monospace" }}>
       <div className="max-w-4xl">
-        <p className="section-eyebrow text-xs mb-1">0 &mdash; projects</p>
+        <p className="section-eyebrow text-xs mb-1">03 &mdash; projects</p>
 
         <h2 className="mb-2 text-2xl font-semibold tracking-tight text-white" style={{ fontFamily: "'Kode Mono', monospace" }}>
           projects
