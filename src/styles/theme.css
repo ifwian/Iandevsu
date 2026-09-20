@@ -22,7 +22,7 @@
   --gray-400: #404040;
   --gray-500: #333333;
   --gray-600: #525252;
-  --gray-700: #404040;
+  --gray-700: #2b2b2b;
   --gray-800: #262626;
   --gray-900: #171717;
   --gray-950: #0f0f0f;
@@ -172,10 +172,13 @@ h1, h2, h3, h4, h5, h6 {
 /* ---------- Micro-label ---------- */
 .micro-label {
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 1px;
+  font-size: 9px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: var(--gray-400);
+  color: var(--gray-500);
+  border: 1px solid var(--gray-300);
+  border-radius: 999px;
+  padding: 2px 8px;
 }
 
 .section-eyebrow {
