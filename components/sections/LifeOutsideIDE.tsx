@@ -13,8 +13,8 @@ const GALLERY = [
 
 export default function LifeOutsideIDE() {
   return (
-    <section id="life" className="px-5 py-16 lg:px-6">
-      <div className="mx-auto grid max-w-4xl gap-10 md:grid-cols-2 md:items-center lg:pl-56">
+    <section id="life" className="px-5 py-16 lg:px-6 lg:pl-56">
+      <div className="grid max-w-4xl gap-10 md:grid-cols-2 md:items-center">
         <div>
           <p className="section-eyebrow">07 &mdash; life</p>
           <h2 className="mb-2 text-2xl font-semibold tracking-tight">life outside the ide</h2>
