@@ -41,20 +41,20 @@ export default function AboutMe() {
       style={{ fontFamily: "'Geist Mono', monospace" }}
     >
       <div className="w-full max-w-4xl mx-auto">
-        <p className="section-eyebrow mb-6 text-xs text-white/50" style={{ fontFamily: "'Geist Mono', monospace" }}>
+        <p className="section-eyebrow mb-6 text-xs text-[var(--gray-400)]" style={{ fontFamily: "'Geist Mono', monospace" }}>
           02 &mdash; about
         </p>
         
         <h2 
-          className="mb-6 text-2xl font-semibold tracking-tight text-white sm:text-3xl"
+          className="mb-6 text-2xl font-semibold tracking-tight text-[var(--ink)] sm:text-3xl"
           style={{ fontFamily: "'Kode Mono', monospace" }}
         >
           about me
         </h2>
 
-        <div className="mb-10 max-w-[550px] space-y-4 text-xs sm:text-sm leading-relaxed text-white/70" style={{ lineHeight: 1.75 }}>
+        <div className="mb-10 max-w-[550px] space-y-4 text-xs sm:text-sm leading-relaxed text-[var(--gray-400)]" style={{ lineHeight: 1.75 }}>
           <p>
-            My path into tech started with a simple question: <i className="text-white/50">&ldquo;How hard could it really be to
+            My path into tech started with a simple question: <i className="text-[var(--gray-400)]">&ldquo;How hard could it really be to
             build this myself?&rdquo;</i> (Spoiler: very hard, but it turns out I love the headache). That 
             relentless tinkering is the main reason this portfolio exists.
           </p>
@@ -63,14 +63,14 @@ export default function AboutMe() {
         {/* Quick Facts Grid */}
         <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {FACTS.map((f: Fact) => (
-            <div key={f.label} className="card p-4 border border-white/10 bg-white/5">
+            <div key={f.label} className="card p-4 border border-[var(--gray-200)] bg-[var(--gray-100)]">
               <p 
-                className="micro-label mb-1 text-[10px] uppercase tracking-widest text-white/40" 
+                className="micro-label mb-1 text-[10px] uppercase tracking-widest text-[var(--gray-400)]" 
                 style={{ fontFamily: "'Kode Mono', monospace" }}
               >
                 {f.label}
               </p>
-              <p className="text-sm font-medium text-white">{f.value}</p>
+              <p className="text-sm font-medium text-[var(--ink)]">{f.value}</p>
             </div>
           ))}
         </div>
@@ -78,15 +78,15 @@ export default function AboutMe() {
         {/* Current Goals */}
         <div>
           <p 
-            className="micro-label mb-3 text-[10px] uppercase tracking-widest text-white/40" 
+            className="micro-label mb-3 text-[10px] uppercase tracking-widest text-[var(--gray-400)]" 
             style={{ fontFamily: "'Kode Mono', monospace" }}
           >
             right now, I&rsquo;m working toward
           </p>
-          <ul className="space-y-2 text-xs sm:text-sm text-white/70">
+          <ul className="space-y-2 text-xs sm:text-sm text-[var(--gray-400)]">
             {GOALS.map((goal: string) => (
               <li key={goal} className="flex gap-2">
-                <span aria-hidden="true" className="text-white/40">&mdash;</span>
+                <span aria-hidden="true" className="text-[var(--gray-400)]">&mdash;</span>
                 {goal}
               </li>
             ))}

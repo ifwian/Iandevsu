@@ -41,7 +41,7 @@ export default function LifeOutsideIDE() {
           <div className="lg:col-span-7 flex flex-col justify-center">
             {/* Section Eyebrow Header in Geist Mono */}
             <p 
-              className="section-eyebrow text-xs sm:text-sm mb-2 text-white/50 tracking-wider"
+              className="section-eyebrow text-xs sm:text-sm mb-2 text-[var(--gray-400)] tracking-wider"
               style={{ fontFamily: "'Geist Mono', monospace" }}
             >
               06 &mdash; life
@@ -49,14 +49,14 @@ export default function LifeOutsideIDE() {
 
             {/* Main Title */}
             <h2 
-              className="mb-4 text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-white leading-tight"
+              className="mb-4 text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-[var(--ink)] leading-tight"
               style={{ fontFamily: "'Kode Mono', monospace" }}
             >
               Outside the IDE
             </h2>
 
             {/* Description */}
-            <p className="mb-6 text-xs sm:text-sm leading-relaxed text-white/70 max-w-lg">
+            <p className="mb-6 text-xs sm:text-sm leading-relaxed text-[var(--gray-400)] max-w-lg">
               When I step away from the tech world, I recharge through physical activity and creative hobbies, returning to my projects with fresh energy and perspective.
             </p>
 
@@ -65,7 +65,7 @@ export default function LifeOutsideIDE() {
               {INTERESTS.map((interest) => (
                 <span 
                   key={interest} 
-                  className="pill text-[11px] sm:text-xs font-medium px-3.5 py-1.5 rounded-full border border-white/20 bg-white/5 text-white/80 transition-colors hover:border-white/40 hover:bg-white/10"
+                  className="pill text-[11px] sm:text-xs font-medium px-3.5 py-1.5 rounded-full border border-[var(--gray-300)] bg-[var(--gray-100)] text-[var(--gray-200)] transition-colors hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)]"
                   style={{ fontFamily: "'Kode Mono', monospace" }}
                 >
                   {interest}
@@ -83,7 +83,7 @@ export default function LifeOutsideIDE() {
                     key={g.image} 
                     src={g.image} 
                     alt={g.alt} 
-                    className="rounded-2xl shadow-2xl border border-white/10" 
+                    className="rounded-2xl shadow-2xl border border-[var(--gray-200)]" 
                     style={{ width: "100%", height: "100%", objectFit: "cover" }} 
                   />
                 ))}

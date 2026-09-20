@@ -34,7 +34,7 @@ function TimelineGroup({ heading, entries }: { heading: string; entries: Timelin
     <div>
       {/* Group Heading in Kode Mono */}
       <p 
-        className="micro-label mb-4 text-[11px] font-medium uppercase tracking-wider text-white/50"
+        className="micro-label mb-4 text-[11px] font-medium uppercase tracking-wider text-[var(--gray-400)]"
         style={{ fontFamily: "'Kode Mono', monospace" }}
       >
         {heading}
@@ -43,11 +43,11 @@ function TimelineGroup({ heading, entries }: { heading: string; entries: Timelin
         {entries.map((entry, i) => (
           <div
             key={i}
-            className="py-4 border-t border-white/10 first:border-t-0"
+            className="py-4 border-t border-[var(--gray-200)] first:border-t-0"
           >
             {/* Entry Date in Kode Mono */}
             <p 
-              className="micro-label mb-1 text-[11px] uppercase tracking-wider text-white/50"
+              className="micro-label mb-1 text-[11px] uppercase tracking-wider text-[var(--gray-400)]"
               style={{ fontFamily: "'Kode Mono', monospace" }}
             >
               {entry.date}
@@ -55,7 +55,7 @@ function TimelineGroup({ heading, entries }: { heading: string; entries: Timelin
 
             {/* Entry Title in Kode Mono */}
             <p 
-              className="text-sm sm:text-base font-semibold text-white tracking-tight"
+              className="text-sm sm:text-base font-semibold text-[var(--ink)] tracking-tight"
               style={{ fontFamily: "'Kode Mono', monospace" }}
             >
               {entry.title}
@@ -65,7 +65,7 @@ function TimelineGroup({ heading, entries }: { heading: string; entries: Timelin
             {entry.subtitle.map((line, j) => (
               <p 
                 key={j} 
-                className="text-xs sm:text-sm mt-1 leading-relaxed text-white/70"
+                className="text-xs sm:text-sm mt-1 leading-relaxed text-[var(--gray-400)]"
               >
                 {line}
               </p>
@@ -99,23 +99,23 @@ export default function Education() {
     >
       <div className="max-w-4xl">
         {/* Eyebrow Header */}
-        <p className="section-eyebrow text-xs mb-1 text-white/60 font-medium">05 &mdash; education</p>
+        <p className="section-eyebrow text-xs mb-1 text-[var(--gray-500)] font-medium">05 &mdash; education</p>
 
         {/* Main Heading in Kode Mono */}
         <h2 
-          className="mb-2 text-2xl font-semibold tracking-tight text-white"
+          className="mb-2 text-2xl font-semibold tracking-tight text-[var(--ink)]"
           style={{ fontFamily: "'Kode Mono', monospace" }}
         >
           education &amp; certifications
         </h2>
 
         {/* Subtitle in Geist Mono */}
-        <p className="mb-8 max-w-[46ch] text-xs sm:text-sm leading-relaxed text-white/70" style={{ lineHeight: 1.6 }}>
+        <p className="mb-8 max-w-[46ch] text-xs sm:text-sm leading-relaxed text-[var(--gray-400)]" style={{ lineHeight: 1.6 }}>
           Where I&rsquo;ve studied, and what I&rsquo;ve earned along the way.
         </p>
 
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 pt-6 border-t border-white/10">
-          <div className="md:pr-8 md:border-r md:border-white/10">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 pt-6 border-t border-[var(--gray-200)]">
+          <div className="md:pr-8 md:border-r md:border-[var(--gray-200)]">
             <TimelineGroup heading="education" entries={EDUCATION} />
           </div>
           <div>

@@ -38,11 +38,11 @@ function toWeeks(days: ContributionDay[]): (ContributionDay | null)[][] {
 }
 
 const LEVEL_CLASSES: Record<number, string> = {
-  0: "bg-white/5 border border-white/5 hover:border-white/20",
-  1: "bg-white/20 hover:bg-white/30",
-  2: "bg-white/40 hover:bg-white/50",
-  3: "bg-white/70 hover:bg-white/80",
-  4: "bg-white hover:bg-white/90",
+  0: "bg-[var(--gray-100)] border border-[var(--gray-200)] hover:border-[var(--gray-300)]",
+  1: "bg-[var(--gray-200)] hover:bg-[var(--gray-300)]",
+  2: "bg-[var(--gray-300)] hover:bg-[var(--gray-400)]",
+  3: "bg-[var(--gray-400)] hover:bg-[var(--gray-300)]",
+  4: "bg-[var(--ink)] hover:bg-[var(--gray-100)]",
 };
 
 export default function GithubActivity() {
@@ -97,7 +97,7 @@ export default function GithubActivity() {
         {/* Eyebrow and Profile Link */}
         <div className="mb-2 flex items-baseline justify-between">
           <p 
-            className="section-eyebrow text-xs sm:text-sm mb-1.5 text-white/50 tracking-wider"
+            className="section-eyebrow text-xs sm:text-sm mb-1.5 text-[var(--gray-400)] tracking-wider"
             style={{ fontFamily: "'Geist Mono', monospace" }}
           >
             07 &mdash; github
@@ -106,7 +106,7 @@ export default function GithubActivity() {
             href={`https://github.com/${GITHUB_USERNAME}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-white/70 hover:text-white transition-colors flex items-center gap-1"
+            className="text-xs text-[var(--gray-400)] hover:text-[var(--ink)] transition-colors flex items-center gap-1"
             style={{ fontFamily: "'Kode Mono', monospace" }}
           >
             @{GITHUB_USERNAME} <span className="text-[10px]">&#8599;</span>
@@ -115,26 +115,26 @@ export default function GithubActivity() {
 
         {/* Section Heading */}
         <h2 
-          className="mb-2 text-xl sm:text-2xl font-bold tracking-tight text-white leading-tight"
+          className="mb-2 text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)] leading-tight"
           style={{ fontFamily: "'Kode Mono', monospace" }}
         >
           github activity
         </h2>
 
         {/* Description */}
-        <p className="mb-8 max-w-xl text-xs sm:text-sm leading-relaxed text-white/60">
+        <p className="mb-8 max-w-xl text-xs sm:text-sm leading-relaxed text-[var(--gray-500)]">
           A snapshot of my contribution history for 2026.
         </p>
 
         {/* Card Container with Smooth Box Hover Effects */}
         <div 
-          className="card flex flex-col p-5 sm:p-7 rounded-xl bg-white/[0.03] border border-white/10 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.05] hover:shadow-[0_8px_30px_rgb(0,0,0,0.3)]"
+          className="card flex flex-col p-5 sm:p-7 rounded-xl bg-[var(--gray-50)] border border-[var(--gray-200)] transition-all duration-300 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.3)]"
         >
           <div className="w-full">
             
             {/* Month Labels */}
             <div 
-              className="relative h-4 w-full mb-3 text-[10px] sm:text-[11px] text-white/40 uppercase"
+              className="relative h-4 w-full mb-3 text-[10px] sm:text-[11px] text-[var(--gray-400)] uppercase"
               style={{ fontFamily: "'Kode Mono', monospace" }}
             >
               {monthLabels.map((m) => (
@@ -181,7 +181,7 @@ export default function GithubActivity() {
           </div>
 
           {/* Footer Summary & Legend */}
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-2 text-xs text-white/50 pt-3 border-t border-white/10">
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--gray-400)] pt-3 border-t border-[var(--gray-200)]">
             <p 
               style={{ 
                 fontFamily: total !== null ? "'Kode Mono', monospace" : "'Geist Mono', monospace"
@@ -196,16 +196,16 @@ export default function GithubActivity() {
 
             {/* Legend */}
             <div 
-              className="flex items-center gap-1.5 text-[11px] text-white/40"
+              className="flex items-center gap-1.5 text-[11px] text-[var(--gray-400)]"
               style={{ fontFamily: "'Kode Mono', monospace" }}
             >
               <span>Less</span>
               <div className="flex gap-1">
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-white/5 border border-white/5" />
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-white/20" />
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-white/40" />
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-white/70" />
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-white" />
+                <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--gray-100)] border border-[var(--gray-200)]" />
+                <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--gray-200)]" />
+                <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--gray-300)]" />
+                <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--gray-400)]" />
+                <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--ink)]" />
               </div>
               <span>More</span>
             </div>

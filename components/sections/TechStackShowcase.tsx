@@ -16,7 +16,7 @@ const PEEK_STACK: StackItem[] = [
   { name: "React", icon: "devicon-react-original colored", category: "frontend" },
   { name: "Tailwind CSS", icon: "devicon-tailwindcss-original colored", category: "frontend" },
   { name: "Git", icon: "devicon-git-plain colored", category: "tools" },
-  { name: "GitHub", icon: "devicon-github-original text-white", category: "tools" },
+  { name: "GitHub", icon: "devicon-github-original", category: "tools" },
 ];
 
 // Full categorized dataset
@@ -47,7 +47,7 @@ const FULL_STACK_DATA: { categoryLabel: string; items: StackItem[] }[] = [
     categoryLabel: "TOOLS & DEVOPS",
     items: [
       { name: "Git", icon: "devicon-git-plain colored", category: "tools" },
-      { name: "GitHub", icon: "devicon-github-original text-white", category: "tools" },
+{ name: "GitHub", icon: "devicon-github-original", category: "tools" },
       { name: "Figma", icon: "devicon-figma-plain colored", category: "tools" },
       { name: "VS Code", icon: "devicon-vscode-plain colored", category: "tools" },
     ],
@@ -80,7 +80,7 @@ export default function TechStackShowcase() {
         {/* Eyebrow Header + View All Stack Toggle Link */}
         <div className="mb-1.5 flex items-baseline justify-between">
           <p 
-            className="section-eyebrow text-xs sm:text-sm font-medium text-white/50 mb-0 tracking-wider"
+            className="section-eyebrow text-xs sm:text-sm font-medium text-[var(--gray-400)] mb-0 tracking-wider"
             style={{ fontFamily: "'Geist Mono', monospace" }}
           >
             04 &mdash; stack
@@ -89,7 +89,7 @@ export default function TechStackShowcase() {
           <button
             type="button"
             onClick={() => setShowAll(!showAll)}
-            className="group text-xs transition-colors text-white/60 hover:text-white cursor-pointer bg-transparent border-none p-0 flex items-center gap-1"
+            className="group text-xs transition-colors text-[var(--gray-500)] hover:text-[var(--ink)] cursor-pointer bg-transparent border-none p-0 flex items-center gap-1"
             style={{ fontFamily: "'Kode Mono', monospace" }}
           >
             <span>{showAll ? "show peek" : "view all stack"}</span>
@@ -101,14 +101,14 @@ export default function TechStackShowcase() {
 
         {/* Heading in Kode Mono */}
         <h2 
-          className="mb-2 text-xl sm:text-2xl font-bold tracking-tight text-white leading-tight"
+          className="mb-2 text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)] leading-tight"
           style={{ fontFamily: "'Kode Mono', monospace" }}
         >
           tech stack
         </h2>
 
         {/* Subtitle in Geist Mono */}
-        <p className="mb-6 max-w-xl text-xs sm:text-sm leading-relaxed text-white/60">
+        <p className="mb-6 max-w-xl text-xs sm:text-sm leading-relaxed text-[var(--gray-500)]">
           The tools, frameworks, and platforms I reach for across my projects.
         </p>
 
@@ -118,7 +118,7 @@ export default function TechStackShowcase() {
             {FULL_STACK_DATA.map((group) => (
               <div key={group.categoryLabel}>
                 <p 
-                  className="micro-label mb-2 text-[10px] font-medium uppercase tracking-wider text-white/40"
+                  className="micro-label mb-2 text-[10px] font-medium uppercase tracking-wider text-[var(--gray-400)]"
                   style={{ fontFamily: "'Kode Mono', monospace" }}
                 >
                   {group.categoryLabel}
@@ -127,7 +127,7 @@ export default function TechStackShowcase() {
                   {group.items.map((item) => (
                     <div
                       key={item.name}
-                      className="card flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/10 text-white/80 transition-all duration-200 hover:border-white/30 hover:bg-white/[0.07] hover:text-white cursor-default"
+                      className="card flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--gray-50)] border border-[var(--gray-200)] text-[var(--gray-200)] transition-all duration-200 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)] hover:text-[var(--ink)] cursor-default"
                       style={{ fontFamily: "'Kode Mono', monospace" }}
                     >
                       {item.icon && <i className={`${item.icon} text-sm`} aria-hidden="true" />}
@@ -144,7 +144,7 @@ export default function TechStackShowcase() {
             {PEEK_STACK.map((item) => (
               <div
                 key={item.name}
-                className="card flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/10 text-white/80 transition-all duration-200 hover:border-white/30 hover:bg-white/[0.07] hover:text-white cursor-default"
+                className="card flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--gray-50)] border border-[var(--gray-200)] text-[var(--gray-200)] transition-all duration-200 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)] hover:text-[var(--ink)] cursor-default"
                 style={{ fontFamily: "'Kode Mono', monospace" }}
               >
                 {item.icon && <i className={`${item.icon} text-sm`} aria-hidden="true" />}
