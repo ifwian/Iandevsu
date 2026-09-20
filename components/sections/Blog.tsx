@@ -20,7 +20,7 @@ const POSTS: BlogPost[] = [
     link: "https://medium.com/@iandevsu/why-every-cs-student-needs-a-portfolio-even-if-you-feel-like-you-have-nothing-to-show-f731367ca2c0?sharedUserId=iandevsu",
     status: "LIVE ON MEDIUM",
     isLive: true,
-    image: "https://miro.medium.com/v2/resize:fit:640/format:webp/0*Wuo4CcK9AmfUH86Y", // Paste the copied Medium image link here
+    image: "https://miro.medium.com/v2/resize:fit:640/format:webp/0*Wuo4CcK9AmfUH86Y",
   },
   {
     title: "Designing My Personal Portfolio: From Vibe Coding to Production",
@@ -53,12 +53,12 @@ export default function BlogSection() {
       style={{ fontFamily: "'Geist Mono', monospace" }}
     >
       <div className="w-full max-w-4xl mx-auto">
-        {/* Section Eyebrow in Kode Mono */}
+        {/* Section Eyebrow in Geist Mono */}
         <p 
           className="section-eyebrow text-xs sm:text-sm mb-1.5 text-white/50 tracking-wider"
-          style={{ fontFamily: "'Kode Mono', monospace" }}
+          style={{ fontFamily: "'Geist Mono', monospace" }}
         >
-          06 &mdash; blog
+          08 &mdash; blog
         </p>
 
         {/* Section Heading in Kode Mono */}

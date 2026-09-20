@@ -98,9 +98,9 @@ export default function GithubActivity() {
         <div className="mb-2 flex items-baseline justify-between">
           <p 
             className="section-eyebrow text-xs sm:text-sm mb-1.5 text-white/50 tracking-wider"
-            style={{ fontFamily: "'Kode Mono', monospace" }}
+            style={{ fontFamily: "'Geist Mono', monospace" }}
           >
-            04 &mdash; github
+            07 &mdash; github
           </p>
           <a
             href={`https://github.com/${GITHUB_USERNAME}`}
@@ -210,7 +210,7 @@ export default function GithubActivity() {
               <span>More</span>
             </div>
           </div>
-
+            
         </div>
       </div>
     </section>

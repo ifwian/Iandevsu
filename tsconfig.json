@@ -17,8 +17,8 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@/*": ["./*", "./src/*"]
+      "@/*": ["./*"]
     }
   },
-  "include": ["src", "app", "components"]
+  "include": ["src", "components", "content", "pages", "api", "lib"]
 }

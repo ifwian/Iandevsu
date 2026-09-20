@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect } from 'react';
+
 interface Fact {
   label: string;
   value: string;
@@ -17,16 +21,41 @@ const GOALS: string[] = [
 ];
 
 export default function AboutMe() {
-  return (
-    <section id="about" className="px-5 py-16 lg:px-6 lg:pl-56 flex justify-center">
-      <div className="w-full max-w-4xl mx-auto">
-        <p className="section-eyebrow">02 &mdash; about</p>
-        <h2 className="mb-6 text-2xl font-semibold tracking-tight">about me</h2>
+  // Load both Kode Mono and Geist Mono fonts dynamically
+  useEffect(() => {
+    const linkKode = document.createElement('link');
+    linkKode.href = 'https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap';
+    linkKode.rel = 'stylesheet';
+    document.head.appendChild(linkKode);
 
-        <div className="mb-10 max-w-137.5 space-y-4 text-sm leading-relaxed" style={{ color: "var(--gray-500)", lineHeight: 1.75 }}>
+    const linkGeist = document.createElement('link');
+    linkGeist.href = 'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap';
+    linkGeist.rel = 'stylesheet';
+    document.head.appendChild(linkGeist);
+  }, []);
+
+  return (
+    <section 
+      id="about" 
+      className="px-5 py-16 lg:px-6 lg:pl-56 flex justify-center"
+      style={{ fontFamily: "'Geist Mono', monospace" }}
+    >
+      <div className="w-full max-w-4xl mx-auto">
+        <p className="section-eyebrow mb-6 text-xs text-white/50" style={{ fontFamily: "'Geist Mono', monospace" }}>
+          02 &mdash; about
+        </p>
+        
+        <h2 
+          className="mb-6 text-2xl font-semibold tracking-tight text-white sm:text-3xl"
+          style={{ fontFamily: "'Kode Mono', monospace" }}
+        >
+          about me
+        </h2>
+
+        <div className="mb-10 max-w-[550px] space-y-4 text-xs sm:text-sm leading-relaxed text-white/70" style={{ lineHeight: 1.75 }}>
           <p>
-            My path into tech started with a simple question: <i>"How hard could it really be to
-            build this myself?"</i> (Spoiler: very hard, but it turns out I love the headache). That 
+            My path into tech started with a simple question: <i className="text-white/50">&ldquo;How hard could it really be to
+            build this myself?&rdquo;</i> (Spoiler: very hard, but it turns out I love the headache). That 
             relentless tinkering is the main reason this portfolio exists.
           </p>
         </div>
@@ -34,25 +63,36 @@ export default function AboutMe() {
         {/* Quick Facts Grid */}
         <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {FACTS.map((f: Fact) => (
-            <div key={f.label} className="card p-4">
-              <p className="micro-label mb-1">{f.label}</p>
-              <p className="text-sm font-medium">{f.value}</p>
+            <div key={f.label} className="card p-4 border border-white/10 bg-white/5">
+              <p 
+                className="micro-label mb-1 text-[10px] uppercase tracking-widest text-white/40" 
+                style={{ fontFamily: "'Kode Mono', monospace" }}
+              >
+                {f.label}
+              </p>
+              <p className="text-sm font-medium text-white">{f.value}</p>
             </div>
           ))}
         </div>
 
         {/* Current Goals */}
         <div>
-          <p className="micro-label mb-3">right now, I&rsquo;m working toward</p>
-          <ul className="space-y-2 text-sm" style={{ color: "var(--gray-500)" }}>
+          <p 
+            className="micro-label mb-3 text-[10px] uppercase tracking-widest text-white/40" 
+            style={{ fontFamily: "'Kode Mono', monospace" }}
+          >
+            right now, I&rsquo;m working toward
+          </p>
+          <ul className="space-y-2 text-xs sm:text-sm text-white/70">
             {GOALS.map((goal: string) => (
               <li key={goal} className="flex gap-2">
-                <span aria-hidden="true">&mdash;</span>
+                <span aria-hidden="true" className="text-white/40">&mdash;</span>
                 {goal}
               </li>
             ))}
           </ul>
         </div>
+
       </div>
     </section>
   );

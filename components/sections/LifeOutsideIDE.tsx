@@ -39,10 +39,10 @@ export default function LifeOutsideIDE() {
           
           {/* Left Column: Text & Interests */}
           <div className="lg:col-span-7 flex flex-col justify-center">
-            {/* Section Eyebrow Header */}
+            {/* Section Eyebrow Header in Geist Mono */}
             <p 
               className="section-eyebrow text-xs sm:text-sm mb-2 text-white/50 tracking-wider"
-              style={{ fontFamily: "'Kode Mono', monospace" }}
+              style={{ fontFamily: "'Geist Mono', monospace" }}
             >
               06 &mdash; life
             </p>

@@ -81,7 +81,7 @@ export default function TechStackShowcase() {
         <div className="mb-1.5 flex items-baseline justify-between">
           <p 
             className="section-eyebrow text-xs sm:text-sm font-medium text-white/50 mb-0 tracking-wider"
-            style={{ fontFamily: "'Kode Mono', monospace" }}
+            style={{ fontFamily: "'Geist Mono', monospace" }}
           >
             04 &mdash; stack
           </p>

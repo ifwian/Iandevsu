@@ -59,7 +59,7 @@ export default function Hero() {
     { label: "REPOS", value: "12 Public", href: "https://github.com/ifwian?tab=repositories", external: true },
     { label: "COMMITS", value: commitCount, href: "https://github.com/ifwian", external: true },
     { label: "PROJECTS", value: "5 Done", href: "#projects", external: false },
-    { label: "STATUS", value: "Busy", href: "#contact", external: false },
+    { label: "STATUS", value: "Busy", href: "#about", external: false },
   ];
 
   return (
