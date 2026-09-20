@@ -23,6 +23,15 @@ const POSTS: BlogPost[] = [
     image: "https://miro.medium.com/v2/resize:fit:640/format:webp/0*Wuo4CcK9AmfUH86Y",
   },
   {
+    title: "What They Don't Tell You About Your First Year in Computer Science",
+    date: "Sep 2026",
+    readTime: "5 min",
+    link: "https://medium.com/@iandevsu/what-they-dont-tell-you-about-your-first-year-in-computer-science-865f04806afe",
+    status: "LIVE ON MEDIUM",
+    isLive: true,
+    image: "https://miro.medium.com/v2/resize:fit:640/format:webp/0*9a8b7c6d5e4f3g2h",
+  },
+  {
     title: "Designing My Personal Portfolio: From Vibe Coding to Production",
     date: "Coming Soon",
     readTime: "Draft",
