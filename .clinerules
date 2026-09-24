@@ -1,0 +1,116 @@
+# Project rules — Marianne "Ian" Napaño's portfolio
+
+Vite + React + TypeScript, deployed on Vercel. Read this whole file before
+making changes. When a rule here conflicts with what looks "more correct"
+in general, follow this file — it reflects deliberate decisions made for
+this specific project, not defaults to override.
+
+## Stack & conventions
+
+- Vite (not Next.js) — no `app/` router directory, no `"use client"`
+  requirement, no Server Components. Routing is `react-router-dom`
+  (`src/App.tsx`), currently `/` and `/projects`.
+- Path alias `@/*` maps to the project root. Always import via `@/...`,
+  never relative paths like `../../components/...`.
+- `tsconfig.json` has `noUnusedLocals` and `noUnusedParameters` enabled.
+  An unused import or function parameter is a build error, not a warning —
+  remove it, don't just ignore the squiggle.
+- Icons: `lucide-react`. Its 1.0 release removed all trademarked brand
+  icons (GitHub, etc.) — never `import { Github } from "lucide-react"`,
+  it doesn't exist. Use `components/icons/GithubIcon.tsx` (a plain inline
+  SVG) for that one; follow the same pattern for any other brand mark.
+- Two React Bits components (`components/ui/PixelTransition.tsx`,
+  `components/ui/Stack.tsx`) use CSS Modules (`.module.css`), not global
+  CSS — that's required for Vite, don't convert them to plain `.css`
+  imports or inline Tailwind.
+
+## Design system — do not improvise around this
+
+Everything lives in `src/styles/theme.css` as CSS custom properties.
+Never hardcode a hex color, a font-family string, or a shadow value in a
+component — reference the token instead (`var(--ink)`, `var(--gray-500)`,
+`var(--font-display)`, etc.). If a new color/spacing need comes up, add
+the token to `theme.css` first, then use it.
+
+- **No accent color, ever.** The palette is strictly monochrome
+  (`--bg`, `--ink`, `--gray-50` through `--gray-950`) plus whatever
+  light/dark theming those resolve to. Don't introduce a blue link
+  color, a colored badge, a brand hue — emphasis comes from inversion
+  (ink-filled chip) or typography, never color.
+- **Three font roles, each with a specific job** — don't mix these up:
+  - `--font-body` (Geist): paragraph/body copy only.
+  - `--font-display` (Geist Pixel, self-hosted in `public/fonts/`):
+    headings (`h1`–`h6`, global rule already in `theme.css`), buttons,
+    arrow-links, nav labels, the `mrn.` logotype. Has no accented
+    characters — don't rely on it for text with diacritics.
+  - `--font-mono` (Geist Mono): the tiny uppercase "kicker" register —
+    section eyebrows (`01 — home`), `.micro-label`, `.pill` tags. Never
+    use the pixel font at that size, it's illegible.
+- Reusable classes already exist for common patterns — use them instead
+  of rebuilding with raw Tailwind: `.card`, `.pill` / `.pill-inverted`,
+  `.btn-primary`, `.link-arrow` (has a built-in hover-animated diagonal
+  arrow via `.arrow-glyph`), `.micro-label`, `.section-eyebrow`,
+  `.halftone` (dot-texture accent — used sparingly, at most 1-2 spots on
+  the whole page, never as general decoration).
+- Numbered section eyebrows (`01 — home`, `02 — about`, ...) must stay
+  sequential in whatever order the sections actually render in
+  `src/App.tsx`. If you reorder, add, or remove a section, renumber
+  every eyebrow after that point in the same change.
+- Light/dark theming is `data-theme` on `<html>`, toggled via
+  `components/layout/ThemeToggle.tsx`, persisted to `localStorage`. The
+  theme-switch circle animation uses the View Transitions API, gated
+  behind `@supports not (view-transition-name: none)` for the fallback
+  CSS crossfade — don't remove that `@supports` guard, both animations
+  running together is what caused a lag bug before.
+
+## File organization
+
+- `components/layout/` — sidebar, header, footer, theme toggle, main
+  page shell (`MainLayout.tsx`). Layout reserves sidebar space via a
+  spacer div in `MainLayout`, NOT via padding on individual sections —
+  don't re-add `lg:pl-*` to a section's own className, that duplicates
+  the offset (this was a real bug, twice).
+- `components/sections/` — one file per homepage section, each a
+  default-exported component rendering its own `<section id="...">`.
+  Composed in order inside `src/App.tsx`'s `Home` component.
+- `components/ui/` — generic, content-agnostic UI primitives (carousel,
+  pixel-transition effect, etc.) with no knowledge of this specific
+  portfolio's content.
+- `components/projects/`, `content/projects.ts`, `pages/ProjectsPage.tsx`
+  — the project list has one shared data source (`content/projects.ts`)
+  and one shared card component (`ProjectCard.tsx`), reused by both the
+  homepage preview (first 4) and the full `/projects` page. Don't fork
+  a second copy of the card markup — edit the shared one.
+- `api/` — Vercel serverless functions only (currently the Gemini chat
+  proxy). Never expose an API key to client code; if a feature needs a
+  secret, it goes through a function here.
+
+## Before deleting or restructuring anything
+
+1. Search the whole project for imports of a file before removing it —
+   don't assume something's unused from its name or folder alone.
+2. Files known to already be genuinely dead, safe to remove if still
+   present: any `app/` folder at the project root (pre-Vite leftover),
+   `components/ui/DepthCarousel.tsx` + `.module.css` (superseded by
+   `Stack.tsx`) — confirm nothing imports them before deleting even
+   these.
+3. If a cleanup candidate is ambiguous, don't delete it — leave it and
+   say so, rather than guessing.
+4. Never touch `tsconfig.json`, `vite.config.ts`, or `vercel.json`
+   without being asked specifically about them.
+
+## When adding a new homepage section
+
+Follow the existing pattern exactly (look at `components/sections/AboutMe.tsx`
+as the reference example):
+1. New file in `components/sections/`, default export, `<section id="...">`.
+2. `<p className="section-eyebrow">NN — name</p>` as the first element —
+   renumber later sections if inserting in the middle.
+3. Heading uses a semantic `<h2>` (picks up the display font
+   automatically via the global rule).
+4. Body copy in plain `<p>` tags (picks up `--font-body` automatically —
+   don't set `fontFamily` explicitly unless deliberately deviating).
+5. Import and place it in `src/App.tsx`'s `Home` component in the right
+   order; add a matching entry to `NAV_ITEMS` in
+   `components/layout/Sidebar.tsx` with a `lucide-react` icon (or a
+   custom icon component if it's a brand mark).
