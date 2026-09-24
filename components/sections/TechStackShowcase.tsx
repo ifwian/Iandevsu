@@ -70,7 +70,7 @@ export default function TechStackShowcase() {
   return (
     <section 
       id="stack" 
-      className="snap-start px-5 py-16 lg:px-6 lg:pl-56"
+      className="snap-start px-5 py-16 lg:px-6 flex justify-center"
       style={{ fontFamily: "'Geist Mono', monospace" }}
     >
       <div className="w-full max-w-4xl mx-auto">

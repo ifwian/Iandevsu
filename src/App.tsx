@@ -13,7 +13,7 @@ import ProjectsPage from "@/pages/ProjectsPage";
 function Home() {
   return (
     <MainLayout>
-      <div className="w-full max-w-4xl space-y-16">
+      <div className="w-full max-w-4xl mx-auto space-y-16">
         <Hero />
         <AboutMe />
         <Projects />

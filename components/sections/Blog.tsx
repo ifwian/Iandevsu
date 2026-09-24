@@ -58,7 +58,7 @@ export default function BlogSection() {
   return (
     <section 
       id="blog" 
-      className="px-5 py-16 lg:px-6 lg:pl-56 flex justify-center"
+      className="px-5 py-16 lg:px-6 flex justify-center"
       style={{ fontFamily: "'Geist Mono', monospace" }}
     >
       <div className="w-full max-w-4xl mx-auto">
