@@ -6,8 +6,8 @@ export default function Projects() {
   const preview = PROJECTS.slice(0, 4);
 
   return (
-    <section id="projects" className="px-5 py-16 lg:px-6 lg:pl-56 flex justify-center" style={{ fontFamily: "'Geist Mono', monospace" }}>
-      <div className="max-w-4xl">
+    <section id="projects" className="px-5 py-16 lg:px-6 flex justify-center" style={{ fontFamily: "'Geist Mono', monospace" }}>
+      <div className="w-full max-w-4xl mx-auto">
         <p className="section-eyebrow text-xs mb-1">03 &mdash; projects</p>
 
         <h2 className="mb-2 text-xl sm:text-2xl font-semibold tracking-tight text-[var(--ink)]" style={{ fontFamily: "'Kode Mono', monospace" }}>

@@ -31,10 +31,10 @@ export default function LifeOutsideIDE() {
   return (
     <section 
       id="life" 
-      className="px-5 py-16 lg:px-6 lg:pl-56"
+      className="px-5 py-16 lg:px-6 flex justify-center"
       style={{ fontFamily: "'Geist Mono', monospace" }}
     >
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full max-w-4xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 lg:gap-16 items-center">
           
           {/* Left Column: Text & Interests */}

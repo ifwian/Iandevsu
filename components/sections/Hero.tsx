@@ -65,10 +65,10 @@ export default function Hero() {
   return (
     <section 
       id="home" 
-      className="px-5 pt-12 pb-16 lg:px-6 lg:pl-56"
+      className="px-5 pt-12 pb-16 lg:px-6"
       style={{ fontFamily: "'Geist Mono', monospace" }}
     >
-      <div className="max-w-4xl">
+      <div className="max-w-4xl mx-auto">
 
         {/* Eyebrow at the top */}
         <p className="section-eyebrow mb-6 text-xs text-[var(--gray-400)]">01 &mdash; home</p>
@@ -165,27 +165,24 @@ export default function Hero() {
                 className="flex items-baseline gap-1" 
                 style={{ fontFamily: "'Kode Mono', monospace" }}
               >
-                <span className="text-base sm:text-lg font-semibold tracking-tight text-[var(--ink)] group-hover:text-[var(--gray-100)]">
-                  {stat.value}
-                </span>
+                <span className="text-base sm:text-lg font-semibold tracking-tight text-[var(--ink)]">
+                   {stat.value}
+                 </span>
 
-                {stat.label === "STATUS" && (
-                  <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse ml-0.5 self-center" />
-                )}
+                 {stat.label === "STATUS" && (
+                   <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse ml-0.5 self-center" />
+                 )}
 
-                <span className="text-[10px] text-[var(--gray-400)] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[var(--ink)]">
-                  {String.fromCharCode(8599)}
-                </span>
-              </div>
-              <span 
-                className="mt-1 text-[10px] tracking-widest uppercase font-normal transition-colors group-hover:text-[var(--gray-400)]" 
-                style={{ 
-                  color: "var(--gray-500)", 
-                  fontFamily: "'Kode Mono', monospace" 
-                }}
-              >
-                {stat.label}
-              </span>
+                 <span className="text-[10px] text-[var(--gray-400)] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[var(--ink)]">
+                   {String.fromCharCode(8599)}
+                 </span>
+               </div>
+               <span 
+                 className="mt-1 text-[10px] tracking-widest uppercase font-normal text-[var(--ink)]"
+                 style={{ fontFamily: "'Kode Mono', monospace" }}
+               >
+                 {stat.label}
+               </span>
             </a>
           ))}
         </div>

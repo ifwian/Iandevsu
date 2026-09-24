@@ -90,10 +90,10 @@ export default function GithubActivity() {
   return (
     <section 
       id="github" 
-      className="px-5 py-16 lg:px-6 lg:pl-56"
+      className="px-5 py-16 lg:px-6 flex justify-center"
       style={{ fontFamily: "'Geist Mono', monospace" }}
     >
-      <div className="max-w-4xl">
+      <div className="w-full max-w-4xl mx-auto">
         {/* Eyebrow and Profile Link */}
         <div className="mb-2 flex items-baseline justify-between">
           <p 
@@ -128,7 +128,7 @@ export default function GithubActivity() {
 
         {/* Card Container with Smooth Box Hover Effects */}
         <div 
-          className="card flex flex-col p-5 sm:p-7 rounded-xl bg-[var(--gray-50)] border border-[var(--gray-200)] transition-all duration-300 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.3)]"
+          className="card flex flex-col p-4 sm:p-6 lg:p-8 rounded-xl bg-[var(--gray-50)] border border-[var(--gray-200)] transition-all duration-300 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.3)]"
         >
           <div className="w-full">
             

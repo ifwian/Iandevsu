@@ -89,10 +89,10 @@ export default function Education() {
   return (
     <section 
       id="education" 
-      className="px-5 py-12 lg:px-6 lg:pl-56"
+      className="px-5 py-16 lg:px-6 flex justify-center"
       style={{ fontFamily: "'Geist Mono', monospace" }}
     >
-      <div className="max-w-4xl">
+      <div className="w-full max-w-4xl mx-auto">
         <p className="section-eyebrow text-xs mb-1 text-[var(--gray-400)] font-medium">05 &mdash; education</p>
 
         <h2 
@@ -107,10 +107,10 @@ export default function Education() {
         </p>
 
         <div className="grid grid-cols-1 gap-6 md:gap-8 md:grid-cols-2 pt-6 border-t border-[var(--gray-200)]">
-          <div className="md:pr-8 md:border-r md:border-[var(--gray-200)]">
+          <div className="md:pr-8">
             <TimelineGroup heading="education" entries={EDUCATION} />
           </div>
-          <div>
+          <div className="md:pl-8">
             <TimelineGroup heading="certifications" entries={CERTIFICATIONS} />
           </div>
         </div>
