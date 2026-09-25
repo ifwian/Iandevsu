@@ -223,7 +223,7 @@ you want to test the chat widget, or test it after pushing to Vercel.
 
 ### Model name
 
-`api/chat.ts` defaults to `gemini-2.5-flash`, overridable via the
+`api/chat.ts` defaults to `gemini-3.8-flash`, overridable via the
 `GEMINI_MODEL` env var without touching code. Gemini's model lineup
 moves fast and Google has been retiring versions on a few months'
 notice -- if the default 404s, check

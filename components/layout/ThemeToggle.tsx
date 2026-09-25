@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Monitor, Sun, Moon } from "lucide-react";
+import { Monitor, Moon, Sun } from "lucide-react";
 
 type ThemeChoice = "light" | "dark" | "system";
 const STORAGE_KEY = "theme";
@@ -16,13 +16,26 @@ function applyTheme(choice: ThemeChoice) {
   else root.setAttribute("data-theme", choice);
 }
 
-/** Three-button segmented toggle -- pick a theme directly instead of cycling. */
-export default function ThemeToggle({ className = "" }: { className?: string }) {
+interface ThemeToggleProps {
+  className?: string;
+  compact?: boolean;
+}
+
+export default function ThemeToggle({ className = "", compact = false }: ThemeToggleProps) {
   const [choice, setChoice] = useState<ThemeChoice>("system");
+  const [systemDark, setSystemDark] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as ThemeChoice | null;
-    if (stored) setChoice(stored);
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === "light" || stored === "dark" || stored === "system") {
+      setChoice(stored);
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const updateSystemTheme = () => setSystemDark(mediaQuery.matches);
+    updateSystemTheme();
+    mediaQuery.addEventListener("change", updateSystemTheme);
+    return () => mediaQuery.removeEventListener("change", updateSystemTheme);
   }, []);
 
   const select = (next: ThemeChoice) => {
@@ -30,6 +43,25 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
     localStorage.setItem(STORAGE_KEY, next);
     applyTheme(next);
   };
+
+  const isDark = choice === "dark" || (choice === "system" && systemDark);
+
+  if (compact) {
+    const Icon = isDark ? Moon : Sun;
+
+    return (
+      <button
+        type="button"
+        onClick={() => select(isDark ? "light" : "dark")}
+        aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+        aria-pressed={isDark}
+        title={isDark ? "Switch to light theme" : "Switch to dark theme"}
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--gray-200)] text-[var(--gray-500)] transition-colors hover:text-[var(--ink)] ${className}`.trim()}
+      >
+        <Icon size={15} strokeWidth={1.7} />
+      </button>
+    );
+  }
 
   return (
     <div
