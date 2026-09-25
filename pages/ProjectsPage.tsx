@@ -5,7 +5,7 @@ import ProjectCard from "@/components/projects/ProjectCard";
 
 export default function ProjectsPage() {
   return (
-    <div className="min-h-screen py-16 px-6 lg:pl-56" style={{ fontFamily: "'Geist Mono', monospace" }}>
+    <div className="min-h-screen px-6 py-16 lg:pl-80" style={{ fontFamily: "'Geist Mono', monospace" }}>
       <div className="max-w-4xl mx-auto">
         <Link
           to="/"

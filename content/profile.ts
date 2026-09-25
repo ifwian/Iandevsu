@@ -20,6 +20,7 @@ export const PROFILE = {
     core: ["HTML", "CSS", "JavaScript"],
     tools: ["Git", "GitHub", "Figma"],
     learning: ["React", "Node.js", "SQL", "Java", "Python"],
+    skills: ["C++", "Java", "Python", "React", "HTML", "CSS", "JavaScript", "web development"],
   },
   projects: [
     "Coffee Shop Website -- a responsive landing page practicing HTML/CSS layout (not deployed yet).",
@@ -47,6 +48,7 @@ ${PROFILE.bio.map((line) => `- ${line}`).join("\n")}
 
 Tech stack:
 - Core: ${PROFILE.stack.core.join(", ")}
+- Skills: ${PROFILE.stack.skills.join(", ")}
 - Tools: ${PROFILE.stack.tools.join(", ")}
 - Currently learning: ${PROFILE.stack.learning.join(", ")}
 

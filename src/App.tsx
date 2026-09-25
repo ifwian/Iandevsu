@@ -9,6 +9,7 @@ import LifeOutsideIDE from "@/components/sections/LifeOutsideIDE";
 import GithubActivity from "@/components/sections/GithubActivity";
 import Blog from "@/components/sections/Blog";
 import ProjectsPage from "@/pages/ProjectsPage";
+import ChatInboxPage from "@/pages/ChatInboxPage";
 
 function Home() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/chat-inbox" element={<ChatInboxPage />} />
       </Routes>
     </BrowserRouter>
   );
