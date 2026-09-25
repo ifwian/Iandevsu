@@ -3,7 +3,6 @@
 import { ReactNode } from "react";
 import Sidebar from "./Sidebar";
 import ScrollTopButton from "./ScrollTopButton";
-import ChatWithIan from "../chat/ChatWithIan";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -18,14 +17,13 @@ export default function MainLayout({ children }: MainLayoutProps) {
       </div>
 
       {/* Main content wrapper */}
-      <main id="main-content" className="w-full lg:pl-56 px-5 lg:px-8 py-8 sm:py-12">
+      <main id="main-content" className="w-full px-5 pb-8 pt-20 sm:pt-24 lg:px-0 lg:py-12 lg:pl-80 lg:pr-8">
         <div className="max-w-4xl mx-auto">
           {children}
         </div>
       </main>
 
       <ScrollTopButton />
-      <ChatWithIan />
     </div>
   );
 }
