@@ -576,7 +576,7 @@ async function proxyGeminiStream(
 
 export const config = { maxDuration: 60 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handleChat(req: VercelRequest, res: VercelResponse) {
   if (req.method === "GET") {
     const query = getRequestQuery(req);
 
@@ -756,5 +756,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const message = error instanceof Error ? error.message : "Gemini stream failed";
     writeServerEvent(res, { type: "error", error: message });
     return res.end();
+  }
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
+    return await handleChat(req, res);
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error(
+      JSON.stringify({
+        scope: "ian-chat-handler",
+        message: err.message,
+        stack: err.stack,
+      })
+    );
+
+    if (res.headersSent) {
+      res.end();
+      return;
+    }
+
+    return res.status(500).json({ error: err.message, stack: err.stack });
   }
 }
