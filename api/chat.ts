@@ -1,55 +1,89 @@
 import { timingSafeEqual } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { buildProfileContext, PROFILE } from "../content/profile.js";
 
-const DEFAULT_MODEL = "gemini-3.8-flash";
+/**
+ * Profile facts are inlined rather than imported from `content/profile.ts`.
+ *
+ * A relative import out of `/api` compiles to a bare `require()` that Vercel's
+ * `@vercel/node` builder resolves with `@vercel/nft`. The tracer ships the
+ * `.ts` file but leaves the emitted specifier untouched, so the lambda dies on
+ * `MODULE_NOT_FOUND` during module evaluation -- before the handler runs --
+ * which surfaces as a top-level `FUNCTION_INVOCATION_FAILED`. Keeping this
+ * file self-contained removes that whole failure mode.
+ *
+ * Keep in sync with `content/profile.ts` (used by the front-end).
+ */
+const PROFILE = {
+  name: "Marianne Napaño",
+  goesBy: "Ian",
+  headline: "Computer Science student & aspiring web developer",
+  location: "Calamba, Philippines",
+  bio: [
+    "Computer Science student at City College of Calamba (2025-2029), exploring web development and software engineering.",
+    "Currently learning React, Node.js, and SQL, on top of a solid HTML/CSS/JavaScript/Git foundation.",
+    "Enjoys building small, practical projects to learn by doing rather than just reading about it.",
+    "Interests outside code: photography, reading, gaming, badminton, music.",
+  ],
+  stack: {
+    core: ["HTML", "CSS", "JavaScript"],
+    tools: ["Git", "GitHub", "Figma"],
+    learning: ["React", "Node.js", "SQL", "Java", "Python"],
+    skills: ["C++", "Java", "Python", "React", "HTML", "CSS", "JavaScript", "web development"],
+  },
+  projects: [
+    "Coffee Shop Website -- a responsive landing page practicing HTML/CSS layout (not deployed yet).",
+    "Calculator -- a JavaScript DOM manipulation exercise (not deployed yet).",
+    "To-Do List -- practicing arrays and local storage (not deployed yet).",
+    "Weather App -- fetching and displaying live data from a weather API (not deployed yet).",
+  ],
+  certifications: ["HackerRank: Python (Basic), Java (Basic), JavaScript (Intermediate), C# (Basic)"],
+  links: {
+    email: "iandevsu@gmail.com",
+    github: "https://github.com/ifwian",
+    linkedin: "https://www.linkedin.com/in/ifwiannn/",
+  },
+} as const;
+
+function buildProfileContext(): string {
+  return `
+Name: ${PROFILE.name} (goes by "${PROFILE.goesBy}")
+Headline: ${PROFILE.headline}
+Location: ${PROFILE.location}
+
+Bio:
+${PROFILE.bio.map((line) => `- ${line}`).join("\n")}
+
+Tech stack:
+- Core: ${PROFILE.stack.core.join(", ")}
+- Skills: ${PROFILE.stack.skills.join(", ")}
+- Tools: ${PROFILE.stack.tools.join(", ")}
+- Currently learning: ${PROFILE.stack.learning.join(", ")}
+
+Projects:
+${PROFILE.projects.map((p) => `- ${p}`).join("\n")}
+
+Certifications:
+${PROFILE.certifications.map((c) => `- ${c}`).join("\n")}
+
+Contact: GitHub ${PROFILE.links.github} · LinkedIn ${PROFILE.links.linkedin}
+`.trim();
+}
+
+const DEFAULT_MODEL = "gemini-1.5-flash";
 const FALLBACK_MODELS = [
-  "gemini-3.7-flash",
-  "gemini-3.5-flash",
-  "gemini-3.5-flash-lite",
-  "gemini-3.1-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash-lite",
 ];
 const MAX_TURNS = 12;
 const MAX_MESSAGE_LENGTH = 600;
 const NOTIFICATION_TIMEOUT_MS = 3500;
 const NOTIFICATION_EMAIL = "iandevsu@gmail.com";
 const SUPABASE_TIMEOUT_MS = 5000;
-
-function getGeminiApiKey(): string | undefined {
-  return process.env.GEMINI_API_KEY?.trim() || undefined;
-}
-
-function getModelCandidates(): string[] {
-  const configured = (process.env.GEMINI_MODEL || DEFAULT_MODEL).replace(/^models\//, "");
-  return Array.from(new Set([configured, DEFAULT_MODEL, ...FALLBACK_MODELS]));
-}
-
-async function requestGemini(
-  apiKey: string,
-  model: string,
-  messages: ChatMessage[]
-): Promise<Response> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
-
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": apiKey,
-    },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: messages.map((message) => ({
-        role: message.role === "model" ? "model" : "user",
-        parts: [{ text: message.text }],
-      })),
-      generationConfig: {
-        maxOutputTokens: 500,
-        temperature: 0.7,
-      },
-    }),
-  });
-}
+const GEMINI_HANDSHAKE_TIMEOUT_MS = 20000;
+const GEMINI_STREAM_IDLE_TIMEOUT_MS = 30000;
+const MAX_UPSTREAM_DETAIL_LENGTH = 300;
 
 interface ChatMessage {
   role: "user" | "model";
@@ -88,7 +122,16 @@ interface ChatRequest {
   text?: unknown;
 }
 
-const SYSTEM_PROMPT = `
+/**
+ * Built on first chat request rather than at module scope, so no prompt
+ * assembly can ever abort module evaluation.
+ */
+let cachedSystemPrompt: string | null = null;
+
+function getSystemPrompt(): string {
+  if (cachedSystemPrompt !== null) return cachedSystemPrompt;
+  try {
+    cachedSystemPrompt = `
 You are the AI assistant for Marianne Napaño's personal portfolio. You are chatting as Ian, Marianne's go-to name, on her portfolio website. Keep answers warm, direct, and conversational, usually in 2-4 short sentences unless the visitor asks for detail.
 
 Marianne is a Computer Science student at City College of Calamba in Calamba, Philippines. She works with C++, Java, Python, React, HTML, CSS, JavaScript, Git, and web development. Her projects include responsive coffee shop websites, calculators, to-do lists, and weather apps. She enjoys learning by building practical projects and is exploring web development and software engineering.
@@ -103,6 +146,68 @@ Rules:
 - If a fact is not available, say so and suggest contacting Marianne at ${PROFILE.links.email}.
 - Do not write code or perform unrelated tasks; redirect to questions about Marianne's background, projects, skills, or portfolio.
 `.trim();
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        scope: "ian-chat-prompt",
+        message: error instanceof Error ? error.message : String(error),
+      })
+    );
+    cachedSystemPrompt =
+      "You are Ian, the AI assistant for Marianne Napaño's portfolio. " +
+      `Answer warmly and briefly. Direct portfolio questions to ${PROFILE.links.email}.`;
+  }
+  return cachedSystemPrompt;
+}
+
+function getGeminiApiKey(): string | undefined {
+  return process.env.GEMINI_API_KEY?.trim() || undefined;
+}
+
+function getModelCandidates(): string[] {
+  const configured = (process.env.GEMINI_MODEL || DEFAULT_MODEL).replace(/^models\//, "");
+  return Array.from(new Set([configured, DEFAULT_MODEL, ...FALLBACK_MODELS]));
+}
+
+async function requestGemini(
+  apiKey: string,
+  model: string,
+  messages: ChatMessage[]
+): Promise<Response> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
+
+  // Bound the handshake only; the timer is cleared once headers arrive so it can
+  // never cut a healthy stream short. Without it a stalled upstream connection
+  // pins the invocation until the platform kills it, which Vercel reports as
+  // FUNCTION_INVOCATION_FAILED.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), GEMINI_HANDSHAKE_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: getSystemPrompt() }] },
+        contents: messages.map((message) => ({
+          role: message.role === "model" ? "model" : "user",
+          parts: [{ text: message.text }],
+        })),
+        generationConfig: {
+          maxOutputTokens: 500,
+          temperature: 0.7,
+        },
+      }),
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 function parseBody(req: VercelRequest): ChatRequest {
   if (typeof req.body === "string") {
@@ -171,7 +276,7 @@ async function supabaseRequest(path: string, init: RequestInit = {}): Promise<un
           scope: "ian-chat-supabase",
           status: response.status,
           path,
-          detail: detail.slice(0, 300),
+          detail: detail.slice(0, MAX_UPSTREAM_DETAIL_LENGTH),
         })
       );
       return null;
@@ -507,6 +612,7 @@ async function notifyChatEvent(
 }
 
 function writeServerEvent(res: VercelResponse, payload: Record<string, unknown>): void {
+  if (res.writableEnded) return;
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
@@ -557,8 +663,25 @@ async function proxyGeminiStream(
     }
   };
 
+  // An upstream that stops sending without closing would otherwise hang the
+  // invocation until the platform reaps it, so bound each individual read.
+  const readChunk = async (): Promise<ReadableStreamReadResult<Uint8Array>> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const guard = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error("Gemini stream stalled")),
+        GEMINI_STREAM_IDLE_TIMEOUT_MS
+      );
+    });
+    try {
+      return await Promise.race([reader.read(), guard]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+
   while (true) {
-    const { done, value } = await reader.read();
+    const { done, value } = await readChunk();
     buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
     const blocks = buffer.split(/\r?\n\r?\n/);
     buffer = blocks.pop() || "";
@@ -574,9 +697,12 @@ async function proxyGeminiStream(
   return reply;
 }
 
-export const config = { maxDuration: 60 };
-
 async function handleChat(req: VercelRequest, res: VercelResponse) {
+  if (req.method === "OPTIONS") {
+    res.setHeader("Allow", "GET, POST, OPTIONS");
+    return res.status(204).end();
+  }
+
   if (req.method === "GET") {
     const query = getRequestQuery(req);
 
@@ -618,7 +744,7 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
+    res.setHeader("Allow", "GET, POST, OPTIONS");
     return res.status(405).json({ error: "Method not allowed" });
   }
 
@@ -687,7 +813,21 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
     sessionStartedAt,
     getLastUserMessage(modelMessages)
   );
-  const notificationPromise = notifyChatEvent(event, visitorId, sessionStartedAt, modelMessages);
+  // Never left dangling: an unhandled rejection here would take the whole
+  // invocation down instead of just skipping the notification.
+  const notificationPromise = notifyChatEvent(
+    event,
+    visitorId,
+    sessionStartedAt,
+    modelMessages
+  ).catch((error: unknown) => {
+    console.error(
+      JSON.stringify({
+        scope: "ian-chat-notification-error",
+        message: error instanceof Error ? error.message : String(error),
+      })
+    );
+  });
 
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
@@ -722,7 +862,7 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
       JSON.stringify({
         scope: "ian-chat-gemini-error",
         status: lastStatus,
-        detail: lastDetail.slice(0, 300),
+        detail: lastDetail.slice(0, MAX_UPSTREAM_DETAIL_LENGTH),
       })
     );
     if (lastStatus === 429) {
@@ -735,6 +875,11 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
       return res.status(502).json({ error: "The configured Gemini model is unavailable." });
     }
     return res.status(502).json({ error: "Could not reach Gemini" });
+  }
+
+  if (res.headersSent) {
+    res.end();
+    return;
   }
 
   res.statusCode = 200;
@@ -754,6 +899,13 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     await notificationPromise;
     const message = error instanceof Error ? error.message : "Gemini stream failed";
+    console.error(
+      JSON.stringify({
+        scope: "ian-chat-stream-error",
+        message,
+        stack: error instanceof Error ? error.stack : undefined,
+      })
+    );
     writeServerEvent(res, { type: "error", error: message });
     return res.end();
   }
@@ -772,11 +924,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
     );
 
-    if (res.headersSent) {
+    if (res.headersSent || res.writableEnded) {
       res.end();
       return;
     }
 
-    return res.status(500).json({ error: err.message, stack: err.stack });
+    // Stack traces stay server-side; they leak paths and internals to clients.
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
