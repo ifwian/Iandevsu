@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { buildProfileContext, PROFILE } from "../content/profile";
+import { buildProfileContext, PROFILE } from "../content/profile.js";
 
 const DEFAULT_MODEL = "gemini-3.8-flash";
 const FALLBACK_MODELS = [
