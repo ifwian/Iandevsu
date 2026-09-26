@@ -21,7 +21,25 @@ interface InboxMessage {
   created_at: string;
 }
 
-const TOKEN_STORAGE_KEY = "ian";
+const SESSION_STORAGE_KEY = "ian-chat-admin-session";
+
+function getStoredSession(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return sessionStorage.getItem(SESSION_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function storeSession(value: string): void {
+  try {
+    if (value) sessionStorage.setItem(SESSION_STORAGE_KEY, value);
+    else sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch {
+    return;
+  }
+}
 
 function isConversation(value: unknown): value is Conversation {
   if (!value || typeof value !== "object") return false;
@@ -48,15 +66,6 @@ function isInboxMessage(value: unknown): value is InboxMessage {
   );
 }
 
-function getStoredToken(): string {
-  if (typeof window === "undefined") return "";
-  try {
-    return sessionStorage.getItem(TOKEN_STORAGE_KEY) || "";
-  } catch {
-    return "";
-  }
-}
-
 function getErrorMessage(data: unknown, fallback: string): string {
   if (data && typeof data === "object" && "error" in data && typeof data.error === "string") {
     return data.error;
@@ -80,12 +89,10 @@ function roleLabel(role: InboxMessage["role"]): string {
 }
 
 export default function ChatInboxPage() {
-  const [token, setToken] = useState(getStoredToken);
-  const [tokenDraft, setTokenDraft] = useState(token);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [session, setSession] = useState(getStoredSession);
+  const [passwordDraft, setPasswordDraft] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
-  const [authReady, setAuthReady] = useState(!supabase);
+  const [authReady, setAuthReady] = useState(true);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [messages, setMessages] = useState<InboxMessage[]>([]);
@@ -94,45 +101,38 @@ export default function ChatInboxPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!supabase) return;
-    let active = true;
+  const token = session;
 
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        if (!active || !data.session) return;
-        setToken(data.session.access_token);
-        setTokenDraft("");
-        sessionStorage.setItem(TOKEN_STORAGE_KEY, data.session.access_token);
+  // A session restored from storage is only trusted once the server has
+  // accepted it, so an expired or tampered value cannot unlock the UI.
+  useEffect(() => {
+    let active = true;
+    if (!session) {
+      setAuthReady(true);
+      return;
+    }
+    setAuthReady(false);
+    fetch(apiUrl("/api/chat?admin=1"), {
+      headers: { Authorization: `Bearer ${session}` },
+      cache: "no-store",
+    })
+      .then((response) => {
+        if (!active) return;
+        if (response.status === 401) {
+          storeSession("");
+          setSession("");
+          setConversations([]);
+          setMessages([]);
+        }
       })
-      .catch((caughtError) => {
-        if (active) setError(caughtError instanceof Error ? caughtError.message : "Could not restore Supabase session");
-      })
+      .catch(() => undefined)
       .finally(() => {
         if (active) setAuthReady(true);
       });
-
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!active) return;
-      if (event === "SIGNED_OUT") {
-        setToken("");
-        setConversations([]);
-        setSelectedId("");
-        return;
-      }
-      if (session) {
-        setToken(session.access_token);
-        setTokenDraft("");
-        sessionStorage.setItem(TOKEN_STORAGE_KEY, session.access_token);
-      }
-    });
-
     return () => {
       active = false;
-      data.subscription.unsubscribe();
     };
-  }, []);
+  }, [session]);
 
   const selectedConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedId) || null,
@@ -169,8 +169,8 @@ export default function ChatInboxPage() {
       setError(null);
     } catch (caughtError) {
       if (isUnauthorizedError(caughtError)) {
-        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
-        setToken("");
+        storeSession("");
+        setSession("");
         setConversations([]);
         setSelectedId("");
         setMessages([]);
@@ -241,53 +241,37 @@ export default function ChatInboxPage() {
     };
   }, [loadConversations, loadMessages, selectedId, token]);
 
-  const connect = async () => {
-    const nextToken = tokenDraft.trim();
-    if (!nextToken || authBusy) return;
+  const login = async () => {
+    const password = passwordDraft.trim();
+    if (!password || authBusy) return;
     setAuthBusy(true);
     setError(null);
     try {
-      const response = await fetch(apiUrl("/api/chat?admin=1"), {
-        headers: { Authorization: `Bearer ${nextToken}` },
-        cache: "no-store",
+      const response = await fetch(apiUrl("/api/chat"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event: "admin_login", password }),
       });
       const data: unknown = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(getErrorMessage(data, "Admin authorization failed"));
-      sessionStorage.setItem(TOKEN_STORAGE_KEY, nextToken);
-      setToken(nextToken);
-      setTokenDraft("");
+      if (!response.ok) throw new Error(getErrorMessage(data, "Could not sign in"));
+      if (!data || typeof data !== "object" || !("session" in data) || typeof data.session !== "string" || !data.session) {
+        throw new Error("Server did not return a session");
+      }
+      // Only the signed session is stored -- the password is never persisted.
+      storeSession(data.session);
+      setSession(data.session);
+      setPasswordDraft("");
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Could not connect with that token");
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
-  const signIn = async () => {
-    if (!supabase || !email.trim() || !password) return;
-    setAuthBusy(true);
-    try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-      if (signInError || !data.session) throw new Error(signInError?.message || "Supabase sign-in failed");
-      setToken(data.session.access_token);
-      setTokenDraft("");
-      sessionStorage.setItem(TOKEN_STORAGE_KEY, data.session.access_token);
-      setError(null);
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Supabase sign-in failed");
+      setError(caughtError instanceof Error ? caughtError.message : "Could not sign in");
     } finally {
       setAuthBusy(false);
     }
   };
 
   const disconnect = () => {
-    if (supabase) void supabase.auth.signOut();
-    sessionStorage.removeItem(TOKEN_STORAGE_KEY);
-    setToken("");
-    setTokenDraft("");
+    storeSession("");
+    setSession("");
+    setPasswordDraft("");
     setConversations([]);
     setSelectedId("");
     setMessages([]);
@@ -346,61 +330,37 @@ export default function ChatInboxPage() {
               <MessageCircle size={20} />
               <div>
                 <h2 className="text-base font-semibold">Admin access</h2>
-                 <p className="text-xs text-[var(--gray-500)]">Enter CHAT_ADMIN_TOKEN; URL query tokens are not accepted.</p>
+                <p className="text-xs text-[var(--gray-500)]">Enter the admin password to read and reply to visitor chats.</p>
               </div>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <form
+              className="flex flex-col gap-3 sm:flex-row"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void login();
+              }}
+            >
               <input
                 type="password"
-                value={tokenDraft}
-                onChange={(event) => setTokenDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") void connect();
-                }}
-                placeholder="CHAT_ADMIN_TOKEN"
+                value={passwordDraft}
+                onChange={(event) => setPasswordDraft(event.target.value)}
+                placeholder="admin password"
+                autoComplete="current-password"
+                autoFocus
                 className="min-w-0 flex-1 rounded-lg border border-[var(--gray-300)] bg-[var(--gray-50)] px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
               />
               <button
-                type="button"
-                onClick={() => void connect()}
-                disabled={authBusy}
+                type="submit"
+                disabled={authBusy || !passwordDraft.trim()}
                 className="rounded-lg bg-[var(--ink)] px-4 py-2 text-sm text-[var(--bg)] transition-opacity hover:opacity-80 disabled:opacity-50"
               >
-                connect
+                {authBusy ? "checking..." : "unlock"}
               </button>
-            </div>
-            {supabase && (
-              <div className="mt-5 border-t border-[var(--gray-200)] pt-5">
-                <p className="mb-3 text-xs text-[var(--gray-500)]">Supabase admin login enables Realtime updates.</p>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="admin email"
-                    className="min-w-0 flex-1 rounded-lg border border-[var(--gray-300)] bg-[var(--gray-50)] px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
-                  />
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") void signIn();
-                    }}
-                    placeholder="password"
-                    className="min-w-0 flex-1 rounded-lg border border-[var(--gray-300)] bg-[var(--gray-50)] px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void signIn()}
-                    disabled={authBusy}
-                    className="rounded-lg border border-[var(--ink)] px-4 py-2 text-sm text-[var(--ink)] transition-colors hover:bg-[var(--ink)] hover:text-[var(--bg)] disabled:opacity-50"
-                  >
-                    {authBusy ? "signing in..." : "sign in"}
-                  </button>
-                </div>
-              </div>
-            )}
+            </form>
+            <p className="mt-3 text-[10px] leading-relaxed text-[var(--gray-400)]">
+              Set <code>CHAT_ADMIN_PASSWORD</code> on the server. Sessions last 12 hours and are kept
+              in this tab only, so closing the browser signs you out.
+            </p>
             {error && <p className="mt-3 text-xs text-red-500" role="alert">{error}</p>}
           </section>
         ) : (

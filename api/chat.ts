@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 /**
@@ -118,6 +118,7 @@ interface ChatRequest {
   conversationId?: unknown;
   visitorAuthId?: unknown;
   text?: unknown;
+  password?: unknown;
 }
 
 /**
@@ -306,21 +307,25 @@ function getRequestQuery(req: VercelRequest): URLSearchParams {
   return new URL(req.url || "/", "http://localhost").searchParams;
 }
 
-function hasAdminToken(req: VercelRequest): boolean {
-  const expected = process.env.CHAT_ADMIN_TOKEN;
-  const authorization = req.headers?.authorization;
-  if (!expected || typeof authorization !== "string" || !authorization.startsWith("Bearer ")) return false;
-
-  const provided = Buffer.from(authorization.slice(7));
-  const expectedBuffer = Buffer.from(expected);
-  return provided.length === expectedBuffer.length && timingSafeEqual(provided, expectedBuffer);
+/**
+ * Newer Supabase projects issue publishable keys instead of a legacy anon key,
+ * so fall back through the variants rather than silently failing every signed-in
+ * visitor lookup when only one of them is set. This identifies *visitors* (to
+ * bind a conversation to them); it is no longer part of the admin decision.
+ */
+function getSupabaseAuthKey(): string | undefined {
+  return (
+    process.env.SUPABASE_ANON_KEY?.trim() ||
+    process.env.SUPABASE_PUBLISHABLE_KEY?.trim() ||
+    undefined
+  );
 }
 
 async function getSupabaseUserId(req: VercelRequest): Promise<string | null> {
   const config = getSupabaseConfig();
-  const anonKey = process.env.SUPABASE_ANON_KEY;
+  const authKey = getSupabaseAuthKey();
   const authorization = req.headers?.authorization;
-  if (!config || !anonKey || typeof authorization !== "string" || !authorization.startsWith("Bearer ")) {
+  if (!config || !authKey || typeof authorization !== "string" || !authorization.startsWith("Bearer ")) {
     return null;
   }
 
@@ -328,7 +333,7 @@ async function getSupabaseUserId(req: VercelRequest): Promise<string | null> {
   const timeout = setTimeout(() => controller.abort(), SUPABASE_TIMEOUT_MS);
   try {
     const response = await fetch(`${config.url}/auth/v1/user`, {
-      headers: { apikey: anonKey, Authorization: authorization },
+      headers: { apikey: authKey, Authorization: authorization },
       signal: controller.signal,
     });
     if (!response.ok) return null;
@@ -342,14 +347,123 @@ async function getSupabaseUserId(req: VercelRequest): Promise<string | null> {
   }
 }
 
+/* ---------------------------------------------------------------------------
+ * Admin auth: one password -> one short-lived signed session.
+ *
+ * The admin types CHAT_ADMIN_PASSWORD once. The browser never stores that
+ * password; it stores the signed session returned by admin_login. The signing
+ * key is derived from the password itself, so there is no second secret to
+ * configure and rotating the password invalidates every existing session.
+ * ------------------------------------------------------------------------ */
+
+const DEV_ADMIN_PASSWORD = "dev-admin";
+const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const ADMIN_LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const ADMIN_LOGIN_MAX_ATTEMPTS = 8;
+
+const adminLoginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function isProduction(): boolean {
+  const env = process.env.VERCEL_ENV || process.env.NODE_ENV;
+  return env === "production" || env === "prod";
+}
+
+/**
+ * Returns the configured admin password, or the development-only default.
+ * Deliberately returns null in production when unset: a hardcoded fallback that
+ * ships to prod would be a publicly known admin password sitting in the git
+ * history and the deployed bundle.
+ */
+function getAdminPassword(): string | null {
+  const configured = process.env.CHAT_ADMIN_PASSWORD?.trim();
+  if (configured) return configured;
+  return isProduction() ? null : DEV_ADMIN_PASSWORD;
+}
+
+function safeEquals(a: string, b: string): boolean {
+  const aBuf = Buffer.from(a);
+  const bBuf = Buffer.from(b);
+  if (aBuf.length !== bBuf.length) return false;
+  return timingSafeEqual(aBuf, bBuf);
+}
+
+function getBearerToken(req: VercelRequest): string | null {
+  const authorization = req.headers?.authorization;
+  if (typeof authorization !== "string" || !authorization.startsWith("Bearer ")) return null;
+  const value = authorization.slice(7).trim();
+  return value || null;
+}
+
+function getClientKey(req: VercelRequest): string {
+  const forwarded = req.headers?.["x-forwarded-for"];
+  const first = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  const ip = typeof first === "string" ? first.split(",")[0].trim() : "";
+  return ip || req.socket?.remoteAddress || "unknown";
+}
+
+function signAdminSession(expiresAt: number, password: string): string {
+  const payload = String(expiresAt);
+  const signature = createHmac("sha256", password).update(payload).digest("base64url");
+  return `${payload}.${signature}`;
+}
+
+/**
+ * Best-effort brute-force brake. In-memory only, so it resets when a cold
+ * instance recycles -- it raises the cost of a naive sweep, it is not a hard
+ * limit. A durable store would be needed for that.
+ */
+function isAdminLoginThrottled(key: string): boolean {
+  const now = Date.now();
+  const entry = adminLoginAttempts.get(key);
+  if (!entry || now > entry.resetAt) {
+    adminLoginAttempts.set(key, { count: 0, resetAt: now + ADMIN_LOGIN_WINDOW_MS });
+    return false;
+  }
+  return entry.count >= ADMIN_LOGIN_MAX_ATTEMPTS;
+}
+
+function recordAdminLoginFailure(key: string): void {
+  const now = Date.now();
+  const entry = adminLoginAttempts.get(key);
+  if (!entry || now > entry.resetAt) {
+    adminLoginAttempts.set(key, { count: 1, resetAt: now + ADMIN_LOGIN_WINDOW_MS });
+    return;
+  }
+  entry.count += 1;
+}
+
+function clearAdminLoginFailures(key: string): void {
+  adminLoginAttempts.delete(key);
+}
+
+function issueAdminSession(password: string): string {
+  return signAdminSession(Date.now() + ADMIN_SESSION_TTL_MS, password);
+}
+
+/** Validates the signed session; the raw password is never accepted here. */
+function isValidAdminSession(req: VercelRequest): boolean {
+  const token = getBearerToken(req);
+  if (!token) return false;
+
+  const separator = token.lastIndexOf(".");
+  if (separator <= 0) return false;
+
+  const payload = token.slice(0, separator);
+  const signature = token.slice(separator + 1);
+  const expiresAt = Number(payload);
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return false;
+
+  const expected = getAdminPassword();
+  if (!expected) return false;
+
+  const expectedSignature = createHmac("sha256", expected).update(payload).digest("base64url");
+  return safeEquals(signature, expectedSignature);
+}
+
 async function hasAdminAccess(req: VercelRequest): Promise<boolean> {
-  if (hasAdminToken(req)) return true;
-  const userId = await getSupabaseUserId(req);
-  if (!userId) return false;
-  const result = await supabaseRequest(
-    `profiles?id=eq.${encodeURIComponent(userId)}&role=eq.admin&select=id&limit=1`
-  );
-  return Array.isArray(result) && result.length > 0;
+  if (isValidAdminSession(req)) return true;
+  console.warn(JSON.stringify({ scope: "ian-chat-admin", denied: "no-valid-session" }));
+  return false;
 }
 
 function isConversationRecord(value: unknown): value is ConversationRecord {
@@ -808,6 +922,36 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
   }
 
   const body = parseBody(req);
+
+  // Password exchange: validates CHAT_ADMIN_PASSWORD once and hands back a
+  // signed, expiring session. Deliberately the only place the raw password is
+  // ever accepted, and the only place it is read.
+  if (body.event === "admin_login") {
+    const expected = getAdminPassword();
+    if (!expected) {
+      console.error(JSON.stringify({ scope: "ian-chat-admin", login: "not-configured" }));
+      return res.status(503).json({
+        error: "Admin access is not configured. Set CHAT_ADMIN_PASSWORD on the server.",
+      });
+    }
+
+    const clientKey = getClientKey(req);
+    if (isAdminLoginThrottled(clientKey)) {
+      return res.status(429).json({ error: "Too many attempts. Try again in a few minutes." });
+    }
+
+    const submitted = typeof body.password === "string" ? body.password : "";
+    if (!submitted || !safeEquals(submitted, expected)) {
+      recordAdminLoginFailure(clientKey);
+      console.warn(JSON.stringify({ scope: "ian-chat-admin", login: "failed" }));
+      return res.status(401).json({ error: "Incorrect password" });
+    }
+
+    clearAdminLoginFailures(clientKey);
+    console.info(JSON.stringify({ scope: "ian-chat-admin", login: "ok" }));
+    return res.status(200).json({ ok: true, session: issueAdminSession(expected) });
+  }
+
   const event: ChatEvent =
     body.event === "chat_started" || body.event === "admin_reply" ? body.event : "message";
   const visitorId = getVisitorId(body.visitorId);
