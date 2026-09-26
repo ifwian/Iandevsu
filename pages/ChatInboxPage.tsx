@@ -20,7 +20,7 @@ interface InboxMessage {
   created_at: string;
 }
 
-const TOKEN_STORAGE_KEY = "ian-chat-admin-token";
+const TOKEN_STORAGE_KEY = "ian";
 
 function isConversation(value: unknown): value is Conversation {
   if (!value || typeof value !== "object") return false;
@@ -49,7 +49,22 @@ function isInboxMessage(value: unknown): value is InboxMessage {
 
 function getStoredToken(): string {
   if (typeof window === "undefined") return "";
-  return sessionStorage.getItem(TOKEN_STORAGE_KEY) || "";
+  try {
+    return sessionStorage.getItem(TOKEN_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function getErrorMessage(data: unknown, fallback: string): string {
+  if (data && typeof data === "object" && "error" in data && typeof data.error === "string") {
+    return data.error;
+  }
+  return fallback;
+}
+
+function isUnauthorizedError(error: unknown): boolean {
+  return error instanceof Error && (error as Error & { status?: number }).status === 401;
 }
 
 function formatTime(value: string): string {
@@ -69,6 +84,7 @@ export default function ChatInboxPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
+  const [authReady, setAuthReady] = useState(!supabase);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [messages, setMessages] = useState<InboxMessage[]>([]);
@@ -81,12 +97,20 @@ export default function ChatInboxPage() {
     if (!supabase) return;
     let active = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active || !data.session) return;
-      setToken(data.session.access_token);
-      setTokenDraft("");
-      sessionStorage.setItem(TOKEN_STORAGE_KEY, data.session.access_token);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active || !data.session) return;
+        setToken(data.session.access_token);
+        setTokenDraft("");
+        sessionStorage.setItem(TOKEN_STORAGE_KEY, data.session.access_token);
+      })
+      .catch((caughtError) => {
+        if (active) setError(caughtError instanceof Error ? caughtError.message : "Could not restore Supabase session");
+      })
+      .finally(() => {
+        if (active) setAuthReady(true);
+      });
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
@@ -122,11 +146,9 @@ export default function ChatInboxPage() {
       const response = await fetch(url, { ...init, headers, cache: "no-store" });
       const data: unknown = await response.json().catch(() => null);
       if (!response.ok) {
-        const message =
-          data && typeof data === "object" && "error" in data && typeof data.error === "string"
-            ? data.error
-            : "Request failed";
-        throw new Error(message);
+        const error = new Error(getErrorMessage(data, "Request failed")) as Error & { status?: number };
+        error.status = response.status;
+        throw error;
       }
       return data;
     },
@@ -145,6 +167,13 @@ export default function ChatInboxPage() {
       setSelectedId((current) => current || next[0]?.id || "");
       setError(null);
     } catch (caughtError) {
+      if (isUnauthorizedError(caughtError)) {
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+        setToken("");
+        setConversations([]);
+        setSelectedId("");
+        setMessages([]);
+      }
       setError(caughtError instanceof Error ? caughtError.message : "Could not load conversations");
     } finally {
       setLoading(false);
@@ -169,28 +198,28 @@ export default function ChatInboxPage() {
   );
 
   useEffect(() => {
-    void loadConversations();
-  }, [loadConversations]);
+    if (authReady) void loadConversations();
+  }, [authReady, loadConversations]);
 
   useEffect(() => {
     if (selectedId) void loadMessages(selectedId);
   }, [loadMessages, selectedId]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!authReady || !token) return;
     const interval = window.setInterval(() => void loadConversations(), 3000);
     return () => window.clearInterval(interval);
   }, [loadConversations, token]);
 
   useEffect(() => {
-    if (!token || !selectedId) return;
+    if (!authReady || !token || !selectedId) return;
     const interval = window.setInterval(() => void loadMessages(selectedId), 2000);
     return () => window.clearInterval(interval);
   }, [loadMessages, selectedId, token]);
 
   useEffect(() => {
     const realtimeClient = supabase;
-    if (!realtimeClient || !token) return;
+    if (!authReady || !realtimeClient || !token) return;
     const channel = realtimeClient.channel("admin-chat-inbox");
     channel.on(
       "postgres_changes",
@@ -211,12 +240,26 @@ export default function ChatInboxPage() {
     };
   }, [loadConversations, loadMessages, selectedId, token]);
 
-  const connect = () => {
+  const connect = async () => {
     const nextToken = tokenDraft.trim();
-    if (!nextToken) return;
-    sessionStorage.setItem(TOKEN_STORAGE_KEY, nextToken);
-    setToken(nextToken);
+    if (!nextToken || authBusy) return;
+    setAuthBusy(true);
     setError(null);
+    try {
+      const response = await fetch("/api/chat?admin=1", {
+        headers: { Authorization: `Bearer ${nextToken}` },
+        cache: "no-store",
+      });
+      const data: unknown = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(getErrorMessage(data, "Admin authorization failed"));
+      sessionStorage.setItem(TOKEN_STORAGE_KEY, nextToken);
+      setToken(nextToken);
+      setTokenDraft("");
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Could not connect with that token");
+    } finally {
+      setAuthBusy(false);
+    }
   };
 
   const signIn = async () => {
@@ -292,13 +335,17 @@ export default function ChatInboxPage() {
           )}
         </header>
 
-        {!token ? (
+        {!authReady ? (
+          <section className="card mx-auto max-w-lg p-6 text-center text-sm text-[var(--gray-500)]">
+            Restoring admin session...
+          </section>
+        ) : !token ? (
           <section className="card mx-auto max-w-lg p-6">
             <div className="mb-4 flex items-center gap-3">
               <MessageCircle size={20} />
               <div>
                 <h2 className="text-base font-semibold">Admin access</h2>
-                <p className="text-xs text-[var(--gray-500)]">Enter the server-side inbox token.</p>
+                 <p className="text-xs text-[var(--gray-500)]">Enter CHAT_ADMIN_TOKEN; URL query tokens are not accepted.</p>
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -307,15 +354,16 @@ export default function ChatInboxPage() {
                 value={tokenDraft}
                 onChange={(event) => setTokenDraft(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") connect();
+                  if (event.key === "Enter") void connect();
                 }}
                 placeholder="CHAT_ADMIN_TOKEN"
                 className="min-w-0 flex-1 rounded-lg border border-[var(--gray-300)] bg-[var(--gray-50)] px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
               />
               <button
                 type="button"
-                onClick={connect}
-                className="rounded-lg bg-[var(--ink)] px-4 py-2 text-sm text-[var(--bg)] transition-opacity hover:opacity-80"
+                onClick={() => void connect()}
+                disabled={authBusy}
+                className="rounded-lg bg-[var(--ink)] px-4 py-2 text-sm text-[var(--bg)] transition-opacity hover:opacity-80 disabled:opacity-50"
               >
                 connect
               </button>

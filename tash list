@@ -1,0 +1,55 @@
+[33m5b9da651[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{0}: reset: moving to ORIG_HEAD
+[33m5b9da651[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{1}: pull origin main: updating HEAD
+[33m5b9da651[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{2}: commit (merge): Resolve merge conflict in .env.example
+[33m05bbcf11[m HEAD@{3}: checkout: moving from my-new-feature to main
+[33mbef50288[m[33m ([m[1;31morigin/my-new-feature[m[33m, [m[1;32mmy-new-feature[m[33m)[m HEAD@{4}: commit (amend): Initial commit
+[33m05bbcf11[m HEAD@{5}: checkout: moving from main to my-new-feature
+[33m05bbcf11[m HEAD@{6}: Branch: renamed refs/heads/main to refs/heads/main
+[33m05bbcf11[m HEAD@{8}: commit: Initial commit
+[33mfdecfa51[m HEAD@{9}: reset: moving to origin/main
+[33mfdecfa51[m HEAD@{10}: commit: Enter a short description of what you changed
+[33mbffb1335[m HEAD@{11}: commit: Update project files
+[33m7590f8dd[m HEAD@{12}: commit: Update project files
+[33me01e99b7[m HEAD@{13}: commit: projects
+[33m3f7a62fa[m HEAD@{14}: commit: Replace placeholder image with actual Medium image URL for first year CS post
+[33m486fd779[m HEAD@{15}: commit: Add new blog post 'What They Don't Tell You About Your First Year in CS'
+[33me4d7dba2[m HEAD@{16}: commit: projects
+[33me536cc87[m HEAD@{17}: commit: Refactor mobile nav from full-screen drawer to compact dropdown
+[33m6816c6fa[m HEAD@{18}: commit: Improve mobile navigation UX in Sidebar
+[33m85361ce9[m HEAD@{19}: commit: projects
+[33mf6160113[m HEAD@{20}: commit: Center profile image and text on mobile in Hero section
+[33m53549133[m HEAD@{21}: commit: Fix Hero profile image sizing and mobile centering
+[33mbfe73209[m HEAD@{22}: commit: Add compact mobile sizing and centered text alignment to Hero
+[33m6eb433d7[m HEAD@{23}: commit: Revert PixelTransition to original w-full aspect-[5/6] sizing
+[33md92a5c69[m HEAD@{24}: commit: Restore non-square aspect ratio on profile image container
+[33m11715be3[m HEAD@{25}: commit: Refactor Hero section from grid to flex-col/lg:flex-row layout
+[33m0272c7e4[m HEAD@{26}: commit: Fix Hero grid overlap by changing md:grid-cols to sm:grid-cols
+[33m58ad7da6[m HEAD@{27}: commit: Fix Hero profile image sizing for mobile responsiveness
+[33m4605af03[m HEAD@{28}: commit: Comprehensive mobile responsiveness audit and fixes
+[33mb8646b03[m HEAD@{29}: commit: projects
+[33m8c179495[m HEAD@{30}: commit: Fix hobby pill tag text color for visibility
+[33m211cb967[m HEAD@{31}: commit: projects
+[33mad37bcde[m HEAD@{32}: commit: Fix draft blog card title text color for visibility
+[33m7e3f588a[m HEAD@{33}: commit: Fix PixelTransition pixel color to use theme-aware --bg variable
+[33mf1cfb3d6[m HEAD@{34}: commit: Fix draft blog card opacity and tech stack badge text contrast
+[33m61d28120[m HEAD@{35}: commit: Fix light mode text colors: replace hardcoded white classes with CSS variables
+[33m4b134702[m HEAD@{36}: commit: Fix micro-label class properties and resolve gray-400/gray-700 collision
+[33m656bbd95[m HEAD@{37}: commit: Update light mode gray palette for higher contrast readability
+[33mb5d1a678[m HEAD@{38}: commit: Fix light/dark mode: replace hardcoded colors with CSS variable-based classes
+[33m0edc60f0[m HEAD@{39}: commit: projects
+[33m962f7875[m HEAD@{40}: commit: Portfolio refactor: add routing, project data separation, fix broken links and config
+[33ma894f994[m HEAD@{41}: commit: removed rounded edges in hero
+[33md35975f0[m HEAD@{42}: commit: feat: integrate live medium post into portfolio blog section
+[33m9957aec1[m HEAD@{43}: pull --rebase origin main (finish): returning to refs/heads/main
+[33m9957aec1[m HEAD@{44}: pull --rebase origin main (pick): major changes
+[33m841111d3[m HEAD@{45}: pull --rebase origin main (start): checkout 841111d305917137f478e8926f612a453e2d10c3
+[33mbf0f8a66[m HEAD@{46}: commit: major changes
+[33mf8d61016[m HEAD@{47}: commit: Remove node_modules from version control
+[33m59355f11[m HEAD@{48}: Branch: renamed refs/heads/main to refs/heads/main
+[33m59355f11[m HEAD@{50}: commit: Initial commit
+[33m9060f0a3[m HEAD@{51}: commit (amend): new update
+[33m076f7446[m HEAD@{52}: commit: new update
+[33m89963b0c[m HEAD@{53}: commit (amend): Add project files
+[33m75d75368[m HEAD@{54}: commit (amend): Add project files
+[33mcaafa5e9[m HEAD@{55}: Branch: renamed refs/heads/main to refs/heads/main
+[33mcaafa5e9[m HEAD@{57}: commit (initial): Add project files
