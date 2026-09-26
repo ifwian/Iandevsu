@@ -31,7 +31,7 @@ interface ChatSession {
 
 const GREETING: ChatMessage = {
   role: "model",
-  text: `hey — ask me anything about ${PROFILE.goesBy}'s background, projects, or stack.`,
+  text: `Hey! I'm ${PROFILE.goesBy} - feel free to ask about my projects, the stack I work with, or anything else on the site.`,
 };
 
 /** Same asset the favicon uses (see index.html), so the browser reuses the
