@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { MessageCircle, Send, X } from "lucide-react";
 import { PROFILE } from "@/content/profile";
 import { supabase } from "@/lib/supabase";
+import { apiUrl } from "@/lib/api";
 
 interface ChatMessage {
   role: "user" | "model";
@@ -149,7 +150,7 @@ function mergeAdminMessages(current: ChatMessage[], remote: RemoteAdminMessage[]
 async function fetchAdminReplies(visitorId: string, accessToken?: string): Promise<RemoteAdminMessage[]> {
   const headers: Record<string, string> = {};
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-  const response = await fetch(`/api/chat?visitorId=${encodeURIComponent(visitorId)}&role=admin`, {
+  const response = await fetch(apiUrl(`/api/chat?visitorId=${encodeURIComponent(visitorId)}&role=admin`), {
     cache: "no-store",
     headers,
   });
@@ -206,7 +207,7 @@ async function notifyChatStarted(session: ChatSession): Promise<void> {
   try {
     const notificationKey = `${START_NOTIFIED_KEY}:${session.visitorId}`;
     if (sessionStorage.getItem(notificationKey)) return;
-    const response = await fetch("/api/chat", {
+    const response = await fetch(apiUrl("/api/chat"), {
       method: "POST",
       headers: getAuthHeaders(session),
       body: JSON.stringify({
@@ -274,7 +275,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
 
   useEffect(() => {
     let active = true;
-    fetch("/api/chat")
+    fetch(apiUrl("/api/chat"))
       .then((response) => response.json())
       .then((data: unknown) => {
         if (!active || !data || typeof data !== "object" || !("configured" in data)) return;
@@ -374,7 +375,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
     };
 
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch(apiUrl("/api/chat"), {
         method: "POST",
         headers: { ...getAuthHeaders(session), Accept: "text/event-stream" },
         signal: controller.signal,

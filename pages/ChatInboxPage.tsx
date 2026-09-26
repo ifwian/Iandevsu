@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, MessageCircle, RefreshCw, Send } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { apiUrl } from "@/lib/api";
 
 interface Conversation {
   id: string;
@@ -159,7 +160,7 @@ export default function ChatInboxPage() {
     if (!token) return;
     setLoading(true);
     try {
-      const data: unknown = await request("/api/chat?admin=1");
+      const data: unknown = await request(apiUrl("/api/chat?admin=1"));
       const next = data && typeof data === "object" && "conversations" in data && Array.isArray(data.conversations)
         ? data.conversations.filter(isConversation)
         : [];
@@ -184,7 +185,7 @@ export default function ChatInboxPage() {
     async (conversationId: string) => {
       if (!token || !conversationId) return;
       try {
-        const data: unknown = await request(`/api/chat?admin=1&conversationId=${encodeURIComponent(conversationId)}`);
+        const data: unknown = await request(apiUrl(`/api/chat?admin=1&conversationId=${encodeURIComponent(conversationId)}`));
         const next = data && typeof data === "object" && "messages" in data && Array.isArray(data.messages)
           ? data.messages.filter(isInboxMessage)
           : [];
@@ -246,7 +247,7 @@ export default function ChatInboxPage() {
     setAuthBusy(true);
     setError(null);
     try {
-      const response = await fetch("/api/chat?admin=1", {
+      const response = await fetch(apiUrl("/api/chat?admin=1"), {
         headers: { Authorization: `Bearer ${nextToken}` },
         cache: "no-store",
       });
@@ -297,7 +298,7 @@ export default function ChatInboxPage() {
     if (!token || !selectedId || !text || sending) return;
     setSending(true);
     try {
-      await request("/api/chat", {
+      await request(apiUrl("/api/chat"), {
         method: "POST",
         body: JSON.stringify({ event: "admin_reply", conversationId: selectedId, text }),
       });
