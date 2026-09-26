@@ -16,7 +16,7 @@ const NOTIFICATION_EMAIL = "iandevsu@gmail.com";
 const SUPABASE_TIMEOUT_MS = 5000;
 
 function getGeminiApiKey(): string | undefined {
-  return process.env.GEMINI_API_KEY;
+  return process.env.GEMINI_API_KEY?.trim() || undefined;
 }
 
 function getModelCandidates(): string[] {
@@ -29,11 +29,14 @@ async function requestGemini(
   model: string,
   messages: ChatMessage[]
 ): Promise<Response> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
 
   return fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: messages.map((message) => ({

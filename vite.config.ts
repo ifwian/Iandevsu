@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer as createNetServer } from "node:net";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -103,6 +104,29 @@ function getPort(env: Record<string, string>): number {
     : DEFAULT_CHAT_API_PORT;
 }
 
+function findAvailablePort(preferredPort: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = createNetServer();
+
+    const useRandomPort = () => {
+      const fallback = createNetServer();
+      fallback.once("error", reject);
+      fallback.listen(0, "127.0.0.1", () => {
+        const address = fallback.address();
+        const port = typeof address === "object" && address ? address.port : preferredPort;
+        fallback.close(() => resolve(port));
+      });
+    };
+
+    probe.once("error", useRandomPort);
+    probe.listen(preferredPort, "127.0.0.1", () => {
+      const address = probe.address();
+      const port = typeof address === "object" && address ? address.port : preferredPort;
+      probe.close(() => resolve(port));
+    });
+  });
+}
+
 function loadServerEnvironment(mode: string): Record<string, string> {
   const env = loadEnv(mode, process.cwd(), "");
 
@@ -113,9 +137,9 @@ function loadServerEnvironment(mode: string): Record<string, string> {
   return env;
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode }) => {
   const env = loadServerEnvironment(mode);
-  const chatApiPort = getPort(env);
+  const chatApiPort = await findAvailablePort(getPort(env));
 
   return {
     plugins: [react(), tailwindcss(), localChatApiPlugin(chatApiPort)],
