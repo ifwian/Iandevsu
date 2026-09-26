@@ -625,6 +625,48 @@ function getGeminiText(payload: unknown): string {
     .join("");
 }
 
+/**
+ * Gemini answers a blocked prompt with HTTP 200 and an empty candidate list, so
+ * a safety block is otherwise indistinguishable from an empty completion. Read
+ * the reason out so the visitor gets an honest message and the logs keep the
+ * detail. The persona rules are enforced upstream by the model; this only
+ * reports what the API decided.
+ */
+function getBlockReason(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+
+  const feedback = (payload as { promptFeedback?: { blockReason?: unknown } }).promptFeedback;
+  if (feedback && typeof feedback.blockReason === "string" && feedback.blockReason) {
+    return feedback.blockReason;
+  }
+
+  const candidates = (payload as {
+    candidates?: Array<{ finishReason?: unknown; finishMessage?: unknown }>;
+  }).candidates;
+  if (Array.isArray(candidates)) {
+    for (const candidate of candidates) {
+      const reason = candidate?.finishReason;
+      if (typeof reason === "string" && reason && reason !== "STOP") {
+        const detail = candidate?.finishMessage;
+        return typeof detail === "string" && detail ? `${reason}: ${detail}` : reason;
+      }
+    }
+  }
+
+  return null;
+}
+
+const BLOCKED_REPLIES: Record<string, string> = {
+  SAFETY: "I can't help with that one. Ask me about background, projects, or stack instead?",
+  PROHIBITED_CONTENT: "I can't help with that one. Ask me about background, projects, or stack instead?",
+  BLOCKLIST: "I can't help with that one. Ask me about background, projects, or stack instead?",
+  RECITATION: "I can't reproduce that. Ask me about background, projects, or stack instead?",
+};
+
+function blockedReply(reason: string): string {
+  return BLOCKED_REPLIES[reason] ?? "I can't respond to that one -- ask me about background, projects, or stack instead?";
+}
+
 function getSseData(block: string): string | null {
   const data = block
     .split(/\r?\n/)
@@ -646,13 +688,19 @@ async function proxyGeminiStream(
   const decoder = new TextDecoder();
   let buffer = "";
   let reply = "";
+  let blockReason: string | null = null;
 
   const processBlock = (block: string): void => {
     const data = getSseData(block);
     if (!data || data === "[DONE]") return;
 
     try {
-      const text = getGeminiText(JSON.parse(data));
+      const payload: unknown = JSON.parse(data);
+      if (blockReason === null) {
+        const reason = getBlockReason(payload);
+        if (reason) blockReason = reason;
+      }
+      const text = getGeminiText(payload);
       if (!text) return;
       reply += text;
       writeServerEvent(res, { type: "chunk", text });
@@ -691,7 +739,20 @@ async function proxyGeminiStream(
     }
   }
 
-  if (!reply.trim()) throw new Error("Gemini returned no reply");
+  if (!reply.trim()) {
+    if (blockReason) {
+      console.warn(
+        JSON.stringify({ scope: "ian-chat-gemini-blocked", reason: blockReason })
+      );
+      // Emitted as a normal completion so the bubble keeps the persona's voice
+      // instead of surfacing a raw upstream error string to the visitor.
+      const fallbackReply = blockedReply(blockReason);
+      writeServerEvent(res, { type: "chunk", text: fallbackReply });
+      writeServerEvent(res, { type: "done", reply: fallbackReply });
+      return fallbackReply;
+    }
+    throw new Error("Gemini returned no reply");
+  }
   return reply;
 }
 
