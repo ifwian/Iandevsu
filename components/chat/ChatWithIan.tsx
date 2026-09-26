@@ -7,7 +7,8 @@ import { apiUrl } from "@/lib/api";
 interface ChatMessage {
   role: "user" | "model";
   text: string;
-  id?: number;
+  /** chat_messages.id is a Postgres bigint -- PostgREST may send number or string. */
+  id?: string | number;
   source?: "assistant" | "admin";
 }
 
@@ -132,21 +133,30 @@ function saveHistory(visitorId: string, messages: ChatMessage[]): void {
 }
 
 interface RemoteAdminMessage {
-  id: number;
+  id: string | number;
   body: string;
+}
+
+function isRowId(value: unknown): value is string | number {
+  if (typeof value === "number") return Number.isFinite(value);
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function isRemoteAdminMessage(value: unknown): value is RemoteAdminMessage {
   if (!value || typeof value !== "object") return false;
   const candidate = value as { id?: unknown; body?: unknown };
-  return typeof candidate.id === "number" && typeof candidate.body === "string" && candidate.body.trim().length > 0;
+  return isRowId(candidate.id) && typeof candidate.body === "string" && candidate.body.trim().length > 0;
 }
 
 function mergeAdminMessages(current: ChatMessage[], remote: RemoteAdminMessage[]): ChatMessage[] {
-  const knownIds = new Set(current.map((message) => message.id).filter((id): id is number => typeof id === "number"));
+  // Compare ids as strings so "12" and 12 are recognised as the same row
+  // regardless of which numeric form the API returned.
+  const knownIds = new Set(
+    current.map((message) => message.id).filter(isRowId).map((id) => String(id))
+  );
   const knownText = new Set(current.filter((message) => message.source === "admin").map((message) => message.text));
   const additions = remote
-    .filter((message) => !knownIds.has(message.id) && !knownText.has(message.body))
+    .filter((message) => !knownIds.has(String(message.id)) && !knownText.has(message.body))
     .map((message) => ({ role: "model" as const, text: message.body, id: message.id, source: "admin" as const }));
 
   return additions.length ? [...current, ...additions] : current;
@@ -330,7 +340,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
       { event: "INSERT", schema: "public", table: "chat_messages" },
       (payload) => {
         const record = payload.new as Record<string, unknown>;
-        if (record.role !== "admin" || typeof record.id !== "number" || typeof record.body !== "string") return;
+        if (record.role !== "admin" || !isRowId(record.id) || typeof record.body !== "string") return;
         setMessages((current) => mergeAdminMessages(current, [{ id: record.id as number, body: record.body as string }]));
       }
     );

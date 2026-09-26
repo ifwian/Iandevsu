@@ -14,7 +14,7 @@ interface Conversation {
 }
 
 interface InboxMessage {
-  id: number;
+  id: string | number;
   conversation_id: string;
   role: "visitor" | "assistant" | "admin";
   body: string;
@@ -22,6 +22,17 @@ interface InboxMessage {
 }
 
 const SESSION_STORAGE_KEY = "ian-chat-admin-session";
+
+/**
+ * chat_messages.id is a Postgres `bigint`, which PostgREST may hand back as
+ * either a JSON number or a string. Requiring a number caused the whole
+ * transcript to be filtered out and rendered as "No messages in this
+ * conversation", so accept either shape.
+ */
+function isRowId(value: unknown): value is string | number {
+  if (typeof value === "number") return Number.isFinite(value);
+  return typeof value === "string" && value.trim().length > 0;
+}
 
 function getStoredSession(): string {
   if (typeof window === "undefined") return "";
@@ -58,7 +69,7 @@ function isInboxMessage(value: unknown): value is InboxMessage {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return (
-    typeof candidate.id === "number" &&
+    isRowId(candidate.id) &&
     typeof candidate.conversation_id === "string" &&
     (candidate.role === "visitor" || candidate.role === "assistant" || candidate.role === "admin") &&
     typeof candidate.body === "string" &&

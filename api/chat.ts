@@ -100,8 +100,17 @@ interface ConversationRecord {
   last_message_preview: string;
 }
 
+/**
+ * chat_messages.id is a Postgres `bigint`. PostgREST renders bigint as a JSON
+ * number in most configurations, but it renders it as a *string* when the value
+ * exceeds JS safe-integer range or when the deployment opts into string
+ * numerics. Requiring a number here silently dropped every message in the
+ * transcript, so accept either and never filter on id shape.
+ */
+type RowId = string | number;
+
 interface StoredMessage {
-  id: number;
+  id: RowId;
   conversation_id: string;
   role: StoredRole;
   body: string;
@@ -240,14 +249,140 @@ function getSessionStartedAt(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : Date.now();
 }
 
+/**
+ * Supabase configuration.
+ *
+ * Reads the canonical names first, then the aliases people actually set. The
+ * most common misconfiguration is setting only the VITE_ vars (which the
+ * browser bundle needs) and none of the server-side ones -- the function
+ * cannot see the browser's env, so persistence silently degrades to off.
+ */
+
+const SUPABASE_URL_KEYS = [
+  "SUPABASE_URL",
+  "VITE_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "PUBLIC_SUPABASE_URL",
+] as const;
+
+const SUPABASE_SERVICE_KEYS = [
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "SUPABASE_SECRET_KEY",
+  "SUPABASE_SERVICE_KEY",
+] as const;
+
+const SUPABASE_AUTH_KEYS = [
+  "SUPABASE_ANON_KEY",
+  "SUPABASE_PUBLISHABLE_KEY",
+  "VITE_SUPABASE_ANON_KEY",
+  "VITE_SUPABASE_PUBLISHABLE_KEY",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+] as const;
+
+function readEnv(keys: readonly string[]): { name: string; value: string } | null {
+  for (const name of keys) {
+    const value = process.env[name]?.trim();
+    if (value) return { name, value };
+  }
+  return null;
+}
+
+function normalizeSupabaseUrl(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+function getSupabaseUrl(): { name: string; value: string } | null {
+  const found = readEnv(SUPABASE_URL_KEYS);
+  return found ? { name: found.name, value: normalizeSupabaseUrl(found.value) } : null;
+}
+
+function getServiceRoleKey(): string | undefined {
+  return readEnv(SUPABASE_SERVICE_KEYS)?.value;
+}
+
+/** Identifies *visitors* (to bind a conversation to them). Not used for admin. */
+function getSupabaseAuthKey(): string | undefined {
+  return readEnv(SUPABASE_AUTH_KEYS)?.value;
+}
+
 function getSupabaseConfig(): { url: string; serviceRoleKey: string } | null {
-  const url = process.env.SUPABASE_URL?.replace(/\/$/, "");
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  return url && serviceRoleKey ? { url, serviceRoleKey } : null;
+  const url = getSupabaseUrl();
+  const serviceRoleKey = getServiceRoleKey();
+  if (!url || !serviceRoleKey) {
+    reportMissingSupabaseEnv(url, serviceRoleKey);
+    return null;
+  }
+  return { url: url.value, serviceRoleKey };
+}
+
+let missingEnvReported = false;
+
+/**
+ * Names the exact variables that are absent. Reported once per instance so the
+ * Vercel function logs state the cause instead of a bare 503.
+ */
+function reportMissingSupabaseEnv(url: { name: string; value: string } | null, key: string | undefined): void {
+  if (missingEnvReported) return;
+  missingEnvReported = true;
+  const missing: string[] = [];
+  if (!url) missing.push(`one of: ${SUPABASE_URL_KEYS.join(", ")}`);
+  if (!key) missing.push(`one of: ${SUPABASE_SERVICE_KEYS.join(", ")}`);
+  console.error(
+    JSON.stringify({
+      scope: "ian-chat-supabase-config",
+      error: "Supabase is not configured; persistence is disabled",
+      missing,
+      hint: "VITE_SUPABASE_URL alone is not enough -- the serverless function needs its own SUPABASE_URL and service-role key",
+    })
+  );
+}
+
+type SupabaseEnvStatus = {
+  ok: boolean;
+  url: { name: string; value: string } | null;
+  serviceKeyName: string | null;
+  authKeyName: string | null;
+  missing: string[];
+};
+
+/** Presence-only report for diagnostics. Never returns any secret value. */
+function getSupabaseEnvStatus(): SupabaseEnvStatus {
+  const url = getSupabaseUrl();
+  const serviceRoleKey = readEnv(SUPABASE_SERVICE_KEYS);
+  const authKey = readEnv(SUPABASE_AUTH_KEYS);
+  const missing: string[] = [];
+  if (!url) missing.push(`one of: ${SUPABASE_URL_KEYS.join(", ")}`);
+  if (!serviceRoleKey) missing.push(`one of: ${SUPABASE_SERVICE_KEYS.join(", ")}`);
+  return {
+    ok: Boolean(url && serviceRoleKey),
+    url,
+    serviceKeyName: serviceRoleKey?.name ?? null,
+    authKeyName: authKey?.name ?? null,
+    missing,
+  };
 }
 
 function hasSupabaseConfig(): boolean {
   return Boolean(getSupabaseConfig());
+}
+
+/** Host only, so the diagnostics response can confirm the project without
+ *  echoing a full URL that may embed credentials. */
+function safeHost(url: string): string | null {
+  try {
+    return new URL(url).host;
+  } catch {
+    return null;
+  }
+}
+
+/** Names the missing variables in the 503 so the cause is visible in the UI. */
+function supabaseNotConfiguredBody(): { error: string; missing: string[] } {
+  const status = getSupabaseEnvStatus();
+  return {
+    error: "Supabase is not configured. Chat history is not being saved.",
+    missing: status.missing,
+  };
 }
 
 async function supabaseRequest(path: string, init: RequestInit = {}): Promise<unknown | null> {
@@ -313,18 +448,10 @@ function getRequestQuery(req: VercelRequest): URLSearchParams {
  * visitor lookup when only one of them is set. This identifies *visitors* (to
  * bind a conversation to them); it is no longer part of the admin decision.
  */
-function getSupabaseAuthKey(): string | undefined {
-  return (
-    process.env.SUPABASE_ANON_KEY?.trim() ||
-    process.env.SUPABASE_PUBLISHABLE_KEY?.trim() ||
-    undefined
-  );
-}
-
 async function getSupabaseUserId(req: VercelRequest): Promise<string | null> {
   const config = getSupabaseConfig();
   const authKey = getSupabaseAuthKey();
-  const authorization = req.headers?.authorization;
+  const authorization = readHeader(req, "authorization");
   if (!config || !authKey || typeof authorization !== "string" || !authorization.startsWith("Bearer ")) {
     return null;
   }
@@ -387,17 +514,36 @@ function safeEquals(a: string, b: string): boolean {
   return timingSafeEqual(aBuf, bBuf);
 }
 
+/**
+ * Case-insensitive header read. Node lowercases incoming header names, so
+ * `req.headers.authorization` is normally enough -- but auth decisions should
+ * not depend on that normalization holding across every adapter.
+ */
+function readHeader(req: VercelRequest, name: string): string | undefined {
+  const headers = req.headers as Record<string, string | string[] | undefined> | undefined;
+  if (!headers) return undefined;
+  const direct = headers[name];
+  if (typeof direct === "string") return direct;
+  if (Array.isArray(direct)) return direct[0];
+  const target = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === target) {
+      return Array.isArray(value) ? value[0] : typeof value === "string" ? value : undefined;
+    }
+  }
+  return undefined;
+}
+
 function getBearerToken(req: VercelRequest): string | null {
-  const authorization = req.headers?.authorization;
+  const authorization = readHeader(req, "authorization");
   if (typeof authorization !== "string" || !authorization.startsWith("Bearer ")) return null;
   const value = authorization.slice(7).trim();
   return value || null;
 }
 
 function getClientKey(req: VercelRequest): string {
-  const forwarded = req.headers?.["x-forwarded-for"];
-  const first = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  const ip = typeof first === "string" ? first.split(",")[0].trim() : "";
+  const forwarded = readHeader(req, "x-forwarded-for");
+  const ip = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : "";
   return ip || req.socket?.remoteAddress || "unknown";
 }
 
@@ -480,11 +626,16 @@ function isConversationRecord(value: unknown): value is ConversationRecord {
   );
 }
 
+function isRowId(value: unknown): value is RowId {
+  if (typeof value === "number") return Number.isFinite(value);
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 function isStoredMessage(value: unknown): value is StoredMessage {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return (
-    typeof candidate.id === "number" &&
+    isRowId(candidate.id) &&
     typeof candidate.conversation_id === "string" &&
     (candidate.role === "visitor" || candidate.role === "assistant" || candidate.role === "admin") &&
     typeof candidate.body === "string" &&
@@ -592,7 +743,32 @@ async function listStoredMessages(conversationId: string, role?: StoredRole): Pr
   const result = await supabaseRequest(
     `chat_messages?conversation_id=eq.${encodeURIComponent(conversationId)}&select=id,conversation_id,role,body,created_at&order=created_at.asc${roleFilter}&limit=100`
   );
-  return Array.isArray(result) ? result.filter(isStoredMessage) : [];
+  if (!Array.isArray(result)) {
+    console.warn(
+      JSON.stringify({
+        scope: "ian-chat-messages",
+        conversationId,
+        note: "chat_messages query did not return an array",
+      })
+    );
+    return [];
+  }
+
+  const valid = result.filter(isStoredMessage);
+  // A row that exists but fails validation is a schema/shape mismatch, not an
+  // empty thread. Surfacing the count keeps that from looking like "no messages".
+  if (valid.length !== result.length) {
+    console.warn(
+      JSON.stringify({
+        scope: "ian-chat-messages",
+        conversationId,
+        returned: result.length,
+        kept: valid.length,
+        note: "rows dropped by shape validation -- check chat_messages columns",
+      })
+    );
+  }
+  return valid;
 }
 
 function getLastUserMessage(messages: ChatMessage[]): string {
@@ -879,12 +1055,66 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
   if (req.method === "GET") {
     const query = getRequestQuery(req);
 
+    // Self-serve diagnostics for the inbox. Admin session required, and it only
+    // ever reports which variable *names* are present -- never their values.
+    if (query.get("diagnose") === "1") {
+      if (!(await hasAdminAccess(req))) {
+        return res.status(401).json({ error: "Admin authorization required" });
+      }
+      const status = getSupabaseEnvStatus();
+      if (!status.ok) {
+        return res.status(200).json({ configured: false, missing: status.missing });
+      }
+
+      // Configured, so verify the tables actually exist and are queryable, and
+      // report row counts. `?conversationId=<id>` drills into one thread so an
+      // empty inbox can be attributed to storage vs. filtering.
+      const convoProbe = await supabaseRequest("chat_conversations?select=id&limit=1");
+      const convoCount = await supabaseRequest("chat_conversations?select=id&limit=1000");
+      const msgCount = await supabaseRequest("chat_messages?select=id&limit=1000");
+
+      const drill = query.get("conversationId");
+      let thread: Record<string, unknown> | undefined;
+      if (drill) {
+        const raw = await supabaseRequest(
+          `chat_messages?conversation_id=eq.${encodeURIComponent(drill)}&select=id,conversation_id,role,body,created_at&limit=100`
+        );
+        const rows = Array.isArray(raw) ? raw : [];
+        const kept = rows.filter(isStoredMessage);
+        thread = {
+          conversationId: drill,
+          rowsReturned: rows.length,
+          rowsAccepted: kept.length,
+          roles: kept.map((row) => row.role),
+          idTypes: [...new Set(kept.map((row) => typeof row.id))],
+        };
+      }
+
+      return res.status(200).json({
+        configured: true,
+        urlSource: status.url?.name ?? null,
+        projectHost: status.url ? safeHost(status.url.value) : null,
+        serviceKeySource: status.serviceKeyName,
+        authKeySource: status.authKeyName,
+        tablesReachable: convoProbe !== undefined,
+        conversationCount: Array.isArray(convoCount) ? convoCount.length : null,
+        messageCount: Array.isArray(msgCount) ? msgCount.length : null,
+        thread,
+        note:
+          convoProbe === undefined
+            ? "chat_conversations is not queryable -- run supabase/schema.sql in the Supabase SQL editor"
+            : Array.isArray(convoCount) && convoCount.length > 0 && Array.isArray(msgCount) && msgCount.length === 0
+              ? "conversations exist but chat_messages is empty -- visitor messages are not being written"
+              : undefined,
+      });
+    }
+
     if (query.get("admin") === "1") {
       if (!(await hasAdminAccess(req))) {
         return res.status(401).json({ error: "Admin authorization required" });
       }
       if (!hasSupabaseConfig()) {
-        return res.status(503).json({ error: "Supabase is not configured" });
+        return res.status(503).json(supabaseNotConfiguredBody());
       }
 
       const conversationId = query.get("conversationId");
@@ -913,7 +1143,12 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ messages });
     }
 
-    return res.status(200).json({ configured: Boolean(getGeminiApiKey()) });
+    // Public probe the widget already calls. `persistence` lets the UI say
+    // "history is off" instead of silently dropping transcripts.
+    return res.status(200).json({
+      configured: Boolean(getGeminiApiKey()),
+      persistence: hasSupabaseConfig() ? "on" : "off",
+    });
   }
 
   if (req.method !== "POST") {
@@ -962,7 +1197,7 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
       return res.status(401).json({ error: "Admin authorization required" });
     }
     if (!hasSupabaseConfig()) {
-      return res.status(503).json({ error: "Supabase is not configured" });
+      return res.status(503).json(supabaseNotConfiguredBody());
     }
 
     const conversationId = typeof body.conversationId === "string" ? body.conversationId : "";
