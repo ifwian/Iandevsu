@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, MessageCircle, RefreshCw, Send } from "lucide-react";
+import { ArrowLeft, Check, Copy, MessageCircle, RefreshCw, Search, Send, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/api";
@@ -14,17 +14,20 @@ interface Conversation {
   /** Optional contact details -- null on conversations predating the pre-chat form. */
   visitor_name: string | null;
   visitor_email: string | null;
+  /** 'ai' | 'takeover'. Undefined when the takeover migration has not been run. */
+  mode?: string;
 }
 
 interface InboxMessage {
   id: string | number;
   conversation_id: string;
-  role: "visitor" | "assistant" | "admin";
+  role: "visitor" | "assistant" | "admin" | "system";
   body: string;
   created_at: string;
 }
 
 const SESSION_STORAGE_KEY = "ian-chat-admin-session";
+const PRESENCE_COLOR = "#22c55e";
 
 /**
  * chat_messages.id is a Postgres `bigint`, which PostgREST may hand back as
@@ -92,7 +95,13 @@ function isInboxMessage(value: unknown): value is InboxMessage {
   return (
     isRowId(candidate.id) &&
     typeof candidate.conversation_id === "string" &&
-    (candidate.role === "visitor" || candidate.role === "assistant" || candidate.role === "admin") &&
+    // 'system' must be accepted. Takeover and resolution announcements are
+    // stored with that role, and rejecting it here silently dropped them from
+    // the transcript the admin is reading.
+    (candidate.role === "visitor" ||
+      candidate.role === "assistant" ||
+      candidate.role === "admin" ||
+      candidate.role === "system") &&
     typeof candidate.body === "string" &&
     typeof candidate.created_at === "string"
   );
@@ -117,7 +126,33 @@ function formatTime(value: string): string {
 function roleLabel(role: InboxMessage["role"]): string {
   if (role === "visitor") return "visitor";
   if (role === "admin") return "you";
+  if (role === "system") return "notice";
   return "assistant";
+}
+
+/** Triage filter for the visitor list. Mirrors the server's status vocabulary. */
+type StatusFilter = "all" | "active" | "resolved";
+
+const STATUS_FILTERS: readonly { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "all" },
+  { value: "active", label: "active" },
+  { value: "resolved", label: "resolved" },
+];
+
+const SEARCH_DEBOUNCE_MS = 250;
+
+/** Case-insensitive match on name, then email, then the id shown in the thread header. */
+function matchesQuery(conversation: Conversation, term: string): boolean {
+  if (
+    conversation.visitor_name?.toLowerCase().includes(term) ||
+    conversation.visitor_email?.toLowerCase().includes(term) ||
+    conversation.visitor_id.toLowerCase().includes(term)
+  ) {
+    return true;
+  }
+  // Match on what the list actually renders, so searching for the text a
+  // visitor sees ("anonymous") finds the nameless rows.
+  return visitorLabel(conversation).toLowerCase().includes(term);
 }
 
 export default function ChatInboxPage() {
@@ -129,11 +164,44 @@ export default function ChatInboxPage() {
   const [selectedId, setSelectedId] = useState("");
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [reply, setReply] = useState("");
+  const [query, setQuery] = useState("");
+  // The value actually sent to the server. `query` updates on every keystroke
+  // for instant local filtering; this trails it so typing does not fire a
+  // request per character.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [takeoverBusy, setTakeoverBusy] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const selectedConversation = useMemo(
+    () => conversations.find((conversation) => conversation.id === selectedId) || null,
+    [conversations, selectedId]
+  );
+
+  // Derived from the selected conversation so the buttons always reflect the
+  // server, never a stale local guess.
+  const takeoverActive = selectedConversation?.mode === "takeover";
+  const selectedEmail = normalizeContact(selectedConversation?.visitor_email ?? null);
+  const selectedResolved = selectedConversation?.status === "resolved";
+
   const token = session;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  // Clear the transient "copied" confirmation so the button returns to its
+  // default label, and never leave it stuck on after switching visitors.
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 1600);
+    return () => window.clearTimeout(timer);
+  }, [copied, selectedId]);
 
   // A session restored from storage is only trusted once the server has
   // accepted it, so an expired or tampered value cannot unlock the UI.
@@ -166,11 +234,6 @@ export default function ChatInboxPage() {
     };
   }, [session]);
 
-  const selectedConversation = useMemo(
-    () => conversations.find((conversation) => conversation.id === selectedId) || null,
-    [conversations, selectedId]
-  );
-
   const request = useCallback(
     async (url: string, init: RequestInit = {}) => {
       const headers = new Headers(init.headers);
@@ -192,7 +255,10 @@ export default function ChatInboxPage() {
     if (!token) return;
     setLoading(true);
     try {
-      const data: unknown = await request(apiUrl("/api/chat?admin=1"));
+      const params = new URLSearchParams({ admin: "1" });
+      if (debouncedQuery) params.set("q", debouncedQuery);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      const data: unknown = await request(apiUrl(`/api/chat?${params.toString()}`));
       const next = data && typeof data === "object" && "conversations" in data && Array.isArray(data.conversations)
         ? data.conversations.filter(isConversation)
         : [];
@@ -211,7 +277,27 @@ export default function ChatInboxPage() {
     } finally {
       setLoading(false);
     }
-  }, [request, token]);
+  }, [debouncedQuery, request, statusFilter, token]);
+
+  /**
+   * Re-applies the filters locally so typing narrows the list on the same
+   * frame, before the debounced server request comes back with the wider
+   * result set. Both layers run, so the list is correct either way.
+   */
+  const visibleConversations = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return conversations.filter((conversation) => {
+      if (statusFilter !== "all" && conversation.status !== statusFilter) return false;
+      return !term || matchesQuery(conversation, term);
+    });
+  }, [conversations, query, statusFilter]);
+
+  const filtersActive = query.trim().length > 0 || statusFilter !== "all";
+
+  const clearFilters = () => {
+    setQuery("");
+    setStatusFilter("all");
+  };
 
   const loadMessages = useCallback(
     async (conversationId: string) => {
@@ -307,6 +393,7 @@ export default function ChatInboxPage() {
     setConversations([]);
     setSelectedId("");
     setMessages([]);
+    clearFilters();
   };
 
   const sendReply = async () => {
@@ -325,6 +412,60 @@ export default function ChatInboxPage() {
       setError(caughtError instanceof Error ? caughtError.message : "Could not send reply");
     } finally {
       setSending(false);
+    }
+  };
+
+  const toggleTakeover = async () => {
+    if (!selectedId || takeoverBusy) return;
+    setTakeoverBusy(true);
+    setError(null);
+    const takingOver = !takeoverActive;
+    try {
+      await request(apiUrl("/api/chat"), {
+        method: "POST",
+        body: JSON.stringify({
+          event: takingOver ? "admin_takeover" : "admin_release",
+          conversationId: selectedId,
+        }),
+      });
+      await Promise.all([loadMessages(selectedId), loadConversations()]);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Could not change takeover mode");
+    } finally {
+      setTakeoverBusy(false);
+    }
+  };
+
+  const setStatus = async (status: "active" | "resolved") => {
+    if (!selectedId || statusBusy) return;
+    setStatusBusy(true);
+    setError(null);
+    try {
+      await request(apiUrl("/api/chat"), {
+        method: "POST",
+        body: JSON.stringify({ event: "admin_status", conversationId: selectedId, status }),
+      });
+      // Resolving a conversation while the "active" filter is on would drop it
+      // out of the list and yank the open thread away, so fall back to the
+      // unfiltered list. Predictable: the filter only resets when the change we
+      // just made is the reason the row would disappear.
+      if (statusFilter === status) setStatusFilter("all");
+      await Promise.all([loadMessages(selectedId), loadConversations()]);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Could not update the status");
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
+  const copyEmail = async () => {
+    if (!selectedEmail) return;
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(selectedEmail);
+      setCopied(true);
+    } catch {
+      setError("Could not copy to clipboard -- select the address and copy it manually");
     }
   };
 
@@ -389,7 +530,7 @@ export default function ChatInboxPage() {
                 {authBusy ? "checking..." : "unlock"}
               </button>
             </form>
-            <p className="mt-3 text-[10px] leading-relaxed text-[var(--gray-400)]">
+            <p className="mt-3 text-[11px] leading-relaxed text-[var(--gray-400)]">
               Set <code>CHAT_ADMIN_PASSWORD</code> on the server. Sessions last 12 hours and are kept
               in this tab only, so closing the browser signs you out.
             </p>
@@ -409,11 +550,71 @@ export default function ChatInboxPage() {
                   <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
                 </button>
               </div>
-              <div className="space-y-2">
-                {conversations.length === 0 && !loading && (
-                  <p className="py-8 text-center text-xs text-[var(--gray-500)]">No conversations yet.</p>
+
+              <div className="relative mb-3">
+                <Search
+                  size={14}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--gray-400)]"
+                />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search name or email..."
+                  aria-label="Search conversations by visitor name or email"
+                  className="w-full rounded-lg border border-[var(--gray-300)] bg-[var(--gray-50)] py-2 pl-9 pr-8 text-xs outline-none focus:border-[var(--ink)]"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--gray-400)] transition-colors hover:text-[var(--ink)]"
+                  >
+                    <X size={13} />
+                  </button>
                 )}
-                {conversations.map((conversation) => (
+              </div>
+
+              <div className="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter by conversation status">
+                {STATUS_FILTERS.map((filter) => (
+                  <button
+                    key={filter.value}
+                    type="button"
+                    onClick={() => setStatusFilter(filter.value)}
+                    aria-pressed={statusFilter === filter.value}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.08em] transition-colors ${
+                      statusFilter === filter.value
+                        ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]"
+                        : "border-[var(--gray-300)] text-[var(--gray-500)] hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                {visibleConversations.length === 0 && !loading && (
+                  <div className="py-8 text-center">
+                    <p className="text-xs text-[var(--gray-500)]">
+                      {conversations.length === 0
+                        ? "No conversations yet."
+                        : "No visitors match this search."}
+                    </p>
+                    {filtersActive && conversations.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={clearFilters}
+                        className="mt-3 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)] underline decoration-dotted underline-offset-2 transition-colors hover:text-[var(--ink)]"
+                      >
+                        clear filters
+                      </button>
+                    )}
+                  </div>
+                )}
+                {visibleConversations.map((conversation) => (
                   <button
                     key={conversation.id}
                     type="button"
@@ -426,20 +627,25 @@ export default function ChatInboxPage() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-xs font-semibold">{visitorLabel(conversation)}</span>
-                      <span className="shrink-0 text-[9px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
+                      <span className="shrink-0 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
                         {conversation.status}
                       </span>
                     </div>
                     {normalizeContact(conversation.visitor_email) && (
-                      <p className="mt-1 truncate text-[10px] text-[var(--gray-500)]">
+                      <p className="mt-1 truncate text-[11px] text-[var(--gray-500)]">
                         {normalizeContact(conversation.visitor_email)}
                       </p>
                     )}
                     <p className="mt-2 truncate text-xs text-[var(--gray-500)]">{conversation.last_message_preview || "No messages yet"}</p>
-                    <p className="mt-2 text-[9px] text-[var(--gray-400)]">{formatTime(conversation.last_message_at)}</p>
+                    <p className="mt-2 text-[11px] text-[var(--gray-400)]">{formatTime(conversation.last_message_at)}</p>
                   </button>
                 ))}
               </div>
+              {filtersActive && visibleConversations.length > 0 && (
+                <p className="mt-3 text-[11px] text-[var(--gray-400)]">
+                  showing {visibleConversations.length} of {conversations.length} loaded
+                </p>
+              )}
             </aside>
 
             <section className="card flex min-h-[540px] min-w-0 flex-col p-5">
@@ -453,24 +659,81 @@ export default function ChatInboxPage() {
                         <h2 className="text-sm font-semibold">
                           {normalizeContact(selectedConversation.visitor_name) || "anonymous visitor"}
                         </h2>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--gray-500)]">
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--gray-500)]">
                           {selectedConversation.visitor_email ? (
-                            <a
-                              href={`mailto:${selectedConversation.visitor_email}`}
-                              className="underline decoration-dotted underline-offset-2 transition-colors hover:text-[var(--ink)]"
-                            >
-                              {selectedConversation.visitor_email}
-                            </a>
+                            <span className="inline-flex items-center gap-1.5">
+                              <a
+                                href={`mailto:${selectedConversation.visitor_email}`}
+                                className="underline decoration-dotted underline-offset-2 transition-colors hover:text-[var(--ink)]"
+                              >
+                                {selectedConversation.visitor_email}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => void copyEmail()}
+                                aria-label={`Copy ${selectedEmail} to clipboard`}
+                                title={copied ? "Copied" : "Copy email address"}
+                                className="inline-flex items-center gap-1 rounded border border-[var(--gray-300)] px-1.5 py-0.5 text-[11px] uppercase tracking-[0.08em] transition-colors hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                              >
+                                {copied ? <Check size={10} /> : <Copy size={10} />}
+                                {copied ? "copied" : "copy"}
+                              </button>
+                            </span>
                           ) : (
                             <span className="italic opacity-70">no email given</span>
                           )}
                           <span className="break-all opacity-70">{selectedConversation.visitor_id}</span>
                         </div>
                       </div>
-                      <span className="rounded-full border border-[var(--gray-300)] px-2 py-1 text-[9px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
-                        started {formatTime(selectedConversation.session_started_at)}
-                      </span>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="rounded-full border border-[var(--gray-300)] px-2 py-1 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
+                          started {formatTime(selectedConversation.session_started_at)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void setStatus(selectedResolved ? "active" : "resolved")}
+                          disabled={statusBusy}
+                          className="rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] transition-colors disabled:opacity-50"
+                          style={
+                            selectedResolved
+                              ? { backgroundColor: "var(--ink)", color: "var(--bg)" }
+                              : { border: "1px solid var(--gray-300)", color: "var(--gray-500)" }
+                          }
+                        >
+                          {statusBusy ? "working..." : selectedResolved ? "reopen" : "resolve"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void toggleTakeover()}
+                          disabled={takeoverBusy}
+                          className="rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] transition-colors disabled:opacity-50"
+                          style={
+                            takeoverActive
+                              ? { backgroundColor: "var(--ink)", color: "var(--bg)" }
+                              : { border: "1px solid var(--gray-300)", color: "var(--gray-500)" }
+                          }
+                        >
+                          {takeoverBusy
+                            ? "working..."
+                            : takeoverActive
+                              ? "release to ai"
+                              : "take over chat"}
+                        </button>
+                      </div>
                     </div>
+                    {selectedResolved && (
+                      <p className="mt-3 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
+                        resolved -- replying does not reopen it, but a new visitor message will
+                      </p>
+                    )}
+                    {takeoverActive && (
+                      <p
+                        className="mt-3 text-[11px] uppercase tracking-[0.08em]"
+                        style={{ color: PRESENCE_COLOR }}
+                      >
+                        you are answering this chat -- the assistant is paused
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex-1 space-y-3 overflow-y-auto py-5" aria-live="polite">
@@ -478,7 +741,7 @@ export default function ChatInboxPage() {
                     {messages.map((message) => (
                       <div key={message.id} className={`flex ${message.role === "visitor" ? "justify-start" : "justify-end"}`}>
                         <div className="max-w-[85%]">
-                          <p className="mb-1 text-[9px] uppercase tracking-[0.08em] text-[var(--gray-500)]">{roleLabel(message.role)}</p>
+                          <p className="mb-1 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)]">{roleLabel(message.role)}</p>
                           <p
                             className="whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-relaxed"
                             style={{
@@ -488,7 +751,7 @@ export default function ChatInboxPage() {
                           >
                             {message.body}
                           </p>
-                          <p className="mt-1 text-right text-[9px] text-[var(--gray-400)]">{formatTime(message.created_at)}</p>
+                          <p className="mt-1 text-right text-[11px] text-[var(--gray-400)]">{formatTime(message.created_at)}</p>
                         </div>
                       </div>
                     ))}
@@ -503,7 +766,7 @@ export default function ChatInboxPage() {
                       className="min-h-20 w-full resize-y rounded-lg border border-[var(--gray-300)] bg-[var(--gray-50)] px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
                     />
                     <div className="mt-3 flex items-center justify-between gap-3">
-                      <span className="text-[10px] text-[var(--gray-500)]">Replies appear in the visitor&apos;s chat window.</span>
+                      <span className="text-[11px] text-[var(--gray-500)]">Replies appear in the visitor&apos;s chat window.</span>
                       <button
                         type="button"
                         onClick={() => void sendReply()}

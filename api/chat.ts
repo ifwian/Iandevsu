@@ -14,7 +14,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
  * Keep in sync with `content/profile.ts` (used by the front-end).
  */
 const PROFILE = {
-  name: "Marianne NapaÃ±o",
+  name: "Marianne Napaño",
   goesBy: "Ian",
   headline: "Computer Science student & aspiring web developer",
   location: "Calamba, Philippines",
@@ -65,7 +65,7 @@ ${PROFILE.projects.map((p) => `- ${p}`).join("\n")}
 Certifications:
 ${PROFILE.certifications.map((c) => `- ${c}`).join("\n")}
 
-Contact: GitHub ${PROFILE.links.github} Â· LinkedIn ${PROFILE.links.linkedin}
+Contact: GitHub ${PROFILE.links.github} · LinkedIn ${PROFILE.links.linkedin}
 `.trim();
 }
 
@@ -88,7 +88,22 @@ interface ChatMessage {
   text: string;
 }
 
-type StoredRole = "visitor" | "assistant" | "admin";
+type StoredRole = "visitor" | "assistant" | "admin" | "system";
+
+/**
+ * Triage state of a conversation. The column was originally ('open','closed'),
+ * but 'closed' was never written by any code path, so the vocabulary was
+ * renamed in 20260929010000_migrate_chat_status_to_active_resolved.sql.
+ */
+type ConversationStatus = "active" | "resolved";
+
+const CONVERSATION_STATUSES: readonly ConversationStatus[] = ["active", "resolved"];
+
+const CONVERSATION_DEFAULT_STATUS: ConversationStatus = "active";
+
+function isConversationStatus(value: unknown): value is ConversationStatus {
+  return value === "active" || value === "resolved";
+}
 
 interface ConversationRecord {
   id: string;
@@ -98,10 +113,16 @@ interface ConversationRecord {
   status: string;
   last_message_at: string;
   last_message_preview: string;
-  /** Nullable: absent on conversations created before the pre-chat form. */
+  /** Optional contact details -- absent on conversations created before the pre-chat form. */
   visitor_name: string | null;
   /** Nullable: the email field is optional, and may be blank. */
   visitor_email: string | null;
+  /**
+   * 'ai' or 'takeover'. Read with a graceful fallback, because the column only
+   * exists once supabase/migrations/2026092*_add_chat_takeover*.sql has been
+   * applied -- a missing column makes PostgREST reject the whole query.
+   */
+  mode?: string;
 }
 
 /**
@@ -121,7 +142,24 @@ interface StoredMessage {
   created_at: string;
 }
 
-type ChatEvent = "chat_started" | "message" | "admin_reply";
+type ChatEvent =
+  | "chat_started"
+  | "message"
+  | "admin_reply"
+  | "admin_takeover"
+  | "admin_release"
+  | "admin_status";
+
+function isChatEvent(value: unknown): value is ChatEvent {
+  return (
+    value === "chat_started" ||
+    value === "message" ||
+    value === "admin_reply" ||
+    value === "admin_takeover" ||
+    value === "admin_release" ||
+    value === "admin_status"
+  );
+}
 
 interface ChatRequest {
   messages?: unknown;
@@ -134,6 +172,7 @@ interface ChatRequest {
   password?: unknown;
   visitorName?: unknown;
   visitorEmail?: unknown;
+  status?: unknown;
 }
 
 /**
@@ -146,7 +185,7 @@ function getSystemPrompt(): string {
   if (cachedSystemPrompt !== null) return cachedSystemPrompt;
   try {
     cachedSystemPrompt = `
-You are the AI assistant for Marianne NapaÃ±o's personal portfolio. You are chatting as Ian, Marianne's go-to name, on her portfolio website. Keep answers warm, direct, and conversational, usually in 2-4 short sentences unless the visitor asks for detail.
+You are the AI assistant for Marianne Napaño's personal portfolio. You are chatting as Ian, Marianne's go-to name, on her portfolio website. Keep answers warm, direct, and conversational, usually in 2-4 short sentences unless the visitor asks for detail.
 
 Marianne is a Computer Science student at City College of Calamba in Calamba, Philippines. She works with C++, Java, Python, React, HTML, CSS, JavaScript, Git, and web development. Her projects include responsive coffee shop websites, calculators, to-do lists, and weather apps. She enjoys learning by building practical projects and is exploring web development and software engineering.
 
@@ -168,7 +207,7 @@ Rules:
       })
     );
     cachedSystemPrompt =
-      "You are Ian, the AI assistant for Marianne NapaÃ±o's portfolio. " +
+      "You are Ian, the AI assistant for Marianne Napaño's portfolio. " +
       `Answer warmly and briefly. Direct portfolio questions to ${PROFILE.links.email}.`;
   }
   return cachedSystemPrompt;
@@ -675,32 +714,71 @@ function isRowId(value: unknown): value is RowId {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function isStoredRole(value: unknown): value is StoredRole {
+  return value === "visitor" || value === "assistant" || value === "admin" || value === "system";
+}
+
 function isStoredMessage(value: unknown): value is StoredMessage {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return (
     isRowId(candidate.id) &&
     typeof candidate.conversation_id === "string" &&
-    (candidate.role === "visitor" || candidate.role === "assistant" || candidate.role === "admin") &&
+    isStoredRole(candidate.role) &&
     typeof candidate.body === "string" &&
     typeof candidate.created_at === "string"
   );
 }
 
-async function findConversationByVisitor(visitorId: string): Promise<ConversationRecord | null> {
-  const result = await supabaseRequest(
-    `chat_conversations?visitor_id=eq.${encodeURIComponent(visitorId)}&select=id,visitor_id,visitor_auth_id,visitor_name,visitor_email,session_started_at,status,last_message_at,last_message_preview&limit=1`
+const CONVERSATION_COLUMNS =
+  "id,visitor_id,visitor_auth_id,visitor_name,visitor_email,session_started_at,status,last_message_at,last_message_preview";
+const CONVERSATION_COLUMNS_WITH_MODE = `${CONVERSATION_COLUMNS},mode`;
+
+/**
+ * Reads a conversation, retrying without `mode` when PostgREST rejects the
+ * column. Selecting a column that does not exist fails the *entire* query, so
+ * without this fallback a missing migration would take down every read rather
+ * than just the takeover feature.
+ */
+async function selectConversation(
+  filter: string,
+  tail: string
+): Promise<ConversationRecord | null> {
+  const withMode = await supabaseRequest(
+    `chat_conversations?${filter}&select=${CONVERSATION_COLUMNS_WITH_MODE}${tail}`
   );
-  if (!Array.isArray(result)) return null;
-  return result.find(isConversationRecord) || null;
+  if (Array.isArray(withMode)) {
+    return withMode.find(isConversationRecord) || null;
+  }
+
+  const withoutMode = await supabaseRequest(
+    `chat_conversations?${filter}&select=${CONVERSATION_COLUMNS}${tail}`
+  );
+  if (Array.isArray(withoutMode)) {
+    const found = withoutMode.find(isConversationRecord);
+    if (found) {
+      console.warn(
+        JSON.stringify({
+          scope: "ian-chat-takeover",
+          note: "chat_conversations.mode unavailable -- run the add_chat_takeover migration",
+        })
+      );
+      return { ...found, mode: "ai" };
+    }
+  }
+  return null;
+}
+
+function isTakeover(conversation: ConversationRecord | null): boolean {
+  return conversation?.mode === "takeover";
+}
+
+async function findConversationByVisitor(visitorId: string): Promise<ConversationRecord | null> {
+  return selectConversation(`visitor_id=eq.${encodeURIComponent(visitorId)}`, "&limit=1");
 }
 
 async function findConversationById(conversationId: string): Promise<ConversationRecord | null> {
-  const result = await supabaseRequest(
-    `chat_conversations?id=eq.${encodeURIComponent(conversationId)}&select=id,visitor_id,visitor_auth_id,visitor_name,visitor_email,session_started_at,status,last_message_at,last_message_preview&limit=1`
-  );
-  if (!Array.isArray(result)) return null;
-  return result.find(isConversationRecord) || null;
+  return selectConversation(`id=eq.${encodeURIComponent(conversationId)}`, "&limit=1");
 }
 
 interface VisitorContact {
@@ -729,7 +807,7 @@ async function ensureConversation(
       visitor_name: contact.name,
       visitor_email: contact.email,
       session_started_at: new Date(sessionStartedAt).toISOString(),
-      status: "open",
+      status: CONVERSATION_DEFAULT_STATUS,
       last_message_at: new Date().toISOString(),
       last_message_preview: "Visitor opened chat",
     }),
@@ -788,15 +866,29 @@ async function insertStoredMessage(
   return result.find(isStoredMessage) || null;
 }
 
-async function touchConversation(conversationId: string, body: string, status = "open"): Promise<void> {
+/**
+ * Bumps the conversation's activity timestamp and preview.
+ *
+ * `status` is opt-in on purpose. It used to be hardcoded to "open" on every
+ * touch, which meant an admin replying to an already-resolved thread silently
+ * reopened it. Only a *visitor* message should resurrect a resolved thread --
+ * see persistVisitorMessage -- so every other caller leaves status untouched.
+ */
+async function touchConversation(
+  conversationId: string,
+  body: string,
+  status?: ConversationStatus
+): Promise<void> {
+  const patch: Record<string, string> = {
+    last_message_at: new Date().toISOString(),
+    last_message_preview: truncate(body, 180),
+  };
+  if (status) patch.status = status;
+
   await supabaseRequest(`chat_conversations?id=eq.${encodeURIComponent(conversationId)}`, {
     method: "PATCH",
     headers: { Prefer: "return=minimal" },
-    body: JSON.stringify({
-      last_message_at: new Date().toISOString(),
-      last_message_preview: truncate(body, 180),
-      status,
-    }),
+    body: JSON.stringify(patch),
   });
 }
 
@@ -811,7 +903,9 @@ async function persistVisitorMessage(
   const conversation = await ensureConversation(visitorId, visitorAuthId, sessionStartedAt, contact);
   if (!conversation) return null;
   await insertStoredMessage(conversation.id, "visitor", body);
-  await touchConversation(conversation.id, body);
+  // A visitor coming back is a new question, so a resolved thread reopens here
+  // rather than staying buried in the resolved filter.
+  await touchConversation(conversation.id, body, CONVERSATION_DEFAULT_STATUS);
   return conversation.id;
 }
 
@@ -821,15 +915,132 @@ async function persistAssistantMessage(conversationId: string | null, body: stri
   await touchConversation(conversationId, body);
 }
 
-async function listConversations(): Promise<ConversationRecord[]> {
-  const result = await supabaseRequest(
-    "chat_conversations?select=id,visitor_id,visitor_auth_id,visitor_name,visitor_email,session_started_at,status,last_message_at,last_message_preview&order=last_message_at.desc&limit=50"
-  );
-  return Array.isArray(result) ? result.filter(isConversationRecord) : [];
+/** How many rows an unfiltered inbox page pulls. */
+const CONVERSATION_PAGE_SIZE = 50;
+
+/**
+ * Searching filters in the database, so a narrow query is allowed to reach
+ * further back than the default page. Bounded so a single-character search
+ * cannot ask PostgREST for the whole table.
+ */
+const CONVERSATION_SEARCH_PAGE_SIZE = 200;
+
+interface ConversationListFilters {
+  /** Case-insensitive substring match against visitor name and email. */
+  search?: string;
+  status?: ConversationStatus;
 }
 
-async function listStoredMessages(conversationId: string, role?: StoredRole): Promise<StoredMessage[]> {
-  const roleFilter = role ? `&role=eq.${encodeURIComponent(role)}` : "";
+function truncateForSearch(value: string): string {
+  return value.slice(0, 100);
+}
+
+/**
+ * Neutralises the characters that are structural in a PostgREST
+ * `or=(col.op.value,...)` filter:
+ *
+ * - `,` separates the alternatives, so leaving it in would let a search
+ *   append its own `or=` clause.
+ * - `(` / `)` would close the filter group early.
+ * - `%` and `_` are `ilike` wildcards, so leaving them in would turn "100%"
+ *   into a prefix search that matches far more than intended.
+ *
+ * `.` is deliberately preserved: only the first two dots in an alternative are
+ * structural (`column` / `operator`), everything after is the value, and email
+ * domains cannot be searched without it. Verified against PostgREST: both
+ * `visitor_email.ilike.*gmail.com*` and `visitor_email.eq.iandevsu@gmail.com`
+ * match as expected.
+ */
+function escapePostgrestPattern(value: string): string {
+  return value.replace(/[%_,()\\]/g, "");
+}
+
+/**
+ * Builds the shared `select`/`order`/`limit` tail. `filter` is appended by the
+ * caller so the same query shape can be retried without `mode`.
+ */
+function conversationListTail(filters: ConversationListFilters): string {
+  const parts: string[] = [];
+
+  const search = filters.search?.trim();
+  if (search) {
+    // `%` and `_` are ilike wildcards, so they are stripped from user input --
+    // otherwise "100%" degrades into a prefix search.
+    const pattern = `*${escapePostgrestPattern(truncateForSearch(search))}*`;
+    parts.push(
+      `or=(visitor_name.ilike.${pattern},visitor_email.ilike.${pattern},visitor_id.ilike.${pattern})`
+    );
+  }
+
+  if (filters.status) {
+    parts.push(`status=eq.${encodeURIComponent(filters.status)}`);
+  }
+
+  parts.push("order=last_message_at.desc");
+  parts.push(`limit=${filters.search ? CONVERSATION_SEARCH_PAGE_SIZE : CONVERSATION_PAGE_SIZE}`);
+  return `&${parts.join("&")}`;
+}
+
+async function listConversations(filters: ConversationListFilters = {}): Promise<ConversationRecord[]> {
+  const tail = conversationListTail(filters);
+  const withMode = await supabaseRequest(
+    `chat_conversations?select=${CONVERSATION_COLUMNS_WITH_MODE}${tail}`
+  );
+  if (Array.isArray(withMode)) return withMode.filter(isConversationRecord);
+
+  const withoutMode = await supabaseRequest(
+    `chat_conversations?select=${CONVERSATION_COLUMNS}${tail}`
+  );
+  return Array.isArray(withoutMode)
+    ? withoutMode.filter(isConversationRecord).map((row) => ({ ...row, mode: "ai" }))
+    : [];
+}
+
+/** Sets active/resolved. Returns the new status, or null if the write failed. */
+async function setConversationStatus(
+  conversationId: string,
+  status: ConversationStatus
+): Promise<ConversationStatus | null> {
+  const result = await supabaseRequest(
+    `chat_conversations?id=eq.${encodeURIComponent(conversationId)}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ status }),
+    }
+  );
+  if (!Array.isArray(result) || result.length === 0) return null;
+  const row = result[0] as Record<string, unknown> | undefined;
+  return isConversationStatus(row?.status) ? row.status : null;
+}
+
+/** Sets ai/takeover. Returns the updated mode, or null if the column is absent. */
+async function setConversationMode(
+  conversationId: string,
+  mode: "ai" | "takeover"
+): Promise<"ai" | "takeover" | null> {
+  const result = await supabaseRequest(
+    `chat_conversations?id=eq.${encodeURIComponent(conversationId)}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ mode }),
+    }
+  );
+  if (!Array.isArray(result)) return null;
+  const row = result[0] as Record<string, unknown> | undefined;
+  return row?.mode === "takeover" ? "takeover" : mode;
+}
+
+async function listStoredMessages(
+  conversationId: string,
+  role?: StoredRole | StoredRole[]
+): Promise<StoredMessage[]> {
+  const roleFilter = Array.isArray(role)
+    ? `&role=in.(${role.join(",")})`
+    : role
+      ? `&role=eq.${encodeURIComponent(role)}`
+      : "";
   const result = await supabaseRequest(
     `chat_messages?conversation_id=eq.${encodeURIComponent(conversationId)}&select=id,conversation_id,role,body,created_at&order=created_at.asc${roleFilter}&limit=100`
   );
@@ -888,7 +1099,7 @@ function logConversation(
 }
 
 function truncate(value: string, maxLength: number): string {
-  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}â€¦` : value;
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 }
 
 function escapeHtml(value: string): string {
@@ -1214,7 +1425,17 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ messages: await listStoredMessages(conversationId) });
       }
 
-      return res.status(200).json({ conversations: await listConversations() });
+      // Triage filters. `q` matches visitor name, email, or id; `status` is
+      // 'active' or 'resolved'. An unrecognised status is ignored rather than
+      // rejected, so a stale client degrades to the full list instead of an
+      // error page.
+      const requestedStatus = query.get("status");
+      return res.status(200).json({
+        conversations: await listConversations({
+          search: query.get("q") || undefined,
+          status: isConversationStatus(requestedStatus) ? requestedStatus : undefined,
+        }),
+      });
     }
 
     const visitorId = query.get("visitorId");
@@ -1229,7 +1450,9 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
       if (conversation && !adminAccess && conversation.visitor_auth_id !== authenticatedVisitorId) {
         return res.status(403).json({ error: "Visitor session does not match" });
       }
-      const messages = conversation ? await listStoredMessages(conversation.id, "admin") : [];
+      const messages = conversation
+      ? await listStoredMessages(conversation.id, ["admin", "system"])
+      : [];
       return res.status(200).json({ messages });
     }
 
@@ -1277,10 +1500,95 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ ok: true, session: issueAdminSession(expected) });
   }
 
-  const event: ChatEvent =
-    body.event === "chat_started" || body.event === "admin_reply" ? body.event : "message";
+  const event: ChatEvent = isChatEvent(body.event) ? body.event : "message";
   const visitorId = getVisitorId(body.visitorId);
   const sessionStartedAt = getSessionStartedAt(body.sessionStartedAt);
+
+  if (event === "admin_takeover" || event === "admin_release") {
+    if (!(await hasAdminAccess(req))) {
+      return res.status(401).json({ error: "Admin authorization required" });
+    }
+    if (!hasSupabaseConfig()) {
+      return res.status(503).json(supabaseNotConfiguredBody());
+    }
+
+    const conversationId = typeof body.conversationId === "string" ? body.conversationId.trim() : "";
+    if (!conversationId) {
+      return res.status(400).json({ error: "conversationId is required" });
+    }
+
+    const conversation = await findConversationById(conversationId);
+    if (!conversation) return res.status(404).json({ error: "Conversation not found" });
+
+    const takingOver = event === "admin_takeover";
+    const mode = await setConversationMode(conversationId, takingOver ? "takeover" : "ai");
+    if (!mode) {
+      return res.status(409).json({
+        error: "Takeover is unavailable: the chat_conversations.mode column is missing. Run the add_chat_takeover_support migration.",
+      });
+    }
+
+    // Announce the handover in the thread so the visitor knows a person is
+    // responding. Stored as its own 'system' entry rather than a chat bubble.
+    const announcement = takingOver
+      ? `${PROFILE.goesBy} has joined the chat -- you're now talking to the real ${PROFILE.goesBy}!`
+      : `${PROFILE.goesBy} stepped away, so I'm back to answering questions.`;
+    await insertStoredMessage(conversationId, "system", announcement);
+    await touchConversation(conversationId, announcement);
+
+    console.info(
+      JSON.stringify({ scope: "ian-chat-takeover", conversationId, mode, takingOver })
+    );
+    return res.status(200).json({ ok: true, conversationId, mode, announcement });
+  }
+
+  if (event === "admin_status") {
+    if (!(await hasAdminAccess(req))) {
+      return res.status(401).json({ error: "Admin authorization required" });
+    }
+    if (!hasSupabaseConfig()) {
+      return res.status(503).json(supabaseNotConfiguredBody());
+    }
+
+    const conversationId = typeof body.conversationId === "string" ? body.conversationId.trim() : "";
+    if (!conversationId) {
+      return res.status(400).json({ error: "conversationId is required" });
+    }
+
+    const status = body.status;
+    if (!isConversationStatus(status)) {
+      return res.status(400).json({
+        error: `status must be one of: ${CONVERSATION_STATUSES.join(", ")}`,
+      });
+    }
+
+    const conversation = await findConversationById(conversationId);
+    if (!conversation) return res.status(404).json({ error: "Conversation not found" });
+
+    const updated = await setConversationStatus(conversationId, status);
+    if (!updated) {
+      return res.status(502).json({ error: "Could not update the conversation status" });
+    }
+
+    // Log the resolution in the thread so the state change has a visible
+    // trail. It is also what the visitor sees, since the widget renders the
+    // 'admin' and 'system' roles. touchConversation is called without a status:
+    // the PATCH above is already authoritative, and re-asserting it here would
+    // be a second write that could race the admin's next action.
+    const announcement =
+      status === "resolved"
+        ? `${PROFILE.goesBy} marked this conversation as resolved -- reply here if you need anything else.`
+        : `${PROFILE.goesBy} reopened this conversation.`;
+    await insertStoredMessage(conversationId, "system", announcement);
+    // Keeps the list preview showing the announcement instead of a stale
+    // message, matching what the takeover handler does.
+    await touchConversation(conversationId, announcement);
+
+    console.info(
+      JSON.stringify({ scope: "ian-chat-status", conversationId, status })
+    );
+    return res.status(200).json({ ok: true, conversationId, status, announcement });
+  }
 
   if (event === "admin_reply") {
     if (!(await hasAdminAccess(req))) {
@@ -1353,8 +1661,7 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
     visitorId,
     sessionStartedAt,
     modelMessages
-  ).catch((error: unknown) => {
-    console.error(
+  ).catch((error: unknown) => {    console.error(
       JSON.stringify({
         scope: "ian-chat-notification-error",
         message: error instanceof Error ? error.message : String(error),
@@ -1362,12 +1669,19 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
     );
   });
 
+  // While an admin has taken the conversation over, the assistant must stay
+  // quiet -- otherwise the visitor gets two conflicting answers. The visitor
+  // message is already stored above, so the human sees it in the inbox.
+  if (isTakeover(await findConversationByVisitor(visitorId))) {
+    await notificationPromise;
+    return res.status(200).json({ takeover: true, conversationId });
+  }
+
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
     await notificationPromise;
     return res.status(500).json({ error: "Server is missing GEMINI_API_KEY" });
   }
-
   let geminiResponse: Response | null = null;
   let lastStatus = 0;
   let lastDetail = "";

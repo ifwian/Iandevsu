@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from 'react';
 
 interface TimelineEntry {
   date: string;
@@ -33,8 +32,8 @@ function TimelineGroup({ heading, entries }: { heading: string; entries: Timelin
   return (
     <div>
       <p 
-        className="micro-label mb-4 text-[11px] font-medium uppercase tracking-wider text-[var(--gray-500)]"
-        style={{ fontFamily: "'Kode Mono', monospace" }}
+        className="micro-label mb-4 text-xs font-medium uppercase tracking-wider text-[var(--gray-500)]"
+        style={{ fontFamily: "var(--font-display)" }}
       >
         {heading}
       </p>
@@ -45,15 +44,15 @@ function TimelineGroup({ heading, entries }: { heading: string; entries: Timelin
             className="py-4 border-t border-[var(--gray-200)] first:border-t-0"
           >
             <p 
-              className="micro-label mb-1 text-[11px] uppercase tracking-wider text-[var(--gray-500)]"
-              style={{ fontFamily: "'Kode Mono', monospace" }}
+              className="micro-label mb-1 text-xs uppercase tracking-wider text-[var(--gray-500)]"
+              style={{ fontFamily: "var(--font-display)" }}
             >
               {entry.date}
             </p>
 
             <p 
               className="text-sm sm:text-base font-semibold text-[var(--ink)] tracking-tight"
-              style={{ fontFamily: "'Kode Mono', monospace" }}
+              style={{ fontFamily: "var(--font-display)" }}
             >
               {entry.title}
             </p>
@@ -74,35 +73,28 @@ function TimelineGroup({ heading, entries }: { heading: string; entries: Timelin
 }
 
 export default function Education() {
-  useEffect(() => {
-    const linkKode = document.createElement('link');
-    linkKode.href = 'https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap';
-    linkKode.rel = 'stylesheet';
-    document.head.appendChild(linkKode);
-
-    const linkGeist = document.createElement('link');
-    linkGeist.href = 'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap';
-    linkGeist.rel = 'stylesheet';
-    document.head.appendChild(linkGeist);
-  }, []);
 
   return (
     <section 
       id="education" 
-      className="px-5 py-16 lg:px-6 flex justify-center"
-      style={{ fontFamily: "'Geist Mono', monospace" }}
+      className="section-frame px-5 py-16 lg:px-6"
+      style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
-        <p className="section-eyebrow text-xs mb-1 text-[var(--gray-400)] font-medium">05 &mdash; education</p>
+        <p className="section-eyebrow mb-1 font-medium">05 &mdash; education</p>
 
         <h2 
           className="mb-2 text-xl sm:text-2xl font-semibold tracking-tight text-[var(--ink)]"
-          style={{ fontFamily: "'Kode Mono', monospace" }}
+          style={{ fontFamily: "var(--font-display)" }}
         >
           education &amp; certifications
         </h2>
 
-        <p className="mb-8 max-w-[46ch] text-xs sm:text-sm leading-relaxed text-[var(--gray-400)]" style={{ lineHeight: 1.6 }}>
+        {/* Section description -- prose, so Source Serif 4. */}
+        <p
+          className="mb-8 max-w-xl text-[15px] leading-[1.7] text-[var(--gray-400)]"
+          style={{ fontFamily: "var(--font-serif)" }}
+        >
           Where I&rsquo;ve studied, and what I&rsquo;ve earned along the way.
         </p>
 

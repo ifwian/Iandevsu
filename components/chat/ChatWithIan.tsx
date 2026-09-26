@@ -9,7 +9,13 @@ interface ChatMessage {
   text: string;
   /** chat_messages.id is a Postgres bigint -- PostgREST may send number or string. */
   id?: string | number;
-  source?: "assistant" | "admin";
+  /**
+   * Who produced a `model` message. `assistant` is the default (no AI reply
+   * sets it explicitly), `admin` is a human typing from the inbox, and
+   * `system` is a server-authored notice such as a takeover announcement --
+   * which must never be rendered as something a person said.
+   */
+  source?: "assistant" | "admin" | "system";
 }
 
 interface StreamEvent {
@@ -194,6 +200,13 @@ function saveHistory(visitorId: string, messages: ChatMessage[]): void {
 interface RemoteAdminMessage {
   id: string | number;
   body: string;
+  /**
+   * chat_messages.role for this row. Only 'admin' and 'system' ever reach the
+   * visitor (the server filters the rest), but the value is validated rather
+   * than assumed so a future role cannot be silently rendered as a human
+   * message.
+   */
+  role: "admin" | "system";
 }
 
 function isRowId(value: unknown): value is string | number {
@@ -203,8 +216,13 @@ function isRowId(value: unknown): value is string | number {
 
 function isRemoteAdminMessage(value: unknown): value is RemoteAdminMessage {
   if (!value || typeof value !== "object") return false;
-  const candidate = value as { id?: unknown; body?: unknown };
-  return isRowId(candidate.id) && typeof candidate.body === "string" && candidate.body.trim().length > 0;
+  const candidate = value as { id?: unknown; body?: unknown; role?: unknown };
+  return (
+    isRowId(candidate.id) &&
+    typeof candidate.body === "string" &&
+    candidate.body.trim().length > 0 &&
+    (candidate.role === "admin" || candidate.role === "system")
+  );
 }
 
 function mergeAdminMessages(current: ChatMessage[], remote: RemoteAdminMessage[]): ChatMessage[] {
@@ -216,7 +234,15 @@ function mergeAdminMessages(current: ChatMessage[], remote: RemoteAdminMessage[]
   const knownText = new Set(current.filter((message) => message.source === "admin").map((message) => message.text));
   const additions = remote
     .filter((message) => !knownIds.has(String(message.id)) && !knownText.has(message.body))
-    .map((message) => ({ role: "model" as const, text: message.body, id: message.id, source: "admin" as const }));
+    // Carries the stored role through as `source`. Hardcoding "admin" here is
+    // what previously made a "Ian has joined the chat" notice render as an
+    // ordinary reply the admin supposedly typed.
+    .map((message) => ({
+      role: "model" as const,
+      text: message.body,
+      id: message.id,
+      source: message.role,
+    }));
 
   return additions.length ? [...current, ...additions] : current;
 }
@@ -406,8 +432,17 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
       { event: "INSERT", schema: "public", table: "chat_messages" },
       (payload) => {
         const record = payload.new as Record<string, unknown>;
-        if (record.role !== "admin" || !isRowId(record.id) || typeof record.body !== "string") return;
-        setMessages((current) => mergeAdminMessages(current, [{ id: record.id as number, body: record.body as string }]));
+        const id = record.id;
+        const body = record.body;
+        const role = record.role;
+        // Both 'admin' and 'system' must pass. Filtering on 'admin' alone
+        // dropped the takeover announcement on the floor, so the visitor only
+        // learned a human had joined on the next poll -- or never, if they
+        // closed the tab first.
+        if ((role !== "admin" && role !== "system") || !isRowId(id) || typeof body !== "string") {
+          return;
+        }
+        setMessages((current) => mergeAdminMessages(current, [{ id, body, role }]));
       }
     );
     void channel.subscribe();
@@ -589,12 +624,9 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
         <div
           className={
             isSidebar
-              ? "card fixed bottom-4 left-4 z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden lg:left-[21rem]"
-              : "card fixed bottom-[25px] left-[25px] z-40 flex w-[min(360px,calc(100vw-50px))] flex-col overflow-hidden"
+              ? "card sidebar-chat-panel chat-panel fixed bottom-4 left-4 z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden"
+              : "card chat-panel-floating fixed bottom-[25px] left-[25px] z-40 flex w-[min(360px,calc(100vw-50px))] flex-col overflow-hidden"
           }
-          style={{
-            height: isSidebar ? "min(520px, calc(100vh - 2rem))" : "min(520px, calc(100vh - 120px))",
-          }}
           role="dialog"
           aria-label={`Chat with ${PROFILE.goesBy}`}
           aria-busy={loading}
@@ -625,7 +657,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                   chat with {PROFILE.goesBy.toLowerCase()}
                 </p>
                 <p
-                  className="flex items-center gap-1 text-[9px] uppercase leading-tight tracking-[0.12em]"
+                  className="flex items-center gap-1 text-[11px] uppercase leading-tight tracking-[0.12em]"
                   style={{ color: "var(--gray-400)" }}
                 >
                   <span
@@ -652,18 +684,39 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
             <>
               <div
                 ref={scrollRef}
-                className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden px-4 py-4"
                 aria-live="polite"
                 aria-label="Chat messages"
               >
                 {messages.map((message, index) => {
-                  const isStreaming = loading && index === messages.length - 1 && message.role === "model";
+                  const isStreaming =
+                    loading && index === messages.length - 1 && message.role === "model" && message.source !== "system";
+
+                  // A server-authored notice, not a chat bubble. Centred,
+                  // unaligned and without an avatar so it cannot be mistaken
+                  // for something either party typed.
+                  if (message.source === "system") {
+                    return (
+                      <div key={`system-${message.id ?? index}`} className="flex justify-center py-1.5">
+                        <p
+                          role="status"
+                          className="max-w-[92%] break-words rounded-lg border border-[var(--gray-200)] bg-[var(--gray-50)] px-3 py-2 text-center text-[11px] leading-relaxed text-[var(--gray-500)]"
+                        >
+                          {message.text}
+                        </p>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
                       key={`${message.role}-${index}`}
                       className={`flex items-end gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
                     >
-                      {message.role === "model" && (
+                      {/* The anime avatar belongs to the AI persona. Showing it
+                          next to a human reply would misattribute the message,
+                          so human turns are labelled with a name instead. */}
+                      {message.role === "model" && message.source !== "admin" && (
                         <img
                           src={ASSISTANT_AVATAR}
                           alt=""
@@ -675,14 +728,16 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                         />
                       )}
                       <p
-                        className="max-w-[80%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-relaxed"
+                        className="min-w-0 max-w-[80%] whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed"
                         style={{
                           backgroundColor: message.role === "user" ? "var(--ink)" : "var(--gray-100)",
                           color: message.role === "user" ? "var(--bg)" : "var(--ink)",
                         }}
                       >
                         {message.source === "admin" && (
-                          <span className="mr-1 text-[9px] uppercase tracking-[0.08em] opacity-60">you · </span>
+                          <span className="mr-1 text-[11px] uppercase tracking-[0.08em] opacity-60">
+                            {PROFILE.goesBy} ·{" "}
+                          </span>
                         )}
                         {message.text || (isStreaming ? "thinking…" : "")}
                         {isStreaming && message.text && <span className="ml-0.5 animate-pulse">▍</span>}
@@ -698,7 +753,14 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                 )}
               </div>
 
-              <div className="flex items-center gap-2 p-3" style={{ borderTop: "1px solid var(--gray-200)" }}>
+              {/* shrink-0 keeps the composer from being squeezed when the
+                  thread is long. h-9 on the input matches the send button
+                  exactly -- its intrinsic height was 37px (14px text + py-2),
+                  so the two never lined up. */}
+              <div
+                className="flex shrink-0 items-center gap-2 p-3"
+                style={{ borderTop: "1px solid var(--gray-200)" }}
+              >
                 <input
                   type="text"
                   value={input}
@@ -707,7 +769,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                   placeholder="Ask about my projects, stack..."
                   maxLength={600}
                   disabled={loading || !session}
-                  className="flex-1 rounded-lg px-3 py-2 text-sm outline-none disabled:opacity-50"
+                  className="h-9 min-w-0 flex-1 rounded-lg border border-[var(--gray-300)] px-3 text-sm outline-none transition-colors focus:border-[var(--ink)] disabled:opacity-50"
                   style={{ backgroundColor: "var(--gray-100)", color: "var(--ink)" }}
                 />
                 <button
@@ -725,7 +787,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
           ) : (
             /* Pre-chat step: name is required, email is optional. */
             <form
-              className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
+              className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4"
               onSubmit={(event) => {
                 event.preventDefault();
                 submitContact();
@@ -792,7 +854,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                 start chatting
               </button>
 
-              <p className="text-[10px] leading-relaxed" style={{ color: "var(--gray-400)" }}>
+              <p className="text-[11px] leading-relaxed" style={{ color: "var(--gray-400)" }}>
                 Your email is only stored so {PROFILE.goesBy} can reply to you. Leave it blank if you'd
                 rather not.
               </p>

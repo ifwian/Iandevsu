@@ -14,7 +14,7 @@ function PreviewFrame({ title }: { title: string }) {
       <div className="halftone" style={{ opacity: 0.5 }} aria-hidden="true" />
       <span
         className="relative text-2xl sm:text-3xl"
-        style={{ fontFamily: "'Kode Mono', monospace", color: "var(--gray-300, rgba(255, 255, 255, 0.3))" }}
+        style={{ fontFamily: "var(--font-display)", color: "var(--gray-300, rgba(255, 255, 255, 0.3))" }}
         aria-hidden="true"
       >
         {title.charAt(0)}
@@ -31,14 +31,14 @@ export default function ProjectCard({ project }: { project: Project }) {
       <div className="flex flex-1 flex-col justify-between p-5">
         <div>
           <div className="mb-1 flex items-center justify-between gap-2">
-            <h3 className="text-base font-semibold text-[var(--ink)] tracking-tight" style={{ fontFamily: "'Kode Mono', monospace" }}>
+            <h3 className="text-base font-semibold text-[var(--ink)] tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
               {project.title}
             </h3>
 
             {project.status && (
               <span
-                className="pill shrink-0 text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border border-[var(--gray-200)] bg-[var(--gray-100)] text-[var(--gray-500)]"
-                style={{ fontFamily: "'Kode Mono', monospace" }}
+                className="pill shrink-0 text-[11px] uppercase tracking-widest px-2 py-0.5 rounded border border-[var(--gray-200)] bg-[var(--gray-100)] text-[var(--gray-500)]"
+                style={{ fontFamily: "var(--font-display)" }}
               >
                 {project.status}
               </span>
@@ -49,7 +49,10 @@ export default function ProjectCard({ project }: { project: Project }) {
             {project.role}
           </p>
 
-          <p className="mb-4 text-sm leading-relaxed" style={{ color: "var(--gray-500)", lineHeight: 1.65 }}>
+          <p
+            className="mb-4 text-sm leading-[1.7]"
+            style={{ fontFamily: "var(--font-serif)", color: "var(--gray-500)" }}
+          >
             {project.description}
           </p>
 
@@ -67,7 +70,7 @@ export default function ProjectCard({ project }: { project: Project }) {
               target="_blank"
               rel="noopener noreferrer"
               className="link-arrow group text-xs transition-colors hover:text-[var(--ink)]"
-              style={{ fontFamily: "'Kode Mono', monospace" }}
+              style={{ fontFamily: "var(--font-display)" }}
             >
               visit site{" "}
               <span className="arrow-glyph inline-block transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5">
@@ -75,7 +78,7 @@ export default function ProjectCard({ project }: { project: Project }) {
               </span>
             </a>
           ) : (
-            <span className="micro-label text-[10px] uppercase tracking-widest text-[var(--gray-500)]" style={{ fontFamily: "'Kode Mono', monospace" }}>
+            <span className="micro-label text-[11px] uppercase tracking-widest text-[var(--gray-500)]" style={{ fontFamily: "var(--font-display)" }}>
               not live yet
             </span>
           )}

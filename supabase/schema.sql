@@ -11,7 +11,7 @@ create table if not exists public.chat_conversations (
   visitor_id text not null unique,
   visitor_auth_id uuid,
   session_started_at timestamptz not null,
-  status text not null default 'open' check (status in ('open', 'closed')),
+  status text not null default 'active' check (status in ('active', 'resolved')),
   last_message_at timestamptz not null default now(),
   last_message_preview text not null default '',
   created_at timestamptz not null default now()
@@ -33,6 +33,14 @@ create index if not exists chat_conversations_last_message_at_idx
 
 create index if not exists chat_conversations_visitor_auth_id_idx
   on public.chat_conversations (visitor_auth_id);
+
+create index if not exists chat_conversations_status_idx
+  on public.chat_conversations (status)
+  where status = 'resolved';
+
+create index if not exists chat_conversations_visitor_email_idx
+  on public.chat_conversations (visitor_email)
+  where visitor_email is not null;
 
 create index if not exists chat_messages_conversation_created_at_idx
   on public.chat_messages (conversation_id, created_at asc);

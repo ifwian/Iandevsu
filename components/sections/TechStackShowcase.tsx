@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 interface StackItem {
   name: string;
@@ -55,29 +55,18 @@ const FULL_STACK_DATA: { categoryLabel: string; items: StackItem[] }[] = [
 export default function TechStackShowcase() {
   const [showAll, setShowAll] = useState(false);
 
-  useEffect(() => {
-    const linkKode = document.createElement("link");
-    linkKode.href = "https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap";
-    linkKode.rel = "stylesheet";
-    document.head.appendChild(linkKode);
-
-    const linkGeist = document.createElement("link");
-    linkGeist.href = "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap";
-    linkGeist.rel = "stylesheet";
-    document.head.appendChild(linkGeist);
-  }, []);
 
   return (
     <section 
       id="stack" 
-      className="snap-start px-5 py-16 lg:px-6 flex justify-center"
-      style={{ fontFamily: "'Geist Mono', monospace" }}
+      className="section-frame px-5 py-16 lg:px-6"
+      style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
         <div className="mb-1.5 flex items-baseline justify-between">
           <p 
-            className="section-eyebrow text-xs sm:text-sm font-medium text-[var(--gray-400)] mb-0 tracking-wider"
-            style={{ fontFamily: "'Geist Mono', monospace" }}
+            className="section-eyebrow font-medium mb-0 tracking-wider"
+            style={{ fontFamily: "var(--font-mono)" }}
           >
             04 &mdash; stack
           </p>
@@ -86,7 +75,7 @@ export default function TechStackShowcase() {
             type="button"
             onClick={() => setShowAll(!showAll)}
             className="group text-xs transition-colors text-[var(--gray-500)] hover:text-[var(--ink)] cursor-pointer bg-transparent border-none p-0 flex items-center gap-1"
-            style={{ fontFamily: "'Kode Mono', monospace" }}
+            style={{ fontFamily: "var(--font-display)" }}
           >
             <span>{showAll ? "show peek" : "view all stack"}</span>
             <span className={`inline-block transition-transform duration-200 ${showAll ? "rotate-45" : "group-hover:-translate-y-0.5 group-hover:translate-x-0.5"}`}>
@@ -97,12 +86,16 @@ export default function TechStackShowcase() {
 
         <h2 
           className="mb-2 text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)] leading-tight"
-          style={{ fontFamily: "'Kode Mono', monospace" }}
+          style={{ fontFamily: "var(--font-display)" }}
         >
           tech stack
         </h2>
 
-        <p className="mb-6 max-w-xl text-xs sm:text-sm leading-relaxed text-[var(--gray-500)]">
+        {/* Section description -- prose, so Source Serif 4. */}
+        <p
+          className="mb-6 max-w-xl text-[15px] leading-[1.7] text-[var(--gray-500)]"
+          style={{ fontFamily: "var(--font-serif)" }}
+        >
           The tools, frameworks, and platforms I reach for across my projects.
         </p>
 
@@ -111,8 +104,8 @@ export default function TechStackShowcase() {
             {FULL_STACK_DATA.map((group) => (
               <div key={group.categoryLabel}>
                 <p 
-                  className="micro-label mb-2 text-[10px] font-medium uppercase tracking-wider text-[var(--gray-500)]"
-                  style={{ fontFamily: "'Kode Mono', monospace" }}
+                  className="micro-label mb-2 text-[11px] font-medium uppercase tracking-wider text-[var(--gray-500)]"
+                  style={{ fontFamily: "var(--font-display)" }}
                 >
                   {group.categoryLabel}
                 </p>
@@ -121,7 +114,7 @@ export default function TechStackShowcase() {
                     <div
                       key={item.name}
                       className="card flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--gray-50)] border border-[var(--gray-200)] text-[var(--ink)] transition-all duration-200 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)] cursor-default"
-                      style={{ fontFamily: "'Kode Mono', monospace" }}
+                      style={{ fontFamily: "var(--font-display)" }}
                     >
                       {item.icon && <i className={`${item.icon} text-sm`} aria-hidden="true" />}
                       <span className="text-xs font-medium text-[var(--ink)]">{item.name}</span>
@@ -137,7 +130,7 @@ export default function TechStackShowcase() {
               <div
                 key={item.name}
                 className="card flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--gray-50)] border border-[var(--gray-200)] text-[var(--ink)] transition-all duration-200 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)] cursor-default"
-                style={{ fontFamily: "'Kode Mono', monospace" }}
+                style={{ fontFamily: "var(--font-display)" }}
               >
                 {item.icon && <i className={`${item.icon} text-sm`} aria-hidden="true" />}
                 <span className="text-xs font-medium text-[var(--ink)]">{item.name}</span>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ComponentType } from "react";
-import { ArrowUpRight, MapPin } from "lucide-react";
-import GithubIcon from "@/components/icons/GithubIcon";
+import { useEffect, useState } from "react";
+import { Mail, MapPin } from "lucide-react";
+import { PROFILE } from "@/content/profile";
 import ChatWithIan from "@/components/chat/ChatWithIan";
 import ThemeToggle from "./ThemeToggle";
 
@@ -22,68 +22,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: "#blog", label: "blog" },
 ];
 
-interface SocialIconProps {
-  size?: number;
-  className?: string;
-}
-
-type SocialIcon = ComponentType<SocialIconProps>;
-
-interface SocialItem {
-  label: string;
-  href: string;
-  Icon: SocialIcon;
-}
-
-const SOCIAL_ITEMS: SocialItem[] = [
-  { label: "github", href: "https://github.com/ifwian", Icon: GithubIcon },
-  { label: "linkedin", href: "https://www.linkedin.com/in/ifwiannn/", Icon: LinkedinIcon },
-  { label: "instagram", href: "https://www.instagram.com/ifwiannn/", Icon: InstagramIcon },
-];
-
-function LinkedinIcon({ size = 16, className }: SocialIconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M6 8.5V18" />
-      <path d="M6 5.5v.01" />
-      <path d="M10 18v-5.25a3.25 3.25 0 0 1 6.5 0V18" />
-      <path d="M10 12.5V18" />
-    </svg>
-  );
-}
-
-function InstagramIcon({ size = 16, className }: SocialIconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect x="3" y="3" width="18" height="18" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.4" cy="6.6" r=".8" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 interface SidebarNavProps {
   active: string;
   mobile?: boolean;
@@ -94,7 +32,7 @@ function SidebarNav({ active, mobile = false, onNavigate }: SidebarNavProps) {
   return (
     <nav
       aria-label="Primary navigation"
-      className={mobile ? "mt-5 flex flex-col gap-1" : "mt-5 flex flex-col"}
+      className="flex flex-col border-b border-[var(--gray-200)] py-5"
     >
       {NAV_ITEMS.map((item, index) => {
         const isActive = active === item.href;
@@ -103,31 +41,35 @@ function SidebarNav({ active, mobile = false, onNavigate }: SidebarNavProps) {
           <a
             key={item.href}
             href={item.href}
+            // "location" is the accurate value for in-page navigation and
+            // styles the same as the reference's generic [aria-current].
             aria-current={isActive ? "location" : undefined}
             onClick={onNavigate}
-            onMouseEnter={(event) => {
-              event.currentTarget.style.color = "var(--ink)";
-            }}
-            onMouseLeave={(event) => {
-              event.currentTarget.style.color = isActive ? "var(--ink)" : "var(--gray-400)";
-            }}
-            className={`group flex items-center gap-3 py-2 text-sm leading-tight transition-colors ${
-              mobile ? "rounded-md px-3" : ""
+            className={`group relative flex items-baseline gap-[0.35rem] py-[0.45rem] text-[13px] leading-normal tracking-[0.2px] transition-colors ${
+              mobile ? "rounded-md pr-3" : ""
             }`}
             style={{
-              color: isActive ? "var(--ink)" : "var(--gray-400)",
+              // Room for the arrow, which is taken out of flow below.
+              paddingLeft: "1.1rem",
+              color: isActive ? "var(--ink)" : "var(--gray-500)",
               fontFamily: "var(--font-mono)",
             }}
           >
-            <span className="w-5 shrink-0 text-[10px] tracking-[0.08em] opacity-70">
-              {String(index + 1).padStart(2, "0")}
-            </span>
+            {/* Absolutely positioned so it never shifts the label, and revealed
+                on hover as well as on the active item. */}
             <span
               aria-hidden="true"
-              className="w-4 shrink-0 text-right text-sm"
-              style={{ visibility: isActive ? "visible" : "hidden" }}
+              className={`absolute left-0 top-[0.45rem] text-sm transition-all duration-200 ${
+                isActive ? "opacity-100" : "opacity-0 -translate-x-1 group-hover:translate-x-0 group-hover:opacity-100"
+              }`}
             >
               →
+            </span>
+            <span
+              className="min-w-[1.5rem] text-[11px]"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              {String(index + 1).padStart(2, "0")}
             </span>
             <span>{item.label}</span>
           </a>
@@ -139,75 +81,92 @@ function SidebarNav({ active, mobile = false, onNavigate }: SidebarNavProps) {
 
 function SidebarIdentity() {
   return (
-    <div>
-      <a
-        href="#home"
-        className="block text-[17px] leading-tight lowercase"
-        style={{ fontFamily: "var(--font-mono)" }}
-      >
-        marianne napaño
-      </a>
-      <p
-        className="mt-2 text-[10px] tracking-[0.18em]"
-        style={{ color: "var(--gray-500)", fontFamily: "var(--font-mono)" }}
-      >
-        BSCS · COMPUTER SCIENCE
-      </p>
+    <>
+      {/* Group 1: profile. No top padding, matching the reference's
+          `.sidebar__group:first-child` rule -- the aside's own padding
+          supplies that space. */}
+      <div className="border-b border-[var(--gray-200)] pb-5">
+        <a
+          href="#home"
+          className="block text-[1.05rem] leading-none lowercase"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          marianne napaño
+        </a>
+        <p
+          className="mt-[0.6rem] pt-[0.2rem] text-[11px] uppercase leading-[1.4]"
+          style={{ color: "var(--gray-500)", letterSpacing: "1px", fontFamily: "var(--font-mono)" }}
+        >
+          BSCS · COMPUTER SCIENCE
+        </p>
+      </div>
 
-      <div className="mt-5 border-t border-[var(--gray-200)]" />
-
+      {/* Group 2: location. */}
       <div
-        className="flex items-center gap-2 py-3 text-[11px]"
+        className="flex items-center gap-[0.45rem] border-b border-[var(--gray-200)] py-5 text-[12px] leading-[1.5]"
         style={{ color: "var(--gray-500)", fontFamily: "var(--font-mono)" }}
       >
         <MapPin size={14} strokeWidth={1.7} className="shrink-0" />
         <span>calamba · laguna · ph</span>
       </div>
+    </>
+  );
+}
 
-      <div className="border-t border-[var(--gray-200)]" />
+/**
+ * The contact block. Replaces the social icon row the reference layout has
+ * here; GitHub/LinkedIn/Instagram still live in the hero, so nothing became
+ * unreachable. Sits directly below the last group, which is why it carries no
+ * separator of its own.
+ */
+function SidebarContact() {
+  return (
+    <div className="flex flex-col items-center gap-3">
+      {/* Full three-way control (system / light / dark, defaulting to system)
+          rather than the single-button toggle, which is the design language's
+          documented pattern. */}
+      <ThemeToggle />
+
+      <p
+        className="max-w-[28ch] text-center text-[11px] leading-[1.5]"
+        style={{
+          color: "var(--gray-500)",
+          letterSpacing: "1px",
+          fontFamily: "var(--font-mono)",
+        }}
+      >
+        For work, collabs &amp; everything else, reach me at
+      </p>
+
+      {/* The address is the actionable element, so the rule is drawn faintly and
+          strengthens on hover, per the link treatment in the design language. */}
+      <a
+        href={`mailto:${PROFILE.links.email}`}
+        className="inline-flex items-center gap-2 text-[12px] underline decoration-dotted decoration-[var(--gray-300)] underline-offset-[3px] transition-colors hover:text-[var(--ink)] hover:decoration-[var(--ink)]"
+        style={{ color: "var(--gray-500)", fontFamily: "var(--font-mono)" }}
+      >
+        <Mail size={13} strokeWidth={1.7} className="shrink-0" />
+        <span>{PROFILE.links.email}</span>
+      </a>
     </div>
   );
 }
 
-interface SidebarFooterProps {
-  mobile?: boolean;
+/** The chat trigger, grouped like every other section. */
+function SidebarActions({ className = "" }: { className?: string }) {
+  return (
+    <div className={`border-b border-[var(--gray-200)] py-5 ${className}`.trim()}>
+      <ChatWithIan variant="sidebar" />
+    </div>
+  );
 }
 
-function SidebarFooter({ mobile = false }: SidebarFooterProps) {
+function SidebarMobileFooter() {
   return (
-    <div className={mobile ? "mt-6" : "shrink-0 pt-5"}>
-      <div className="space-y-2">
-        <ChatWithIan variant="sidebar" />
-        <a
-          href="/resume.pdf"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group flex items-center justify-between border border-[var(--gray-300)] px-4 py-2.5 text-xs leading-none tracking-[0.08em] transition-colors hover:border-[var(--ink)]"
-          style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}
-        >
-          <span>view resume</span>
-          <ArrowUpRight size={14} strokeWidth={1.7} className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-        </a>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between border-t border-[var(--gray-200)] pt-4">
-        <div className="flex shrink-0 items-center gap-2">
-          {SOCIAL_ITEMS.map(({ label, href, Icon }) => (
-            <a
-              key={label}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={label}
-              title={label}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors hover:text-[var(--ink)]"
-              style={{ color: "var(--gray-500)" }}
-            >
-              <Icon size={15} />
-            </a>
-          ))}
-        </div>
-        <ThemeToggle compact />
+    <div className="mt-6">
+      <SidebarActions className="border-b-0 pb-0" />
+      <div className="pt-5">
+        <SidebarContact />
       </div>
     </div>
   );
@@ -251,14 +210,23 @@ export default function Sidebar({ className = "" }: SidebarProps) {
   return (
     <>
       <aside
-        className={`hidden lg:flex fixed left-0 top-0 z-40 h-screen w-80 flex-col overflow-hidden border-r px-6 py-6 ${className}`}
-        style={{ borderColor: "var(--gray-200)", backgroundColor: "var(--bg)" }}
+        className={`hidden lg:flex fixed left-0 top-0 z-40 h-screen flex-col overflow-hidden border-r px-7 pb-6 pt-7 ${className}`}
+        style={{
+          width: "var(--sidebar-w)",
+          borderColor: "var(--gray-200)",
+          backgroundColor: "var(--bg)",
+        }}
       >
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           <SidebarIdentity />
           <SidebarNav active={active} />
+          <SidebarActions />
         </div>
-        <SidebarFooter />
+        {/* `mt-auto` pins the contact block to the bottom of the flex column,
+            mirroring the reference's `.sidebar__foot`. */}
+        <div className="mt-auto shrink-0 pt-5">
+          <SidebarContact />
+        </div>
       </aside>
 
       <div className="fixed inset-x-0 top-0 z-50 lg:hidden">
@@ -322,7 +290,7 @@ export default function Sidebar({ className = "" }: SidebarProps) {
                   mobile
                   onNavigate={() => setOpen(false)}
                 />
-                <SidebarFooter mobile />
+                <SidebarMobileFooter />
               </div>
             </div>
           </div>

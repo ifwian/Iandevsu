@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from 'react';
 import Stack from "@/components/ui/Stack";
 
 const INTERESTS = ["Photography", "Reading", "Gaming", "Hiking", "Music", "Nature"];
@@ -15,24 +14,12 @@ const GALLERY = [
 ];
 
 export default function LifeOutsideIDE() {
-  // Dynamic Google Font Injection
-  useEffect(() => {
-    const linkKode = document.createElement('link');
-    linkKode.href = 'https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap';
-    linkKode.rel = 'stylesheet';
-    document.head.appendChild(linkKode);
-
-    const linkGeist = document.createElement('link');
-    linkGeist.href = 'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap';
-    linkGeist.rel = 'stylesheet';
-    document.head.appendChild(linkGeist);
-  }, []);
 
   return (
     <section 
       id="life" 
-      className="px-5 py-16 lg:px-6 flex justify-center"
-      style={{ fontFamily: "'Geist Mono', monospace" }}
+      className="section-frame px-5 py-16 lg:px-6"
+      style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 lg:gap-16 items-center">
@@ -41,8 +28,8 @@ export default function LifeOutsideIDE() {
           <div className="lg:col-span-7 flex flex-col justify-center">
             {/* Section Eyebrow Header in Geist Mono */}
             <p 
-              className="section-eyebrow text-xs sm:text-sm mb-2 text-[var(--gray-400)] tracking-wider"
-              style={{ fontFamily: "'Geist Mono', monospace" }}
+              className="section-eyebrow mb-2 tracking-wider"
+              style={{ fontFamily: "var(--font-mono)" }}
             >
               06 &mdash; life
             </p>
@@ -50,13 +37,18 @@ export default function LifeOutsideIDE() {
             {/* Main Title */}
             <h2 
               className="mb-4 text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-[var(--ink)] leading-tight"
-              style={{ fontFamily: "'Kode Mono', monospace" }}
+              style={{ fontFamily: "var(--font-display)" }}
             >
               Outside the IDE
             </h2>
 
-            {/* Description */}
-            <p className="mb-6 text-xs sm:text-sm leading-relaxed text-[var(--gray-400)] max-w-lg">
+            {/* Description -- paragraph prose, so Source Serif 4. The max-w
+                keeps the measure readable instead of letting it run the full
+                width of the column. */}
+            <p
+              className="mb-6 max-w-xl text-[15px] leading-[1.75] text-[var(--gray-400)] sm:text-[17px]"
+              style={{ fontFamily: "var(--font-serif)" }}
+            >
               When I step away from the tech world, I recharge through physical activity and creative hobbies, returning to my projects with fresh energy and perspective.
             </p>
 
@@ -66,7 +58,7 @@ export default function LifeOutsideIDE() {
                 <span 
                   key={interest} 
                   className="pill text-[11px] sm:text-xs font-medium px-3.5 py-1.5 rounded-full border border-[var(--gray-300)] bg-[var(--gray-100)] text-[var(--ink)] transition-colors hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)]"
-                  style={{ fontFamily: "'Kode Mono', monospace" }}
+                  style={{ fontFamily: "var(--font-display)" }}
                 >
                   {interest}
                 </span>

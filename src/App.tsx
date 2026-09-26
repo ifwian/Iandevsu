@@ -14,7 +14,11 @@ import ChatInboxPage from "@/pages/ChatInboxPage";
 function Home() {
   return (
     <MainLayout>
-      <div className="w-full max-w-4xl mx-auto space-y-16">
+      {/* No `space-y-*` here: every child is a min-h-screen section that
+          centres its own content, so extra margin between them only adds dead
+          gap and throws off the scroll-snap positions. `.snap-sections` is the
+          hook theme.css uses to enable snapping on this page alone. */}
+      <div className="snap-sections w-full max-w-4xl mx-auto">
         <Hero />
         <AboutMe />
         <Projects />

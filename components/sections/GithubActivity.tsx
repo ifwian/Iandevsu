@@ -90,15 +90,15 @@ export default function GithubActivity() {
   return (
     <section 
       id="github" 
-      className="px-5 py-16 lg:px-6 flex justify-center"
-      style={{ fontFamily: "'Geist Mono', monospace" }}
+      className="section-frame px-5 py-16 lg:px-6"
+      style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
         {/* Eyebrow and Profile Link */}
         <div className="mb-2 flex items-baseline justify-between">
           <p 
-            className="section-eyebrow text-xs sm:text-sm mb-1.5 text-[var(--gray-400)] tracking-wider"
-            style={{ fontFamily: "'Geist Mono', monospace" }}
+            className="section-eyebrow mb-1.5 tracking-wider"
+            style={{ fontFamily: "var(--font-mono)" }}
           >
             07 &mdash; github
           </p>
@@ -107,16 +107,16 @@ export default function GithubActivity() {
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-[var(--gray-400)] hover:text-[var(--ink)] transition-colors flex items-center gap-1"
-            style={{ fontFamily: "'Kode Mono', monospace" }}
+            style={{ fontFamily: "var(--font-display)" }}
           >
-            @{GITHUB_USERNAME} <span className="text-[10px]">&#8599;</span>
+            @{GITHUB_USERNAME} <span className="text-[11px]">&#8599;</span>
           </a>
         </div>
 
         {/* Section Heading */}
         <h2 
           className="mb-2 text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)] leading-tight"
-          style={{ fontFamily: "'Kode Mono', monospace" }}
+          style={{ fontFamily: "var(--font-display)" }}
         >
           github activity
         </h2>
@@ -134,8 +134,8 @@ export default function GithubActivity() {
             
             {/* Month Labels */}
 <div 
-              className="relative h-4 w-full mb-3 text-[10px] sm:text-[11px] text-[var(--gray-400)] uppercase"
-              style={{ fontFamily: "'Kode Mono', monospace" }}
+              className="relative h-4 w-full mb-3 text-[11px] sm:text-[11px] text-[var(--gray-400)] uppercase"
+              style={{ fontFamily: "var(--font-display)" }}
             >
               {monthLabels.map((m) => (
                 <span
@@ -184,7 +184,7 @@ export default function GithubActivity() {
           <div className="mt-5 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--gray-400)] pt-3 border-t border-[var(--gray-200)]">
             <p 
               style={{ 
-                fontFamily: total !== null ? "'Kode Mono', monospace" : "'Geist Mono', monospace"
+                fontFamily: total !== null ? "var(--font-display)" : "var(--font-mono)"
               }}
             >
               {error
@@ -197,7 +197,7 @@ export default function GithubActivity() {
             {/* Legend */}
 <div 
               className="flex items-center gap-1.5 text-[11px] text-[var(--gray-400)]"
-              style={{ fontFamily: "'Kode Mono', monospace" }}
+              style={{ fontFamily: "var(--font-display)" }}
             >
               <span>Less</span>
               <div className="flex gap-1">

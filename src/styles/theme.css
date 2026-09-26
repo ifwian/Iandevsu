@@ -1,9 +1,24 @@
 /* ---------- Fonts ----------
-   Geist Pixel (Square variant, OFL-licensed) is self-hosted from
-   /public/fonts -- see public/fonts/GeistPixel-LICENSE.txt. Swap in
-   Circle/Grid/Line/Triangle from the same repo if you want a
-   different pixel-font mood: https://github.com/vercel/geist-pixel-font */
-@import url('https://fonts.googleapis.com/css2?family=Kode+Mono:wght@400..700&display=swap');
+   Two real faces, so nothing mixes:
+     Kode Mono      -- headings, badges, nav, labels, UI chrome
+     Source Serif 4 -- paragraph descriptions and long-form prose
+
+   --font-display and --font-mono intentionally resolve to the same family.
+   They are kept as separate tokens because they mean different things
+   (a heading vs. a 10px badge), and collapsing them to one name would make
+   the markup lie about intent. Every call site therefore renders Kode Mono
+   regardless of which role it reaches for, which is what "consistent" means
+   here -- swapping a badge to --font-display can no longer change its face.
+
+   Geist stays as --font-body for the document base and the one subheading
+   that is neither chrome nor prose; it is never used for headings or labels.
+
+   All three are requested once from Google Fonts in index.html, so there are
+   no @font-face blocks here. Kode Mono is a variable font with a wght axis,
+   so `font-semibold` (600) resolves to a real weight rather than being
+   snapped to the nearest static cut. Raw Kode Mono .ttf files also sit unused
+   in /public/fonts if you ever want to self-host instead. */
+
 
 /* =========================================================
    BRYL-MINIMAL DESIGN TOKENS
@@ -35,9 +50,18 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --halftone-dot-color: rgba(10, 10, 10, 0.9);
 
+  /*
+   * Fixed sidebar width. Defined once here because four separate places have
+   * to agree on it: the sidebar's own width, the offset that pushes the main
+   * content past it in MainLayout and ProjectsPage, and the position of the
+   * expanded chat panel. 16rem matches the reference layout.
+   */
+  --sidebar-w: 16rem;
+
+
   --font-body: "Geist", system-ui, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, monospace;
-  --font-display: "Kode Mono", "Geist Pixel", "Geist Mono", ui-monospace, monospace;
+  --font-mono: "Kode Mono", ui-monospace, monospace;
+  --font-display: "Kode Mono", ui-monospace, monospace;
   --font-serif: "Source Serif 4", Georgia, serif;
 
   color-scheme: light;
@@ -90,12 +114,9 @@
   }
 }
 
-.kode-mono-regular {
-  font-family: "Kode Mono", monospace;
-  font-optical-sizing: auto;
-  font-weight: 400;
-  font-style: normal;
-}
+/* `.kode-mono-regular` was removed along with the Kode Mono webfont link.
+   Headings now use var(--font-display) (Kode Mono) directly, so the class
+   had no remaining callers. */
 
 /* ---------- Reset & base ---------- */
 * {
@@ -107,6 +128,55 @@
 html {
   overflow-x: hidden;
   scroll-behavior: smooth;
+}
+
+/* ---------- Section framing / anchor navigation ----------
+   The sidebar and top bar both link to bare `#id` anchors, so the target has
+   to be offset by whatever fixed chrome floats above it. Below lg the top bar
+   is fixed and 68px tall (py-4 = 16px x2, plus the h-9 toggle), so without
+   this a tapped link scrolls the section heading underneath it. At lg+ the
+   top bar is hidden and the sidebar is a left rail, so no offset is needed. */
+@media (max-width: 1023px) {
+  section[id] {
+    scroll-margin-top: 68px;
+  }
+}
+
+/*
+ * One place defines section rhythm, rather than each <section> repeating
+ * `flex justify-center py-16`. `100svh` instead of `100vh`: on mobile
+ * browsers `100vh` includes the space behind the URL bar, so a full-height
+ * section gets its footer clipped. `vh` is kept first as a fallback for
+ * browsers without `svh`.
+ *
+ * Column + justify-center makes the content sit centred in the frame; the
+ * existing `mx-auto max-w-4xl` on the inner wrapper still centres it
+ * horizontally.
+ */
+.section-frame {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  scroll-snap-align: start;
+}
+
+/* True scroll snapping, enabled only on the home page.
+   `proximity` rather than `mandatory`: mandatory traps fast scrolling and
+   feels hostile on a trackpad, whereas proximity still magnetises a section
+   into place once you land near one. Scoped with `:has()` on the page wrapper
+   so /projects and /chat-inbox -- which manage their own scrolling -- are
+   untouched. */
+html:has(.snap-sections) {
+  scroll-snap-type: y proximity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Anchors must still work, they just must not animate. */
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 body {
@@ -169,21 +239,31 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 999px;
 }
 
-/* ---------- Micro-label ---------- */
+/* ---------- Micro-label ----------
+   The site's smallest readable step. Was 9px, which is below the point where
+   uppercase mono with wide tracking stays legible -- especially on the dark
+   theme, where thin strokes disappear at that size. 11px is the floor for
+   badge/label text; see `.section-eyebrow` for section markers. */
 .micro-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   color: var(--gray-500);
 }
 
+/* Section markers ("05 -- education").
+   14px / text-sm, matching the reference implementation's section header
+   (`text-sm text-gray-400`). Was 11px, and every call site also carried a
+   `text-xs` utility that overrode the class anyway, so the size is defined
+   here once and the per-call overrides were removed. */
 .section-eyebrow {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 14px;
+  line-height: 1.3;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--gray-400);
+  color: var(--gray-500);
   margin-bottom: 0.75rem;
 }
 
@@ -208,13 +288,29 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* ---------- Pills / tags ---------- */
+/* ---------- Chat panel ----------
+   Height lives here rather than inline so the `vh` -> `svh` fallback can be
+   expressed as two declarations. `100vh` on mobile includes the strip behind
+   the browser URL bar, which pushed the message input below the fold. */
+.chat-panel {
+  height: min(520px, calc(100vh - 2rem));
+  height: min(520px, calc(100svh - 2rem));
+}
+
+.chat-panel-floating {
+  height: min(520px, calc(100vh - 120px));
+  height: min(520px, calc(100svh - 120px));
+}
+
+/* ---------- Pills / tags ----------
+   Was 9px. Tags carry real words (tech names, interests), so they meet the
+   same 11px floor as `.micro-label` rather than sitting below it. */
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   color: var(--gray-500);
@@ -331,5 +427,37 @@ h1, h2, h3, h4, h5, h6 {
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-new(root) {
     animation: none;
+  }
+}
+
+/* ---------- Sidebar layout ---------- */
+
+/*
+ * Offsets content past the fixed sidebar, at the same 1024px breakpoint that
+ * Tailwind's `lg:` uses to reveal the sidebar.
+ *
+ * Written as plain CSS rather than a Tailwind arbitrary value like
+ * `lg:pl-[length:var(--sidebar-w)]` on purpose: this project's utilities are
+ * generated at runtime by the Tailwind Play CDN, not at build time, so an
+ * arbitrary value here would depend on the CDN's parsing of it and cannot be
+ * verified by `npm run build`. The `html` prefix raises specificity above
+ * Tailwind's `lg:px-0` (which zeroes the left padding at lg) so the result does
+ * not depend on stylesheet order either.
+ */
+@media (min-width: 1024px) {
+  html .sidebar-offset {
+    padding-left: var(--sidebar-w);
+  }
+
+  /*
+   * Anchors the expanded chat panel just clear of the sidebar. This replaces a
+   * hardcoded `lg:left-[21rem]`, which only lined up while the sidebar was
+   * 320px (21rem - 16px gap). Deriving it keeps the 16px gap whatever the
+   * sidebar width is. The collapsed trigger stays in normal flow in the
+   * footer, so it needs no offset; below lg the sidebar is hidden and the
+   * panel falls back to its own `left-4`.
+   */
+  html .sidebar-chat-panel {
+    left: calc(var(--sidebar-w) + 1rem);
   }
 }
