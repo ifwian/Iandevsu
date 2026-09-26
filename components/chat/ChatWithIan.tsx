@@ -44,6 +44,65 @@ const VISITOR_STORAGE_KEY = "ian-chat-visitor-id";
 const SESSION_STARTED_KEY = "ian-chat-session-started-at";
 const START_NOTIFIED_KEY = "ian-chat-start-notified";
 const HISTORY_PREFIX = "ian-chat-history:";
+const CONTACT_NAME_KEY = "ian-chat-visitor-name";
+const CONTACT_EMAIL_KEY = "ian-chat-visitor-email";
+const MAX_NAME_LENGTH = 80;
+const MAX_EMAIL_LENGTH = 254;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+
+interface VisitorContact {
+  name: string;
+  email: string;
+}
+
+function readStored(key: string): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return sessionStorage.getItem(key) || "";
+  } catch {
+    return "";
+  }
+}
+
+function writeStored(key: string, value: string): void {
+  try {
+    if (value) sessionStorage.setItem(key, value);
+    else sessionStorage.removeItem(key);
+  } catch {
+    return;
+  }
+}
+
+/**
+ * Contact details are kept in sessionStorage rather than localStorage: it is
+ * per-tab and clears when the tab closes, so a shared computer does not retain
+ * a visitor's name and email indefinitely.
+ */
+function getStoredContact(): VisitorContact | null {
+  const name = readStored(CONTACT_NAME_KEY).trim();
+  if (!name) return null;
+  return { name, email: readStored(CONTACT_EMAIL_KEY).trim() };
+}
+
+function cleanText(value: string, maxLength: number): string {
+  return value
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function validateContact(name: string, email: string): { contact: VisitorContact } | { error: string } {
+  const cleanName = cleanText(name, MAX_NAME_LENGTH);
+  if (!cleanName) return { error: "Please add your name so I know who I'm talking to." };
+
+  const cleanEmail = cleanText(email, MAX_EMAIL_LENGTH);
+  if (cleanEmail && !EMAIL_PATTERN.test(cleanEmail)) {
+    return { error: "That email doesn't look right -- or leave it blank." };
+  }
+
+  return { contact: { name: cleanName, email: cleanEmail } };
+}
 
 function createVisitorId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -216,7 +275,7 @@ async function responseError(response: Response): Promise<string> {
   return text || fallback;
 }
 
-async function notifyChatStarted(session: ChatSession): Promise<void> {
+async function notifyChatStarted(session: ChatSession, contact: VisitorContact): Promise<void> {
   if (typeof window === "undefined") return;
 
   try {
@@ -230,6 +289,8 @@ async function notifyChatStarted(session: ChatSession): Promise<void> {
         visitorId: session.visitorId,
         visitorAuthId: session.authUserId,
         sessionStartedAt: session.sessionStartedAt,
+        visitorName: contact.name,
+        visitorEmail: contact.email,
       }),
     });
     if (response.ok) sessionStorage.setItem(notificationKey, "1");
@@ -247,6 +308,11 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<ChatSession | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  // Pre-chat contact capture. `null` contact means the form is still pending.
+  const [contact, setContact] = useState<VisitorContact | null>(() => getStoredContact());
+  const [nameDraft, setNameDraft] = useState(() => getStoredContact()?.name || "");
+  const [emailDraft, setEmailDraft] = useState(() => getStoredContact()?.email || "");
+  const [contactError, setContactError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -363,12 +429,30 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
     setOpen(true);
     const activeSession = session || getChatSession();
     if (!session) setSession(activeSession);
-    void notifyChatStarted(activeSession);
+    // Only announce the visit once contact details are known, so the very first
+    // row in the inbox is already attributed to a person.
+    if (contact) void notifyChatStarted(activeSession, contact);
+  };
+
+  const submitContact = () => {
+    const result = validateContact(nameDraft, emailDraft);
+    if ("error" in result) {
+      setContactError(result.error);
+      return;
+    }
+    setContactError(null);
+    writeStored(CONTACT_NAME_KEY, result.contact.name);
+    writeStored(CONTACT_EMAIL_KEY, result.contact.email);
+    setContact(result.contact);
+    setMessages([{ ...GREETING, text: `${GREETING.text}\n\nNice to meet you, ${result.contact.name}.` }]);
+    if (session) void notifyChatStarted(session, result.contact);
   };
 
   const send = async () => {
     const text = input.trim();
-    if (!text || loading || !session) return;
+    // Contact must be captured before the first message so the transcript is
+    // attributed to a person rather than an anonymous visitor id.
+    if (!text || loading || !session || !contact) return;
 
     const nextMessages: ChatMessage[] = [...messages, { role: "user", text }];
     const assistantIndex = nextMessages.length;
@@ -399,6 +483,8 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
           visitorId: session.visitorId,
           visitorAuthId: session.authUserId,
           sessionStartedAt: session.sessionStartedAt,
+          visitorName: contact.name,
+          visitorEmail: contact.email,
           messages: nextMessages,
         }),
       });
@@ -562,77 +648,156 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
             </button>
           </div>
 
-          <div
-            ref={scrollRef}
-            className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
-            aria-live="polite"
-            aria-label="Chat messages"
-          >
-            {messages.map((message, index) => {
-              const isStreaming = loading && index === messages.length - 1 && message.role === "model";
-              return (
-                <div
-                  key={`${message.role}-${index}`}
-                  className={`flex items-end gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  {message.role === "model" && (
-                    <img
-                      src={ASSISTANT_AVATAR}
-                      alt=""
-                      aria-hidden="true"
-                      loading="lazy"
-                      decoding="async"
-                      className="mb-0.5 h-6 w-6 flex-shrink-0 rounded-full object-cover"
-                      style={{ border: "1px solid var(--gray-200)" }}
-                    />
-                  )}
-                  <p
-                    className="max-w-[80%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-relaxed"
-                    style={{
-                      backgroundColor: message.role === "user" ? "var(--ink)" : "var(--gray-100)",
-                      color: message.role === "user" ? "var(--bg)" : "var(--ink)",
-                    }}
-                  >
-                    {message.source === "admin" && (
-                      <span className="mr-1 text-[9px] uppercase tracking-[0.08em] opacity-60">you · </span>
-                    )}
-                    {message.text || (isStreaming ? "thinking…" : "")}
-                    {isStreaming && message.text && <span className="ml-0.5 animate-pulse">▍</span>}
+          {contact ? (
+            <>
+              <div
+                ref={scrollRef}
+                className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+                aria-live="polite"
+                aria-label="Chat messages"
+              >
+                {messages.map((message, index) => {
+                  const isStreaming = loading && index === messages.length - 1 && message.role === "model";
+                  return (
+                    <div
+                      key={`${message.role}-${index}`}
+                      className={`flex items-end gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      {message.role === "model" && (
+                        <img
+                          src={ASSISTANT_AVATAR}
+                          alt=""
+                          aria-hidden="true"
+                          loading="lazy"
+                          decoding="async"
+                          className="mb-0.5 h-6 w-6 flex-shrink-0 rounded-full object-cover"
+                          style={{ border: "1px solid var(--gray-200)" }}
+                        />
+                      )}
+                      <p
+                        className="max-w-[80%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-relaxed"
+                        style={{
+                          backgroundColor: message.role === "user" ? "var(--ink)" : "var(--gray-100)",
+                          color: message.role === "user" ? "var(--bg)" : "var(--ink)",
+                        }}
+                      >
+                        {message.source === "admin" && (
+                          <span className="mr-1 text-[9px] uppercase tracking-[0.08em] opacity-60">you · </span>
+                        )}
+                        {message.text || (isStreaming ? "thinking…" : "")}
+                        {isStreaming && message.text && <span className="ml-0.5 animate-pulse">▍</span>}
+                      </p>
+                    </div>
+                  );
+                })}
+
+                {error && (
+                  <p className="text-xs" role="alert" style={{ color: "var(--gray-500)" }}>
+                    {error}
                   </p>
-                </div>
-              );
-            })}
+                )}
+              </div>
 
-            {error && (
-              <p className="text-xs" role="alert" style={{ color: "var(--gray-500)" }}>
-                {error}
-              </p>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 p-3" style={{ borderTop: "1px solid var(--gray-200)" }}>
-            <input
-              type="text"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask about my projects, stack..."
-              maxLength={600}
-              disabled={loading || !session}
-              className="flex-1 rounded-lg px-3 py-2 text-sm outline-none disabled:opacity-50"
-              style={{ backgroundColor: "var(--gray-100)", color: "var(--ink)" }}
-            />
-            <button
-              type="button"
-              onClick={() => void send()}
-              disabled={loading || !input.trim() || !session}
-              aria-label="Send message"
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg disabled:opacity-40"
-              style={{ backgroundColor: "var(--ink)", color: "var(--bg)" }}
+              <div className="flex items-center gap-2 p-3" style={{ borderTop: "1px solid var(--gray-200)" }}>
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask about my projects, stack..."
+                  maxLength={600}
+                  disabled={loading || !session}
+                  className="flex-1 rounded-lg px-3 py-2 text-sm outline-none disabled:opacity-50"
+                  style={{ backgroundColor: "var(--gray-100)", color: "var(--ink)" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => void send()}
+                  disabled={loading || !input.trim() || !session}
+                  aria-label="Send message"
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg disabled:opacity-40"
+                  style={{ backgroundColor: "var(--ink)", color: "var(--bg)" }}
+                >
+                  <Send size={14} strokeWidth={1.8} />
+                </button>
+              </div>
+            </>
+          ) : (
+            /* Pre-chat step: name is required, email is optional. */
+            <form
+              className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                submitContact();
+              }}
             >
-              <Send size={14} strokeWidth={1.8} />
-            </button>
-          </div>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--ink)" }}>
+                {GREETING.text}
+              </p>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="ian-chat-name" className="micro-label" style={{ color: "var(--gray-500)" }}>
+                  name
+                </label>
+                <input
+                  id="ian-chat-name"
+                  type="text"
+                  value={nameDraft}
+                  onChange={(event) => {
+                    setNameDraft(event.target.value);
+                    if (contactError) setContactError(null);
+                  }}
+                  maxLength={MAX_NAME_LENGTH}
+                  required
+                  autoFocus
+                  autoComplete="given-name"
+                  placeholder="Ada Lovelace"
+                  className="w-full rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
+                  style={{ backgroundColor: "var(--gray-100)", color: "var(--ink)", border: "1px solid var(--gray-200)" }}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="ian-chat-email" className="micro-label" style={{ color: "var(--gray-500)" }}>
+                  email <span style={{ opacity: 0.6 }}>· optional</span>
+                </label>
+                <input
+                  id="ian-chat-email"
+                  type="email"
+                  value={emailDraft}
+                  onChange={(event) => {
+                    setEmailDraft(event.target.value);
+                    if (contactError) setContactError(null);
+                  }}
+                  maxLength={MAX_EMAIL_LENGTH}
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  className="w-full rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
+                  style={{ backgroundColor: "var(--gray-100)", color: "var(--ink)", border: "1px solid var(--gray-200)" }}
+                />
+              </div>
+
+              {contactError && (
+                <p className="text-xs" role="alert" style={{ color: "#dc2626" }}>
+                  {contactError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={!nameDraft.trim()}
+                className="mt-1 rounded-lg px-4 py-2 text-sm transition-opacity hover:opacity-85 disabled:opacity-40"
+                style={{ backgroundColor: "var(--ink)", color: "var(--bg)" }}
+              >
+                start chatting
+              </button>
+
+              <p className="text-[10px] leading-relaxed" style={{ color: "var(--gray-400)" }}>
+                Your email is only stored so {PROFILE.goesBy} can reply to you. Leave it blank if you'd
+                rather not.
+              </p>
+            </form>
+          )}
         </div>
       )}
     </>

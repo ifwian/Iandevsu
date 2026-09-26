@@ -14,7 +14,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
  * Keep in sync with `content/profile.ts` (used by the front-end).
  */
 const PROFILE = {
-  name: "Marianne Napaño",
+  name: "Marianne NapaÃ±o",
   goesBy: "Ian",
   headline: "Computer Science student & aspiring web developer",
   location: "Calamba, Philippines",
@@ -65,7 +65,7 @@ ${PROFILE.projects.map((p) => `- ${p}`).join("\n")}
 Certifications:
 ${PROFILE.certifications.map((c) => `- ${c}`).join("\n")}
 
-Contact: GitHub ${PROFILE.links.github} · LinkedIn ${PROFILE.links.linkedin}
+Contact: GitHub ${PROFILE.links.github} Â· LinkedIn ${PROFILE.links.linkedin}
 `.trim();
 }
 
@@ -98,6 +98,10 @@ interface ConversationRecord {
   status: string;
   last_message_at: string;
   last_message_preview: string;
+  /** Nullable: absent on conversations created before the pre-chat form. */
+  visitor_name: string | null;
+  /** Nullable: the email field is optional, and may be blank. */
+  visitor_email: string | null;
 }
 
 /**
@@ -128,6 +132,8 @@ interface ChatRequest {
   visitorAuthId?: unknown;
   text?: unknown;
   password?: unknown;
+  visitorName?: unknown;
+  visitorEmail?: unknown;
 }
 
 /**
@@ -140,7 +146,7 @@ function getSystemPrompt(): string {
   if (cachedSystemPrompt !== null) return cachedSystemPrompt;
   try {
     cachedSystemPrompt = `
-You are the AI assistant for Marianne Napaño's personal portfolio. You are chatting as Ian, Marianne's go-to name, on her portfolio website. Keep answers warm, direct, and conversational, usually in 2-4 short sentences unless the visitor asks for detail.
+You are the AI assistant for Marianne NapaÃ±o's personal portfolio. You are chatting as Ian, Marianne's go-to name, on her portfolio website. Keep answers warm, direct, and conversational, usually in 2-4 short sentences unless the visitor asks for detail.
 
 Marianne is a Computer Science student at City College of Calamba in Calamba, Philippines. She works with C++, Java, Python, React, HTML, CSS, JavaScript, Git, and web development. Her projects include responsive coffee shop websites, calculators, to-do lists, and weather apps. She enjoys learning by building practical projects and is exploring web development and software engineering.
 
@@ -162,7 +168,7 @@ Rules:
       })
     );
     cachedSystemPrompt =
-      "You are Ian, the AI assistant for Marianne Napaño's portfolio. " +
+      "You are Ian, the AI assistant for Marianne NapaÃ±o's portfolio. " +
       `Answer warmly and briefly. Direct portfolio questions to ${PROFILE.links.email}.`;
   }
   return cachedSystemPrompt;
@@ -243,6 +249,34 @@ function isChatMessage(value: unknown): value is ChatMessage {
 function getVisitorId(value: unknown): string {
   if (typeof value === "string" && /^[a-zA-Z0-9_-]{8,128}$/.test(value)) return value;
   return "legacy-visitor";
+}
+
+const MAX_NAME_LENGTH = 80;
+const MAX_EMAIL_LENGTH = 254;
+// Deliberately permissive: reject the obvious mistakes without rejecting valid
+// addresses. Over-strict email regexes lock real people out of a chat.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+
+/** Strips control characters and collapses runs of whitespace. */
+function cleanText(value: unknown, maxLength: number): string {
+  if (typeof value !== "string") return "";
+  // eslint-disable-next-line no-control-regex
+  return value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function getVisitorName(value: unknown): string | null {
+  const name = cleanText(value, MAX_NAME_LENGTH);
+  return name ? name : null;
+}
+
+function getVisitorEmail(value: unknown): string | null {
+  const email = cleanText(value, MAX_EMAIL_LENGTH);
+  if (!email) return null;
+  if (!EMAIL_PATTERN.test(email)) {
+    console.warn(JSON.stringify({ scope: "ian-chat-contact", note: "discarded malformed email" }));
+    return null;
+  }
+  return email.toLowerCase();
 }
 
 function getSessionStartedAt(value: unknown): number {
@@ -622,8 +656,18 @@ function isConversationRecord(value: unknown): value is ConversationRecord {
     typeof candidate.session_started_at === "string" &&
     typeof candidate.status === "string" &&
     typeof candidate.last_message_at === "string" &&
-    typeof candidate.last_message_preview === "string"
+    typeof candidate.last_message_preview === "string" &&
+    // Contact details are optional, so accept a missing key, null, or a string.
+    // Requiring a string here would drop every conversation created before the
+    // pre-chat form existed.
+    isOptionalText(candidate.visitor_name) &&
+    isOptionalText(candidate.visitor_email)
   );
+}
+
+/** Absent, null, or a string -- used for optional columns. */
+function isOptionalText(value: unknown): boolean {
+  return value === undefined || value === null || typeof value === "string";
 }
 
 function isRowId(value: unknown): value is RowId {
@@ -645,7 +689,7 @@ function isStoredMessage(value: unknown): value is StoredMessage {
 
 async function findConversationByVisitor(visitorId: string): Promise<ConversationRecord | null> {
   const result = await supabaseRequest(
-    `chat_conversations?visitor_id=eq.${encodeURIComponent(visitorId)}&select=id,visitor_id,visitor_auth_id,session_started_at,status,last_message_at,last_message_preview&limit=1`
+    `chat_conversations?visitor_id=eq.${encodeURIComponent(visitorId)}&select=id,visitor_id,visitor_auth_id,visitor_name,visitor_email,session_started_at,status,last_message_at,last_message_preview&limit=1`
   );
   if (!Array.isArray(result)) return null;
   return result.find(isConversationRecord) || null;
@@ -653,19 +697,27 @@ async function findConversationByVisitor(visitorId: string): Promise<Conversatio
 
 async function findConversationById(conversationId: string): Promise<ConversationRecord | null> {
   const result = await supabaseRequest(
-    `chat_conversations?id=eq.${encodeURIComponent(conversationId)}&select=id,visitor_id,visitor_auth_id,session_started_at,status,last_message_at,last_message_preview&limit=1`
+    `chat_conversations?id=eq.${encodeURIComponent(conversationId)}&select=id,visitor_id,visitor_auth_id,visitor_name,visitor_email,session_started_at,status,last_message_at,last_message_preview&limit=1`
   );
   if (!Array.isArray(result)) return null;
   return result.find(isConversationRecord) || null;
 }
 
+interface VisitorContact {
+  name: string | null;
+  email: string | null;
+}
+
 async function ensureConversation(
   visitorId: string,
   visitorAuthId: string | null,
-  sessionStartedAt: number
+  sessionStartedAt: number,
+  contact: VisitorContact = { name: null, email: null }
 ): Promise<ConversationRecord | null> {
   const existing = await findConversationByVisitor(visitorId);
-  if (existing) return existing;
+  if (existing) {
+    return applyVisitorContact(existing, contact);
+  }
   if (!hasSupabaseConfig()) return null;
 
   const result = await supabaseRequest("chat_conversations", {
@@ -674,6 +726,8 @@ async function ensureConversation(
     body: JSON.stringify({
       visitor_id: visitorId,
       visitor_auth_id: visitorAuthId,
+      visitor_name: contact.name,
+      visitor_email: contact.email,
       session_started_at: new Date(sessionStartedAt).toISOString(),
       status: "open",
       last_message_at: new Date().toISOString(),
@@ -683,6 +737,41 @@ async function ensureConversation(
 
   if (!Array.isArray(result)) return null;
   return result.find(isConversationRecord) || null;
+}
+
+/**
+ * Backfills contact details onto a conversation that already exists -- a
+ * returning visitor who completes the pre-chat form after their first visit.
+ * Only ever fills a blank, so it cannot overwrite anything already captured.
+ */
+async function applyVisitorContact(
+  conversation: ConversationRecord,
+  contact: VisitorContact
+): Promise<ConversationRecord> {
+  if (!hasSupabaseConfig()) return conversation;
+
+  const patch: Record<string, string> = {};
+  if (contact.name && !conversation.visitor_name) patch.visitor_name = contact.name;
+  if (contact.email && !conversation.visitor_email) patch.visitor_email = contact.email;
+  if (!Object.keys(patch).length) return conversation;
+
+  const updated = await supabaseRequest(
+    `chat_conversations?id=eq.${encodeURIComponent(conversation.id)}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(patch),
+    }
+  );
+  if (!Array.isArray(updated)) return conversation;
+
+  const next = updated.find(isConversationRecord);
+  if (!next) return conversation;
+  return {
+    ...conversation,
+    visitor_name: next.visitor_name ?? conversation.visitor_name,
+    visitor_email: next.visitor_email ?? conversation.visitor_email,
+  };
 }
 
 async function insertStoredMessage(
@@ -715,10 +804,11 @@ async function persistVisitorMessage(
   visitorId: string,
   visitorAuthId: string | null,
   sessionStartedAt: number,
-  body: string
+  body: string,
+  contact: VisitorContact
 ): Promise<string | null> {
   if (!hasSupabaseConfig()) return null;
-  const conversation = await ensureConversation(visitorId, visitorAuthId, sessionStartedAt);
+  const conversation = await ensureConversation(visitorId, visitorAuthId, sessionStartedAt, contact);
   if (!conversation) return null;
   await insertStoredMessage(conversation.id, "visitor", body);
   await touchConversation(conversation.id, body);
@@ -733,7 +823,7 @@ async function persistAssistantMessage(conversationId: string | null, body: stri
 
 async function listConversations(): Promise<ConversationRecord[]> {
   const result = await supabaseRequest(
-    "chat_conversations?select=id,visitor_id,visitor_auth_id,session_started_at,status,last_message_at,last_message_preview&order=last_message_at.desc&limit=50"
+    "chat_conversations?select=id,visitor_id,visitor_auth_id,visitor_name,visitor_email,session_started_at,status,last_message_at,last_message_preview&order=last_message_at.desc&limit=50"
   );
   return Array.isArray(result) ? result.filter(isConversationRecord) : [];
 }
@@ -798,7 +888,7 @@ function logConversation(
 }
 
 function truncate(value: string, maxLength: number): string {
-  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}â€¦` : value;
 }
 
 function escapeHtml(value: string): string {
@@ -1218,9 +1308,13 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
   }
 
   const visitorAuthId = await getSupabaseUserId(req);
+  const contact: VisitorContact = {
+    name: getVisitorName(body.visitorName),
+    email: getVisitorEmail(body.visitorEmail),
+  };
 
   if (event === "chat_started") {
-    await ensureConversation(visitorId, visitorAuthId, sessionStartedAt);
+    await ensureConversation(visitorId, visitorAuthId, sessionStartedAt, contact);
     logConversation(event, visitorId, sessionStartedAt, []);
     await notifyChatEvent(event, visitorId, sessionStartedAt, []);
     return res.status(200).json({ ok: true, event });
@@ -1249,7 +1343,8 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
     visitorId,
     visitorAuthId,
     sessionStartedAt,
-    getLastUserMessage(modelMessages)
+    getLastUserMessage(modelMessages),
+    contact
   );
   // Never left dangling: an unhandled rejection here would take the whole
   // invocation down instead of just skipping the notification.

@@ -11,6 +11,9 @@ interface Conversation {
   status: string;
   last_message_at: string;
   last_message_preview: string;
+  /** Optional contact details -- null on conversations predating the pre-chat form. */
+  visitor_name: string | null;
+  visitor_email: string | null;
 }
 
 interface InboxMessage {
@@ -52,6 +55,15 @@ function storeSession(value: string): void {
   }
 }
 
+/** Absent, null, or a string -- the contact columns are optional. */
+function isOptionalText(value: unknown): boolean {
+  return value === undefined || value === null || typeof value === "string";
+}
+
+function normalizeContact(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 function isConversation(value: unknown): value is Conversation {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
@@ -61,8 +73,17 @@ function isConversation(value: unknown): value is Conversation {
     typeof candidate.session_started_at === "string" &&
     typeof candidate.status === "string" &&
     typeof candidate.last_message_at === "string" &&
-    typeof candidate.last_message_preview === "string"
+    typeof candidate.last_message_preview === "string" &&
+    // Must stay optional, otherwise conversations created before the pre-chat
+    // form (and the migration) would vanish from the list entirely.
+    isOptionalText(candidate.visitor_name) &&
+    isOptionalText(candidate.visitor_email)
   );
+}
+
+/** Best label for a visitor: their name, else a trimmed id. */
+function visitorLabel(conversation: Conversation): string {
+  return normalizeContact(conversation.visitor_name) || `anonymous · ${conversation.visitor_id.slice(0, 8)}`;
 }
 
 function isInboxMessage(value: unknown): value is InboxMessage {
@@ -404,11 +425,16 @@ export default function ChatInboxPage() {
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-xs font-semibold">{conversation.visitor_id}</span>
+                      <span className="truncate text-xs font-semibold">{visitorLabel(conversation)}</span>
                       <span className="shrink-0 text-[9px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
                         {conversation.status}
                       </span>
                     </div>
+                    {normalizeContact(conversation.visitor_email) && (
+                      <p className="mt-1 truncate text-[10px] text-[var(--gray-500)]">
+                        {normalizeContact(conversation.visitor_email)}
+                      </p>
+                    )}
                     <p className="mt-2 truncate text-xs text-[var(--gray-500)]">{conversation.last_message_preview || "No messages yet"}</p>
                     <p className="mt-2 text-[9px] text-[var(--gray-400)]">{formatTime(conversation.last_message_at)}</p>
                   </button>
@@ -423,9 +449,23 @@ export default function ChatInboxPage() {
                 <>
                   <div className="border-b border-[var(--gray-200)] pb-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <h2 className="text-sm font-semibold">visitor session</h2>
-                        <p className="mt-1 break-all text-[10px] text-[var(--gray-500)]">{selectedConversation.visitor_id}</p>
+                      <div className="min-w-0">
+                        <h2 className="text-sm font-semibold">
+                          {normalizeContact(selectedConversation.visitor_name) || "anonymous visitor"}
+                        </h2>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--gray-500)]">
+                          {selectedConversation.visitor_email ? (
+                            <a
+                              href={`mailto:${selectedConversation.visitor_email}`}
+                              className="underline decoration-dotted underline-offset-2 transition-colors hover:text-[var(--ink)]"
+                            >
+                              {selectedConversation.visitor_email}
+                            </a>
+                          ) : (
+                            <span className="italic opacity-70">no email given</span>
+                          )}
+                          <span className="break-all opacity-70">{selectedConversation.visitor_id}</span>
+                        </div>
                       </div>
                       <span className="rounded-full border border-[var(--gray-300)] px-2 py-1 text-[9px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
                         started {formatTime(selectedConversation.session_started_at)}
