@@ -176,50 +176,108 @@ A floating chat widget, bottom-left, that answers visitor questions
 browser -- a Vercel serverless function (`api/chat.ts`) holds it
 server-side and is the only thing that talks to Gemini directly.
 
+It is more than a prompt-and-reply box. Conversations are persisted to
+Supabase, the visitor optionally gives a name and email before their
+first message, they can react to messages, and you get a password-
+protected admin inbox at `/chat-inbox` to take a conversation over from
+the AI by hand -- with internal notes, a visitor activity timeline, four
+conversation statuses, and search. A visitor sees a typing indicator
+while you type and a "Ian has joined the chat" line when you take over.
+
 ### Files
 
 ```
-content/profile.ts          -- single source of truth for the facts
-                                fed into the chat persona (name, bio,
-                                stack, projects, links). Edit this,
-                                not api/chat.ts, when your info changes.
-api/chat.ts                  -- Vercel serverless function. Builds the
-                                system prompt from profile.ts, calls
-                                Gemini, returns { reply }.
-components/chat/ChatWithIan.tsx -- the floating widget itself.
+content/profile.ts            -- single source of truth for the facts
+                                 fed into the chat persona (name, bio,
+                                 stack, projects, links). Edit this,
+                                 not api/chat.ts, when your info changes.
+api/chat.ts                  -- Vercel serverless function. The only
+                                 thing that talks to Gemini, and the only
+                                 reader of every secret. Streams the reply
+                                 back as SSE and persists the transcript.
+components/chat/             -- ChatWithIan.tsx (the floating widget),
+                                 ReactionBar, StatusPill, TypingIndicator,
+                                 and inbox/ (the admin side components)
+pages/ChatInboxPage.tsx      -- the admin inbox, at /chat-inbox
+lib/chatFormat.ts            -- shared formatting and the status vocabulary
+lib/useTypingSignal.ts       -- the typing heartbeat, used by both sides
+supabase/                    -- schema.sql for a fresh database, plus
+                                 migrations/ and APPLY_PENDING.sql
 .env.example                 -- template; copy to .env.local and fill in.
 ```
 
 ### Setup
 
 1. Get a free API key at https://aistudio.google.com/apikey.
-2. `cp .env.example .env.local` and paste your key into
-   `GEMINI_API_KEY`. **Never commit `.env.local`** -- Vite's default
-   `.gitignore` already excludes it, double check yours does too.
-3. In your Vercel project's dashboard: Settings → Environment
-   Variables → add `GEMINI_API_KEY` (and optionally `GEMINI_MODEL`) so
-   the deployed function has it too. `.env.local` only covers your
-   own machine.
-4. `npm install gsap lucide-react` and `npm install -D @vercel/node`
+2. `cp .env.example .env.local` and fill it in. **Never commit `.env.local`**
+   -- Vite's default `.gitignore` already excludes it, double check yours
+   does too. The Gemini key alone gets you a working chat; Supabase is
+   what makes conversations survive a reload and powers the inbox.
+3. Create a Supabase project and run `supabase/schema.sql` in its SQL
+   editor. That is the whole schema -- tables, constraints, indexes and
+   RLS policies, in dependency order.
+4. Turn on **Authentication → Providers → Anonymous** in Supabase. This
+   is the setting most likely to be missed: with it off, a conversation
+   is still created but cannot be matched back to the visitor, so they
+   silently stop receiving replies.
+5. In your Vercel project's dashboard: Settings → Environment Variables →
+   add the same keys, so the deployed function has them. `.env.local`
+   only covers your own machine. `CHAT_ADMIN_PASSWORD` is required on
+   every deployment, preview included.
+6. `npm install gsap lucide-react` and `npm install -D @vercel/node`
    (just for the request/response types in `api/chat.ts` -- it's a
    dev-only dependency, adds nothing to your shipped bundle).
 
-### Local testing needs `vercel dev`, not `vite dev`
+### `npm run dev` is enough -- no `vercel dev` needed
 
-Plain `npm run dev` (Vite) only serves the frontend -- it has no idea
-what to do with the `api/` folder, so the widget will fail to fetch
-locally. To test the whole thing end to end on your machine:
+`vite.config.ts` contains a `localChatApiPlugin` that mounts
+`api/chat.ts` on a spare loopback port and proxies `/api` to it, loading
+your `.env.local` into the function's environment first. So plain
+`npm run dev` serves the frontend *and* the API, with the same routing
+the deployed function sees. `vercel dev` still works if you prefer it;
+nothing about the plugin depends on it.
 
-```bash
-npm install -g vercel   # one-time
-vercel dev
-```
+### Upgrading an existing database
 
-`vercel dev` runs both the Vite frontend and the serverless function
-together, the same way it'll behave once deployed. If you'd rather
-keep using plain `vite dev` day to day, that's fine for everything
-else in the project -- just switch to `vercel dev` specifically when
-you want to test the chat widget, or test it after pushing to Vercel.
+`supabase/schema.sql` is for a **fresh** database only. It opens with
+`create table if not exists`, so on a database that already has
+`chat_conversations` the inline constraints are silently skipped and you
+end up with a schema that quietly differs from a clean install.
+
+To bring an existing database up to date, paste
+`supabase/APPLY_PENDING.sql` into the SQL editor instead. It is the
+ordered union of the five chat migrations, it is idempotent (every add is
+`if not exists`, every constraint is dropped before it is re-added), and
+it ends with verification queries whose expected results are in comments.
+Re-running it is safe.
+
+Keep the two in step: every index and named length check in
+`supabase/migrations/` should also appear in `schema.sql`.
+
+### The admin inbox
+
+`/chat-inbox`, one password, no user accounts. The password is exchanged
+for an HMAC-signed session that lasts 12 hours and lives in
+`sessionStorage` -- this tab only, and the password itself is never
+persisted in the browser. The signing key is derived from the password,
+so rotating it invalidates every existing session.
+
+Eight login attempts per 15 minutes are allowed, tracked per transport
+address. It is an in-memory brake, so a cold instance resets it -- it
+raises the cost of a naive sweep rather than enforcing a hard limit.
+
+The inbox polls (2s for the open thread, 3s for the list) and also
+subscribes to Supabase Realtime. The realtime path is currently inert:
+this page authenticates with a password and never establishes a Supabase
+session, so it subscribes as `anon` and the `to authenticated` SELECT
+policies do not admit it. The pollers are what keep the page live; the
+subscriptions are left in because they cost nothing and start working the
+moment an admin Supabase session exists.
+
+Internal notes, visitor activity and reactions have **no** RLS policies at
+all, and must stay that way. Granting an admin-scoped SELECT policy means
+granting it to *someone*, and those are the rows a visitor must never
+reach -- so they are served through the serverless function instead.
 
 ### Model name
 
@@ -231,6 +289,11 @@ https://ai.google.dev/gemini-api/docs/models for whatever's current
 and free-tier-eligible, and set `GEMINI_MODEL` accordingly (no code
 change needed).
 
+Requests walk a candidate chain rather than a single model: a 404, 429 or
+503 retries the next candidate, anything else stops. Each attempt logs
+its own outcome, so a chain that dies on candidate three says which two
+worked -- the single most useful fact when `GEMINI_MODEL` is stale.
+
 ### What's deliberately simple here
 
 - **Rate limiting**: `api/chat.ts` caps each request to the last 12
@@ -240,13 +303,21 @@ change needed).
   needs an external store (Vercel KV, Upstash Redis, etc.) to do
   properly. Fine to skip for a portfolio site with light traffic;
   worth adding if this ever gets meaningful volume.
-- **No conversation persistence**: chat history lives in React state
-  and disappears on refresh. Intentional -- there's no backend
-  database in this project, and adding one just to remember chat
-  history for a portfolio widget isn't worth the complexity.
+- **Attachments are filenames, not uploads**: the assistant reads text
+  only, so an attachment travels to the model and to the persisted
+  transcript as `[attachment] resume.pdf (212 KB)`. The visitor sees a
+  real preview chip; nothing is uploaded and the bytes never leave the
+  browser. That is the honest version of "I sent you a screenshot" --
+  real file transfer would mean a bucket, MIME sniffing and a scanner.
+- **Degrades without the inbox migration**: reads and conversation
+  inserts both retry without the newer columns, so the chat keeps
+  working on a database that has only had `schema.sql` applied. What
+  goes inert is the unread badge, the waiting/assigned statuses, the
+  visitor panel, internal notes, the activity timeline and reactions.
 - **Free-tier data use**: Google's free tier terms allow using your
   prompts/outputs to improve their models. Fine for a public portfolio
   chat about your own public info; just don't be surprised by it.
+
 
 ## 10. Five polish requests
 
