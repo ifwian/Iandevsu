@@ -6,7 +6,7 @@ import ProjectCard from "@/components/projects/ProjectCard";
 export default function ProjectsPage() {
   return (
     <div className="sidebar-offset min-h-screen px-6 py-16" style={{ fontFamily: "var(--font-mono)" }}>
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full max-w-4xl mx-auto">
         <Link
           to="/"
           className="link-arrow group text-sm mb-8 inline-flex items-center transition-colors hover:text-white"

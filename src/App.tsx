@@ -17,8 +17,14 @@ function Home() {
       {/* No `space-y-*` here: every child is a min-h-screen section that
           centres its own content, so extra margin between them only adds dead
           gap and throws off the scroll-snap positions. `.snap-sections` is the
-          hook theme.css uses to enable snapping on this page alone. */}
-      <div className="snap-sections w-full max-w-4xl mx-auto">
+          hook theme.css uses to enable snapping on this page alone.
+
+          No max-width here on purpose. Every section carries its own
+          `w-full max-w-4xl mx-auto` wrapper, so a cap on this element could
+          never bind -- it just made the page look like it had two competing
+          measures. `MainLayout` still caps the page as a whole, which is what
+          keeps /chat-inbox inside 4xl. */}
+      <div className="snap-sections">
         <Hero />
         <AboutMe />
         <Projects />

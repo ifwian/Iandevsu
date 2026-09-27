@@ -94,15 +94,21 @@ export default function Hero() {
   return (
     <section
       id="home"
-      className="section-frame px-5 py-16 lg:px-6"
+      className="section-frame px-5 pt-8 pb-16 lg:px-6"
       style={{ fontFamily: "var(--font-mono)" }}
     >
-      <div className="max-w-4xl mx-auto">
-        {/* Flex, not grid, so `items-center` actually centres the text against
-            the portrait instead of being overridden at md+. The previous
-            `md:items-start` pinned the column to the top and left it
-            unbounded beneath the image. */}
-        <div className="flex flex-col items-center gap-7 md:flex-row md:items-center md:gap-8">
+      <div className="w-full max-w-4xl mx-auto">
+        {/* Flex, not grid, so `md:items-center` actually centres the text
+            against the portrait instead of being overridden at md+. The previous
+            `md:items-start` pinned the column to the top and left it unbounded
+            beneath the image.
+
+            No `items-center` on the base: the cross-axis centring is only
+            wanted from md up, and on mobile it was centring the children
+            horizontally, which put the hero's portrait and text on a centred
+            axis while all seven sections below sit flush to the same left
+            edge. `md:items-center` carries the vertical centring on its own. */}
+        <div className="flex flex-col gap-7 md:flex-row md:items-center md:gap-8">
           <PixelTransition
             firstContent={
               <img
@@ -121,24 +127,33 @@ export default function Hero() {
             gridSize={7}
             pixelColor="var(--bg)"
             animationStepDuration={0.3}
-            className="mx-auto aspect-[5/6] w-48 shrink-0 overflow-hidden border border-[var(--gray-200)] sm:w-56 md:w-[180px] lg:w-[200px]"
+            className="aspect-[5/6] w-48 shrink-0 overflow-hidden border border-[var(--gray-200)] sm:w-56 md:w-[180px] lg:w-[200px]"
           />
 
           {/* max-w keeps this a defined column rather than a 660px-wide band,
               and keeps the stack short enough to sit within the portrait's
-              height so `items-center` reads as genuinely centred. */}
-          <div className="flex min-w-0 w-full flex-col items-center text-center md:max-w-md md:items-start md:text-left">
+              height so `md:items-center` reads as genuinely centred.
+
+              Left-aligned at every breakpoint, like every other section: the
+              `items-center text-center` pair that used to sit on the base
+              only ever applied below md, where it was the one thing on the
+              page not sharing a left edge. */}
+          <div className="flex min-w-0 w-full flex-col md:max-w-md">
             {/* Section indicator, matching the numbered format the other
-                sections use. Uppercased by .section-eyebrow. */}
-            <p className="section-eyebrow">01 &mdash; who am i?</p>
+                sections use. Uppercased by .section-eyebrow, which also owns
+                the font family, size and colour -- so this carries only the
+                margin and tracking, the same pair Blog and GithubActivity use. */}
+            <p className="section-eyebrow mb-1.5 tracking-wider">01 &mdash; who am i?</p>
 
             {/* Name takes the display role (Kode Mono), like every other
-                heading on the site. */}
+                heading on the site. Sentence case, as written -- unlike
+                .section-eyebrow and .micro-label, an h1 has no text-transform,
+                so the casing here is literally the casing that renders. */}
             <h1
               className="text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              marianne napaño
+              Marianne Napaño
             </h1>
 
             <p

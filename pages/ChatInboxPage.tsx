@@ -40,6 +40,12 @@ const SESSION_STORAGE_KEY = "ian-chat-admin-session";
 const PRESENCE_COLOR = "#22c55e";
 
 const REALTIME_TYPING_EVENT = "typing";
+/**
+ * Broadcast to the visitor's open window when a takeover or release succeeds,
+ * so it refetches instead of waiting out its poll. Must match the constant of
+ * the same name in components/chat/ChatWithIan.tsx.
+ */
+const REALTIME_THREAD_CHANGED_EVENT = "thread-changed";
 /** Matches the visitor widget's timeout: a beat every 3s, expire after 6s. */
 const TYPING_IDLE_TIMEOUT_MS = 6000;
 
@@ -600,8 +606,46 @@ export default function ChatInboxPage() {
         }),
       });
       await Promise.all([loadMessages(selectedId), loadConversations()]);
+
+      /**
+       * Tell the visitor's open window to refetch, so the "Ian has joined the
+       * chat" notice appears immediately instead of on its next 2.5s poll.
+       *
+       * Sent after the server write has been confirmed and carries no text:
+       * the visitor re-reads the thread through the same endpoint it already
+       * polls, so the notice arrives with its stored row id and is deduped by
+       * that id. Pushing the wording over broadcast instead would put a second,
+       * id-less copy of a row that is also being written.
+       *
+       * Best effort by design. A visitor who is not on the page, or whose
+       * socket is closed, still gets the notice from the poll; losing the
+       * broadcast costs latency, never the message.
+       */
+      const channel = threadChannelRef.current;
+      if (channel && channel.state === "joined") {
+        channel
+          .send({
+            type: "broadcast",
+            event: REALTIME_THREAD_CHANGED_EVENT,
+            payload: { mode: takingOver ? "takeover" : "ai" },
+          })
+          // removeChannel on unmount or thread switch rejects an in-flight
+          // send, and that is not a failure worth surfacing to the admin.
+          .catch(() => undefined);
+      }
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Could not change takeover mode");
+      /**
+       * A rejected takeover means the notice was not saved, so the admin has to
+       * hear about it. The list is reloaded either way: the mode flip is not
+       * rolled back server-side, and leaving the toggle showing the wrong state
+       * would be worse than the error itself.
+       */
+      await Promise.all([loadMessages(selectedId), loadConversations()]);
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Could not change takeover mode"
+      );
     } finally {
       setTakeoverBusy(false);
     }

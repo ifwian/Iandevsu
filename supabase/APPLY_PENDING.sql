@@ -1,15 +1,17 @@
 -- ============================================================================
 -- PENDING MIGRATIONS -- paste this whole block into the Supabase SQL Editor
 -- and run it once. Sections 1-4 were confirmed unapplied against the live
--- database on 2026-09-26; sections 5-6 are the chat-inbox feature set.
+-- database on 2026-09-26; sections 5-6 are the chat-inbox feature set and
+-- section 7 puts the chat tables in the realtime publication.
 --
--- This block is the union of the five chat migrations in order, so a database
+-- This block is the union of the six chat migrations in order, so a database
 -- that predates any of them can be brought fully up to date from one paste:
 --   supabase/migrations/20260925010000_add_chat_takeover_mode.sql
 --   supabase/migrations/20260927010000_add_chat_visitor_contact.sql
 --   supabase/migrations/20260928010000_add_chat_takeover_support.sql
 --   supabase/migrations/20260929010000_migrate_chat_status_to_active_resolved.sql
 --   supabase/migrations/20260930010000_add_chat_inbox_features.sql
+--   supabase/migrations/20260930020000_enable_chat_realtime_publication.sql
 --
 -- 20260926010000_add_profiles_admin_bootstrap.sql is deliberately NOT included.
 -- It provisions a `profiles` table for a Supabase-session admin path that
@@ -275,6 +277,43 @@ alter table public.chat_message_reactions enable row level security;
 
 commit;
 
+-- ---------------------------------------------------------------------------
+-- 7. Realtime publication
+--
+-- Deliberately AFTER the commit above rather than inside the transaction: this
+-- is the one statement here that touches cluster-level catalog state rather
+-- than a single table, so it is kept out of the block that rolls everything
+-- else back together. Verbatim copy of
+-- supabase/migrations/20260930020000_enable_chat_realtime_publication.sql.
+--
+-- Without it, a takeover notice only ever reaches the visitor on their next
+-- 2.5s poll, because `chat_messages` is not a member of the publication and
+-- therefore never emits. See that file for the full reasoning.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  target text;
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    raise notice 'supabase_realtime publication not present -- skipping, realtime is a Supabase-only feature.';
+    return;
+  end if;
+
+  foreach target in array array['chat_messages', 'chat_conversations']
+  loop
+    if not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = target
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', target);
+      raise notice 'added public.% to supabase_realtime', target;
+    end if;
+  end loop;
+end $$;
+
 -- ============================================================================
 -- Verify (all should return 0 rows / no error):
 --
@@ -318,4 +357,11 @@ commit;
 --   select count(*) from chat_conversation_notes;    -- table exists
 --   select count(*) from chat_visitor_activity;      -- table exists
 --   select count(*) from chat_message_reactions;     -- table exists
+--
+--   select tablename from pg_publication_tables
+--    where pubname = 'supabase_realtime'
+--      and schemaname = 'public'
+--      and tablename in ('chat_messages', 'chat_conversations');
+--   -- expect 2 rows. Fewer means the visitor's postgres_changes subscription
+--   -- is inert and a takeover notice will only arrive on the 2.5s poll.
 -- ============================================================================

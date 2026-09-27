@@ -118,24 +118,30 @@ function SidebarIdentity() {
  * here; GitHub/LinkedIn/Instagram still live in the hero, so nothing became
  * unreachable. Sits directly below the last group, which is why it carries no
  * separator of its own.
+ *
+ * `items-start` rather than `items-center`, and the text is left-aligned: the
+ * rest of the sidebar -- identity, location, the numbered nav -- all hangs off
+ * the same left edge, and a centred footer was the one block breaking that
+ * line. The toggle and the address are `inline-flex`, so they shrink to their
+ * content and sit flush once the cross-axis is start-aligned.
  */
 function SidebarContact() {
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-col items-start gap-3">
       {/* Full three-way control (system / light / dark, defaulting to system)
           rather than the single-button toggle, which is the design language's
           documented pattern. */}
       <ThemeToggle />
 
       <p
-        className="max-w-[28ch] text-center text-[11px] leading-[1.5]"
+        className="max-w-[28ch] text-left text-[11px] leading-[1.5]"
         style={{
           color: "var(--gray-500)",
           letterSpacing: "1px",
           fontFamily: "var(--font-mono)",
         }}
       >
-        For work, collabs &amp; everything else, reach me at
+        Let&rsquo;s build something together. Get in touch at
       </p>
 
       {/* The address is the actionable element, so the rule is drawn faintly and

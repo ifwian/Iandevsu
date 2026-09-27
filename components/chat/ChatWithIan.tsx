@@ -127,6 +127,19 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 const TYPING_IDLE_TIMEOUT_MS = 6000;
 
 const REALTIME_TYPING_EVENT = "typing";
+/**
+ * Broadcast by the inbox the moment a takeover or release succeeds, so the
+ * visitor refetches immediately instead of waiting out the poll interval.
+ *
+ * The payload carries no message text on purpose. This is a "go look" signal,
+ * not a delivery of the announcement: the visitor re-reads the thread through
+ * the same endpoint the poll uses, so the system message arrives with its
+ * server-assigned id and goes through the one merge path. Injecting the text
+ * here instead would create a second, id-less copy of a row that is also being
+ * written -- which the id dedupe in mergeAdminMessages cannot recognise, and
+ * which would then sit on screen twice.
+ */
+const REALTIME_THREAD_CHANGED_EVENT = "thread-changed";
 
 interface VisitorContact {
   name: string;
@@ -550,6 +563,12 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
    * that, a reload shows no reactions at all until the visitor clicks one.
    */
   const reactionsDirtyRef = useRef(true);
+  /**
+   * The poll function, published so the realtime effect can force an immediate
+   * refetch when the inbox signals a takeover. Assigned and cleared inside the
+   * polling effect, so it is never callable once that effect has torn down.
+   */
+  const pollRef = useRef<() => void>(() => undefined);
   const location = useLocation();
 
   useEffect(() => {
@@ -620,6 +639,10 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
    * so a human reply does not sit unseen for seconds, but reactions are
    * low-churn and would double the request count for no visible benefit, so
    * they are folded into the same response and only refetched on the slow tick.
+   *
+   * `pollRef` exposes this same function to the realtime effect below, which
+   * calls it when the inbox broadcasts a takeover. A ref rather than shared
+   * state so the nudge cannot re-render anything or re-subscribe the channel.
    */
   useEffect(() => {
     const visitorId = session?.visitorId;
@@ -645,11 +668,13 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
       }
     };
 
+    pollRef.current = () => void poll();
     void poll();
     const interval = window.setInterval(() => void poll(), 2500);
     return () => {
       active = false;
       window.clearInterval(interval);
+      pollRef.current = () => undefined;
     };
   }, [open, session?.accessToken, session?.visitorId]);
 
@@ -703,6 +728,24 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
         setAdminTyping(true);
       }
     );
+
+    /**
+     * A takeover or release just happened. Refetch now rather than waiting out
+     * the poll interval, so "Ian has joined the chat" lands while the visitor
+     * is still looking at the window.
+     *
+     * Broadcast is the only transport that works here in both directions: the
+     * inbox authenticates with a password and never holds a Supabase session,
+     * so it cannot rely on `postgres_changes` reaching it, whereas Supabase
+     * broadcast is not subject to the RLS policies. That makes this the
+     * dependable path and `postgres_changes` the belt-and-braces one -- which
+     * is also why the refetch goes through `pollRef` rather than rendering the
+     * announcement from the payload: one insert path, real row ids, no chance
+     * of the same message appearing twice.
+     */
+    channel.on("broadcast", { event: REALTIME_THREAD_CHANGED_EVENT }, () => {
+      pollRef.current();
+    });
 
     void channel.subscribe();
 
@@ -1301,15 +1344,30 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                   const isStreaming =
                     loading && index === messages.length - 1 && message.role === "model" && message.source !== "system";
 
-                  // A server-authored notice, not a chat bubble. Centred,
-                  // unaligned and without an avatar so it cannot be mistaken
+                  // A server-authored notice, not a chat bubble: centred,
+                  // unaligned and without an avatar, so it cannot be mistaken
                   // for something either party typed.
+                  //
+                  // Given real weight because this one notice changes who the
+                  // visitor is talking to. At 11px in --gray-500 -- what it was
+                  // -- it was the faintest text in the panel, so the moment a
+                  // human took over was the least noticeable moment in the
+                  // whole conversation.
+                  //
+                  // Emphasis is inversion (an ink-filled chip) plus size, never
+                  // colour: the palette is monochrome, and an accent here would
+                  // fight the AI-vs-human distinction the notice exists to
+                  // make. Inverting against --ink also survives a greyscale
+                  // screenshot, which a colour cue would not. `role="status"`
+                  // is kept so it is announced to a screen reader as a polite
+                  // live update rather than being read as a stray bubble.
                   if (message.source === "system") {
                     return (
-                      <div key={`system-${message.id ?? index}`} className="flex justify-center py-1.5">
+                      <div key={`system-${message.id ?? index}`} className="flex justify-center py-2">
                         <p
                           role="status"
-                          className="max-w-[92%] break-words rounded-lg border border-[var(--gray-200)] bg-[var(--gray-50)] px-3 py-2 text-center text-[11px] leading-relaxed text-[var(--gray-500)]"
+                          className="max-w-[92%] break-words rounded-full bg-[var(--ink)] px-4 py-2.5 text-center text-[12px] font-medium leading-relaxed text-[var(--bg)]"
+                          style={{ fontFamily: "var(--font-mono)" }}
                         >
                           {message.text}
                         </p>

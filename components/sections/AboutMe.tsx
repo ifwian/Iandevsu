@@ -13,21 +13,6 @@ const FACTS: Fact[] = [
   { label: "when not coding", value: "Photography · Badminton · Music" },
 ];
 
-const GOALS: string[] = [
-  "Building more complete web projects from frontend to backend.",
-  "Getting more comfortable with databases, APIs, and backend development.",
-  "Improving my fundamentals instead of relying on code that I don't fully understand.",
-  "Finding an internship where I can learn, contribute, and gain real-world experience.",
-];
-
-// Held as a plain string rather than JSX children: the braces would otherwise
-// be parsed as an expression. Monochrome by design -- the palette has no
-// accent colour, so there is no syntax highlighting.
-const PROFILE_SNIPPET = `const marianne = {
-  curious: true,
-  learning: "always"
-};`;
-
 export default function AboutMe() {
 
   return (
@@ -68,30 +53,12 @@ export default function AboutMe() {
           </p>
         </div>
 
-        {/* Decorative code card. Monochrome -- the palette has no accent
-            colour, so this is deliberately unhighlighted rather than
-            inventing a syntax theme. */}
-        <figure className="card mb-10 max-w-xl overflow-hidden border border-[var(--gray-200)] bg-[var(--gray-50)]">
-          <figcaption
-            className="flex items-center gap-2 border-b border-[var(--gray-200)] px-4 py-2"
-            style={{ fontFamily: "var(--font-mono)" }}
-          >
-            <span className="micro-label">profile.js</span>
-          </figcaption>
-          <pre
-            className="overflow-x-auto px-4 py-4 text-[12px] leading-[1.7] text-[var(--gray-500)]"
-            style={{ fontFamily: "var(--font-mono)" }}
-          >
-            <code>{PROFILE_SNIPPET}</code>
-          </pre>
-        </figure>
-
         {/* Quick Facts Grid. `auto-rows-fr` makes every row the same height, so
             the two mobile rows match too -- otherwise the 2x2 layout gave two
             different card heights. `h-full` + `mt-auto` on the value pins each
             value to the bottom, so the baselines line up even when one value
             wraps to two lines. */}
-        <div className="mb-10 grid auto-rows-fr grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="grid auto-rows-fr grid-cols-2 gap-4 sm:grid-cols-4">
           {FACTS.map((f: Fact) => (
             <div
               key={f.label}
@@ -106,30 +73,6 @@ export default function AboutMe() {
               <p className="mt-auto pt-2 text-sm font-medium leading-[1.45] text-[var(--ink)]">{f.value}</p>
             </div>
           ))}
-        </div>
-
-        {/* Current Goals. The heading stays Kode Mono (a badge/micro-label),
-            but the bullets are full sentences, so they take the serif prose
-            role and the same max-w-xl measure as the paragraph above --
-            otherwise long sentences wrap raggedly in a full-width mono list. */}
-        <div>
-          <p
-            className="micro-label mb-3 text-[11px] uppercase tracking-widest text-[var(--gray-500)]"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            right now, I&rsquo;m working toward
-          </p>
-          <ul
-            className="max-w-xl space-y-2 text-[15px] leading-[1.7] text-[var(--gray-400)]"
-            style={{ fontFamily: "var(--font-serif)" }}
-          >
-            {GOALS.map((goal: string) => (
-              <li key={goal} className="flex gap-2">
-                <span aria-hidden="true">&mdash;</span>
-                <span>{goal}</span>
-              </li>
-            ))}
-          </ul>
         </div>
 
       </div>

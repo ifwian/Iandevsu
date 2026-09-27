@@ -180,3 +180,43 @@ create policy "Users can read their messages"
         )
     )
   );
+
+-- ---------- Realtime ----------
+--
+-- The visitor widget subscribes to `postgres_changes` on these two tables so an
+-- admin reply or a takeover notice appears without waiting for the 2.5s poll.
+-- A table that is not a member of the publication never emits, and Supabase does
+-- not add one automatically on create -- so without this the subscription
+-- connects, looks healthy, and silently never fires.
+--
+-- Real-time delivery does not widen read access: Realtime applies these same RLS
+-- policies for `authenticated` subscribers, so a visitor still only receives rows
+-- from their own conversations.
+--
+-- Guarded and skipped entirely when the publication is absent, which is the case
+-- on a plain local Postgres rather than Supabase. Idempotent: ADD TABLE errors if
+-- the table is already a member, so each one is checked first.
+--
+-- Not wrapped in the transaction above, being cluster catalog state rather than
+-- a single table -- a failure here must not roll back the schema.
+do $$
+declare
+  target text;
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    return;
+  end if;
+
+  foreach target in array array['chat_messages', 'chat_conversations']
+  loop
+    if not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = target
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', target);
+    end if;
+  end loop;
+end $$;

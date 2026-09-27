@@ -70,6 +70,12 @@
   --status-assigned: #3f5aa6;
   --status-resolved: var(--gray-400);
 
+  /* Confirmed/earned, as opposed to "a conversation is active". Aliased rather
+     than given its own value so the muted green stays defined in one place --
+     the two must not drift. Used by the education section's certification
+     ticks, which mark something the visitor has actually passed. */
+  --accent-positive: var(--status-active);
+
   /*
    * Fixed sidebar width. Defined once here because four separate places have
    * to agree on it: the sidebar's own width, the offset that pushes the main
@@ -114,6 +120,7 @@
   --status-waiting: #e0b252;
   --status-assigned: #8ea8f0;
   --status-resolved: var(--gray-400);
+  --accent-positive: var(--status-active);
 
   color-scheme: dark;
 }
@@ -141,6 +148,7 @@
     --status-waiting: #e0b252;
     --status-assigned: #8ea8f0;
     --status-resolved: var(--gray-400);
+    --accent-positive: var(--status-active);
     color-scheme: dark;
   }
 }
@@ -174,19 +182,26 @@ html {
 }
 
 /*
- * One place defines section rhythm, rather than each <section> repeating
- * `flex justify-center py-16`. `100svh` instead of `100vh`: on mobile
- * browsers `100vh` includes the space behind the URL bar, so a full-height
- * section gets its footer clipped. `vh` is kept first as a fallback for
- * browsers without `svh`.
+ * One place defines section framing, rather than each <section> repeating
+ * `flex flex-col`.
  *
- * Column + justify-center makes the content sit centred in the frame; the
- * existing `mx-auto max-w-4xl` on the inner wrapper still centres it
- * horizontally.
+ * Sections are their natural height. They used to be pinned to `100svh` --
+ * `svh` rather than `vh` because on mobile browsers `100vh` includes the space
+ * behind the URL bar, so a full-height section got its footer clipped -- which
+ * meant every section was a viewport-sized panel with a short paragraph
+ * floating in the middle of it and a lot of dead space between sections. At
+ * natural height the page reads as one continuous column.
+ *
+ * `justify-content: center` is retained even though it does nothing at natural
+ * height: it is a no-op now, and it is what would still centre the content if a
+ * min-height were ever reintroduced on a single section. Horizontal centring is
+ * the inner `mx-auto max-w-4xl` wrapper, not this rule.
+ *
+ * `scroll-snap-align: start` still lines up with the `scroll-margin-top` above,
+ * since scroll-margin counts toward snap positions -- so a snapped section
+ * clears the fixed mobile top bar rather than hiding its eyebrow underneath it.
  */
 .section-frame {
-  min-height: 100vh;
-  min-height: 100svh;
   display: flex;
   flex-direction: column;
   justify-content: center;

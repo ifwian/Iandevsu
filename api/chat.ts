@@ -2163,8 +2163,33 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
           rowsAccepted: kept.length,
           roles: kept.map((row) => row.role),
           idTypes: [...new Set(kept.map((row) => typeof row.id))],
+          /**
+           * Whether this specific thread can show a takeover notice. Both halves
+           * have to hold: the role CHECK has to admit 'system' (or the insert
+           * fails), and the conversation has to carry the visitor_auth_id the
+           * widget's poll is authorised with. A thread failing this looks
+           * exactly like a thread with no takeover -- the visitor just never
+           * sees the badge.
+           */
+          hasSystemRole: kept.some((row) => row.role === "system"),
         };
       }
+
+      /**
+       * Reports whether any 'system' rows exist, which is the only read-only
+       * way to tell that the role CHECK admits 'system'.
+       *
+       * A CHECK constraint's definition is not readable through PostgREST --
+       * pg_constraint is not an exposed relation -- and a SELECT cannot detect
+       * it either, because CHECKs are not evaluated on read. So this is
+       * deliberately reported as undetermined rather than guessed: `true` once a
+       * system row proves the constraint allows it, `null` when there simply
+       * are none yet. The definitive signal is the takeover endpoint itself,
+       * which now answers 502 when the insert is rejected rather than
+       * reporting a success it did not achieve.
+       */
+      const systemRows = await supabaseRequest("chat_messages?select=id&role=eq.system&limit=1000");
+      const systemCount = Array.isArray(systemRows) ? systemRows.length : null;
 
       return res.status(200).json({
         configured: true,
@@ -2175,6 +2200,14 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
         tablesReachable: convoProbe !== undefined,
         conversationCount: Array.isArray(convoCount) ? convoCount.length : null,
         messageCount: Array.isArray(msgCount) ? msgCount.length : null,
+        /**
+         * true  -- a system row exists, so the role CHECK admits 'system'.
+         * null  -- undetermined: no system rows yet, so nothing proves it either
+         *         way. Click "Take Over Chat" once; a 502 response means section
+         *         1 of APPLY_PENDING.sql has not been applied.
+         */
+        allowsSystemRole: systemCount === null ? null : systemCount > 0,
+        systemMessageCount: systemCount,
         thread,
         note:
           convoProbe === undefined
@@ -2344,7 +2377,39 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
     const announcement = takingOver
       ? `${PROFILE.goesBy} has joined the chat -- you're now talking to the real ${PROFILE.goesBy}!`
       : `${PROFILE.goesBy} stepped away, so I'm back to answering questions.`;
-    await insertStoredMessage(conversationId, "system", announcement);
+
+    /**
+     * The return value used to be discarded, and supabaseRequest resolves to
+     * null on any failure. So a database whose `chat_messages_role_check` still
+     * omits 'system' -- exactly what APPLY_PENDING.sql section 1 exists to fix
+     * -- rejected this insert, the endpoint still answered 200, the inbox showed
+     * no error, and the visitor simply never learned a human had taken over.
+     * A silent write failure with a success response is the worst version of
+     * this bug, so the result is now checked and surfaced.
+     */
+    const stored = await insertStoredMessage(conversationId, "system", announcement);
+    if (!stored) {
+      console.error(
+        JSON.stringify({
+          scope: "ian-chat-takeover",
+          conversationId,
+          takingOver,
+          error: "could not persist the system announcement",
+          note: "if this is a check-constraint failure, chat_messages_role_check does not allow role='system' -- run supabase/APPLY_PENDING.sql",
+        })
+      );
+      // The mode flip already happened and is not rolled back: the admin did
+      // take over, so the AI is correctly muted. What failed is telling the
+      // visitor, which is worth reporting rather than hiding.
+      return res.status(502).json({
+        ok: false,
+        conversationId,
+        mode,
+        error:
+          "Takeover applied, but the visitor was not notified: the announcement could not be saved. Check the chat_messages_role_check constraint allows role='system' (supabase/APPLY_PENDING.sql).",
+      });
+    }
+
     // No status argument: the PATCH below is the single authoritative write,
     // and re-asserting status through touchConversation would be a second
     // write that could race the admin's next click.
@@ -2363,7 +2428,7 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
     console.info(
       JSON.stringify({ scope: "ian-chat-takeover", conversationId, mode, takingOver, statusApplied })
     );
-    return res.status(200).json({ ok: true, conversationId, mode, announcement });
+    return res.status(200).json({ ok: true, conversationId, mode, announcement, notified: true });
   }
 
   if (event === "admin_read") {
