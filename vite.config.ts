@@ -74,7 +74,13 @@ function localChatApiPlugin(port: number): Plugin {
           const apiRequest = request as unknown as ChatRequest & { body?: unknown };
           apiRequest.body = body;
           await chatHandler(apiRequest, addVercelResponseMethods(response));
-        } catch {
+        } catch (error) {
+          // This used to be a bare catch, so an exception thrown anywhere in the
+          // handler surfaced only as a generic 500 with nothing in the terminal
+          // -- on the dev path that is the *only* place the cause can appear.
+          viteServer.config.logger.error(
+            `Local chat API threw: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`
+          );
           if (!response.headersSent) {
             response.statusCode = 500;
             response.setHeader("Content-Type", "application/json; charset=utf-8");

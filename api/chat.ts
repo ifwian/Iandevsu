@@ -80,6 +80,8 @@ const NOTIFICATION_TIMEOUT_MS = 3500;
 const NOTIFICATION_EMAIL = "iandevsu@gmail.com";
 const SUPABASE_TIMEOUT_MS = 5000;
 const GEMINI_HANDSHAKE_TIMEOUT_MS = 20000;
+const MAX_ERROR_CAUSE_DEPTH = 4;
+const MAX_ERROR_STACK_LENGTH = 1200;
 const GEMINI_STREAM_IDLE_TIMEOUT_MS = 30000;
 const MAX_UPSTREAM_DETAIL_LENGTH = 300;
 
@@ -339,6 +341,82 @@ Rules:
 
 function getGeminiApiKey(): string | undefined {
   return process.env.GEMINI_API_KEY?.trim() || undefined;
+}
+
+/**
+ * Flattens a thrown value into something JSON.stringify keeps intact.
+ *
+ * Node's fetch (undici) puts the diagnosable part on `cause`: a SystemError
+ * with `code` like ENOTFOUND / ECONNREFUSED / ETIMEDOUT / CERT_HAS_EXPIRED, and
+ * a controller abort surfaces as a DOMException named AbortError. Reading only
+ * `error.message` loses the code, which is the whole reason for catching.
+ */
+function describeError(error: unknown, depth = 0): Record<string, unknown> {
+  const described: Record<string, unknown> = {
+    name: error instanceof Error ? error.name : typeof error,
+    message: error instanceof Error ? error.message : String(error),
+  };
+
+  if (error instanceof Error && typeof error.stack === "string") {
+    described.stack = error.stack.slice(0, MAX_ERROR_STACK_LENGTH);
+  }
+
+  // A bare object (not an Error) can still carry a code, so read it off `this`.
+  const systemish = error as { code?: unknown; errno?: unknown; syscall?: unknown };
+  if (typeof systemish.code === "string" || systemish.errno !== undefined) {
+    described.code = typeof systemish.code === "string" ? systemish.code : null;
+    described.errno =
+      typeof systemish.errno === "string" || typeof systemish.errno === "number"
+        ? systemish.errno
+        : null;
+    described.syscall = typeof systemish.syscall === "string" ? systemish.syscall : null;
+  }
+
+  if (depth < MAX_ERROR_CAUSE_DEPTH) {
+    const cause = (error as { cause?: unknown }).cause;
+    if (cause !== null && cause !== undefined) {
+      described.cause = describeError(cause, depth + 1);
+    }
+  }
+
+  return described;
+}
+
+/** True for the controller abort in requestGemini, i.e. the handshake timed out. */
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
+}
+
+/**
+ * The *shape* of GEMINI_API_KEY, never any part of its value. This is what
+ * separates the failure modes that are otherwise indistinguishable from the
+ * outside: unset, set-but-whitespace, pasted with surrounding quotes (which
+ * authenticates as an invalid key), or truncated.
+ */
+function describeApiKey(): Record<string, unknown> {
+  const raw = process.env.GEMINI_API_KEY;
+
+  if (raw === undefined) return { present: false, reason: "unset" };
+
+  const trimmed = raw.trim();
+  if (trimmed === "") {
+    return { present: false, reason: "empty or whitespace only", rawLength: raw.length };
+  }
+
+  return {
+    present: true,
+    length: trimmed.length,
+    quoted: /^["'].*["']$/.test(trimmed),
+    hasWhitespaceInside: /\s/.test(trimmed),
+  };
+}
+
+/** Which env the key is supposed to come from, since that differs per runtime. */
+function describeRuntime(): Record<string, unknown> {
+  return {
+    vercelEnv: process.env.VERCEL_ENV || null,
+    nodeEnv: process.env.NODE_ENV || null,
+  };
 }
 
 function getModelCandidates(): string[] {
@@ -747,24 +825,43 @@ const DEV_ADMIN_PASSWORD = "dev-admin";
 const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const ADMIN_LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const ADMIN_LOGIN_MAX_ATTEMPTS = 8;
+/** See storeAdminLoginAttempt: bounds memory when keys are forged. */
+const ADMIN_LOGIN_MAX_TRACKED_KEYS = 4096;
 
 const adminLoginAttempts = new Map<string, { count: number; resetAt: number }>();
 
 function isProduction(): boolean {
-  const env = process.env.VERCEL_ENV || process.env.NODE_ENV;
-  return env === "production" || env === "prod";
+  // VERCEL_ENV is authoritative when present: it is "production", "preview" or
+  // "development", so any value other than "production" -- preview in
+  // particular -- is a deployment that is not local development.
+  if (process.env.VERCEL_ENV) return process.env.VERCEL_ENV === "production";
+  return process.env.NODE_ENV === "production";
+}
+
+/**
+ * True on any Vercel deployment, including preview.
+ *
+ * This is deliberately separate from isProduction: a preview deployment is not
+ * production, but it is very much *not* the developer's own machine. It has a
+ * public URL, so treating it as a place where a committed fallback password may
+ * be used would hand every visitor who has read this repository full access to
+ * the inbox.
+ */
+function isDeployed(): boolean {
+  return Boolean(process.env.VERCEL_ENV || process.env.VERCEL || process.env.CI);
 }
 
 /**
  * Returns the configured admin password, or the development-only default.
- * Deliberately returns null in production when unset: a hardcoded fallback that
- * ships to prod would be a publicly known admin password sitting in the git
- * history and the deployed bundle.
+ * Deliberately returns null on any deployment when unset: a hardcoded fallback
+ * that ships to prod would be a publicly known admin password sitting in the
+ * git history and the deployed bundle -- and preview deployments have public
+ * URLs, so "not production" is not a safe place to leave it enabled.
  */
 function getAdminPassword(): string | null {
   const configured = process.env.CHAT_ADMIN_PASSWORD?.trim();
   if (configured) return configured;
-  return isProduction() ? null : DEV_ADMIN_PASSWORD;
+  return isDeployed() || isProduction() ? null : DEV_ADMIN_PASSWORD;
 }
 
 function safeEquals(a: string, b: string): boolean {
@@ -801,10 +898,26 @@ function getBearerToken(req: VercelRequest): string | null {
   return value || null;
 }
 
-function getClientKey(req: VercelRequest): string {
+/**
+ * Identifies the caller for the login throttle.
+ *
+ * The transport address is the only value the client cannot choose, so it is
+ * the primary key. `x-forwarded-for` is deliberately NOT trusted: Vercel
+ * appends the real client address to whatever the client already sent rather
+ * than replacing it, so `x-forwarded-for[0]` is attacker-controlled. Keying on
+ * it gave every guess attempt a fresh bucket, which made the throttle a no-op
+ * against a single shared secret.
+ *
+ * The forwarded value is still used as a *secondary* key, because on Vercel the
+ * transport address is the proxy's own and would otherwise collapse every
+ * visitor into one bucket.
+ */
+function getClientKeys(req: VercelRequest): string[] {
+  const socketAddress = req.socket?.remoteAddress ?? "";
   const forwarded = readHeader(req, "x-forwarded-for");
-  const ip = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : "";
-  return ip || req.socket?.remoteAddress || "unknown";
+  const claimed = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : "";
+
+  return socketAddress ? [`socket:${socketAddress}`, `forwarded:${claimed}`] : [`forwarded:${claimed}`];
 }
 
 function signAdminSession(expiresAt: number, password: string): string {
@@ -817,29 +930,63 @@ function signAdminSession(expiresAt: number, password: string): string {
  * Best-effort brute-force brake. In-memory only, so it resets when a cold
  * instance recycles -- it raises the cost of a naive sweep, it is not a hard
  * limit. A durable store would be needed for that.
+ *
+ * Every key in the set counts toward the limit, so forging a new
+ * x-forwarded-for cannot buy a fresh budget: the socket key still carries the
+ * previous failures.
  */
-function isAdminLoginThrottled(key: string): boolean {
+function isAdminLoginThrottled(keys: readonly string[]): boolean {
   const now = Date.now();
-  const entry = adminLoginAttempts.get(key);
-  if (!entry || now > entry.resetAt) {
-    adminLoginAttempts.set(key, { count: 0, resetAt: now + ADMIN_LOGIN_WINDOW_MS });
-    return false;
-  }
-  return entry.count >= ADMIN_LOGIN_MAX_ATTEMPTS;
+  pruneAdminLoginAttempts(now);
+  return keys.some((key) => {
+    const entry = adminLoginAttempts.get(key);
+    return entry !== undefined && now <= entry.resetAt && entry.count >= ADMIN_LOGIN_MAX_ATTEMPTS;
+  });
 }
 
-function recordAdminLoginFailure(key: string): void {
+function recordAdminLoginFailure(keys: readonly string[]): void {
   const now = Date.now();
-  const entry = adminLoginAttempts.get(key);
-  if (!entry || now > entry.resetAt) {
-    adminLoginAttempts.set(key, { count: 1, resetAt: now + ADMIN_LOGIN_WINDOW_MS });
-    return;
+  pruneAdminLoginAttempts(now);
+  for (const key of keys) {
+    const entry = adminLoginAttempts.get(key);
+    if (!entry || now > entry.resetAt) {
+      storeAdminLoginAttempt(key, { count: 1, resetAt: now + ADMIN_LOGIN_WINDOW_MS });
+      continue;
+    }
+    entry.count += 1;
   }
-  entry.count += 1;
 }
 
-function clearAdminLoginFailures(key: string): void {
-  adminLoginAttempts.delete(key);
+function clearAdminLoginFailures(keys: readonly string[]): void {
+  for (const key of keys) adminLoginAttempts.delete(key);
+}
+
+/**
+ * Drops windows that have already elapsed.
+ *
+ * Without this the map is a memory leak: an attacker cycling x-forwarded-for
+ * values adds an entry per forged value and nothing ever removes one, because
+ * the lookup path only ever revisits keys it already knows about.
+ */
+function pruneAdminLoginAttempts(now: number): void {
+  for (const [key, entry] of adminLoginAttempts) {
+    if (now > entry.resetAt) adminLoginAttempts.delete(key);
+  }
+}
+
+/**
+ * Hard ceiling on tracked keys.
+ *
+ * Pruning alone still lets a forger add one entry per distinct header value
+ * inside a single 15-minute window, and the prune above is a full scan -- so
+ * unbounded growth would be a memory and CPU lever aimed squarely at the login
+ * endpoint. Past the ceiling the map is reset instead: that forfeits the
+ * accumulated counts, but only for an attacker already spending thousands of
+ * requests a minute to get there, and it bounds the cost of the next request.
+ */
+function storeAdminLoginAttempt(key: string, entry: { count: number; resetAt: number }): void {
+  if (adminLoginAttempts.size >= ADMIN_LOGIN_MAX_TRACKED_KEYS) adminLoginAttempts.clear();
+  adminLoginAttempts.set(key, entry);
 }
 
 function issueAdminSession(password: string): string {
@@ -2147,19 +2294,19 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const clientKey = getClientKey(req);
-    if (isAdminLoginThrottled(clientKey)) {
+    const clientKeys = getClientKeys(req);
+    if (isAdminLoginThrottled(clientKeys)) {
       return res.status(429).json({ error: "Too many attempts. Try again in a few minutes." });
     }
 
     const submitted = typeof body.password === "string" ? body.password : "";
     if (!submitted || !safeEquals(submitted, expected)) {
-      recordAdminLoginFailure(clientKey);
+      recordAdminLoginFailure(clientKeys);
       console.warn(JSON.stringify({ scope: "ian-chat-admin", login: "failed" }));
       return res.status(401).json({ error: "Incorrect password" });
     }
 
-    clearAdminLoginFailures(clientKey);
+    clearAdminLoginFailures(clientKeys);
     console.info(JSON.stringify({ scope: "ian-chat-admin", login: "ok" }));
     return res.status(200).json({ ok: true, session: issueAdminSession(expected) });
   }
@@ -2573,36 +2720,87 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
     await notificationPromise;
+    // Previously silent: the visitor got a 500 and the logs said nothing at all,
+    // so "the env var was never set on this deployment" was indistinguishable
+    // from every other cause of the same 500.
+    console.error(
+      JSON.stringify({
+        scope: "ian-chat-gemini-config",
+        error: "GEMINI_API_KEY missing or empty",
+        key: describeApiKey(),
+        runtime: describeRuntime(),
+        // The local dev server injects this from .env.local via
+        // loadServerEnvironment in vite.config.ts; on Vercel it comes from the
+        // project environment variables, so this is almost always a deploy that
+        // never had the variable set.
+        source: process.env.VERCEL_ENV ? "vercel-project-env" : "local-dotenv-or-process",
+      })
+    );
     return res.status(500).json({ error: "Server is missing GEMINI_API_KEY" });
   }
   let geminiResponse: Response | null = null;
   let lastStatus = 0;
   let lastDetail = "";
+  // A transport failure and a real HTTP 502 from Gemini both used to land in
+  // lastStatus as 502, so the logs could not distinguish "no response ever
+  // arrived" from "Gemini answered 502". lastStatus is now left at 0 for a
+  // transport failure, and the exception is kept here in full.
+  let lastTransportFailure: Record<string, unknown> | null = null;
+  // Per-model outcome, so a chain that dies on candidate three says which two
+  // worked -- the single most useful fact when GEMINI_MODEL is stale.
+  const attempts: Array<Record<string, unknown>> = [];
 
   for (const model of getModelCandidates()) {
     try {
       const response = await requestGemini(apiKey, model, modelMessages);
       if (response.ok) {
         geminiResponse = response;
+        attempts.push({ model, outcome: "ok", status: response.status });
         break;
       }
 
       lastStatus = response.status;
       lastDetail = await response.text().catch(() => "");
+      attempts.push({ model, outcome: "http_error", status: response.status });
       if (response.status !== 404 && response.status !== 429 && response.status !== 503) break;
-    } catch {
-      lastStatus = 502;
-      lastDetail = "Could not reach Gemini";
+    } catch (error) {
+      lastStatus = 0;
+      lastDetail = "";
+      lastTransportFailure = describeError(error);
+      attempts.push({
+        model,
+        outcome: "transport_error",
+        // true here means GEMINI_HANDSHAKE_TIMEOUT_MS elapsed before headers.
+        aborted: isAbortError(error),
+        ...lastTransportFailure,
+      });
+      console.error(
+        JSON.stringify({
+          scope: "ian-chat-gemini-transport",
+          model,
+          aborted: isAbortError(error),
+          handshakeTimeoutMs: GEMINI_HANDSHAKE_TIMEOUT_MS,
+          error: lastTransportFailure,
+          runtime: describeRuntime(),
+        })
+      );
     }
   }
 
   if (!geminiResponse) {
     await notificationPromise;
-    console.info(
+    console.error(
       JSON.stringify({
         scope: "ian-chat-gemini-error",
+        // 0 means no HTTP response was ever received -- a transport failure,
+        // not an upstream status.
         status: lastStatus,
+        transportFailure: lastTransportFailure,
+        modelCandidates: getModelCandidates(),
+        attempts,
         detail: lastDetail.slice(0, MAX_UPSTREAM_DETAIL_LENGTH),
+        key: describeApiKey(),
+        runtime: describeRuntime(),
       })
     );
     if (lastStatus === 429) {

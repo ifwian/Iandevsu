@@ -496,7 +496,29 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [session, setSession] = useState<ChatSession | null>(null);
+  /**
+   * Available synchronously on the first render, not after the auth round trip.
+   *
+   * It used to start as null and be filled in by `initialize`, which left a
+   * window on every page load where `handleOpen` had to fall back to
+   * `getChatSession()` -- a session with no access token. Announcing the visit
+   * with that session created the conversation row with a null
+   * `visitor_auth_id`, and nothing ever backfills it, so every later
+   * `?visitorId=` poll 403'd: the visitor silently never saw admin replies or
+   * reactions again. The visitorId itself is cheap and local, so there is no
+   * reason to withhold it.
+   */
+  const [session, setSession] = useState<ChatSession | null>(() =>
+    typeof window === "undefined" ? null : getChatSession()
+  );
+  /**
+   * True once the Supabase token has been resolved (or found unobtainable).
+   *
+   * `chat_started` must not be sent before this: the server derives the
+   * conversation's owner from the Authorization header, not the body, so an
+   * early announce permanently writes a row nobody can claim.
+   */
+  const [authSettled, setAuthSettled] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   // Pre-chat contact capture. `null` contact means the form is still pending.
   const [contact, setContact] = useState<VisitorContact | null>(() => getStoredContact());
@@ -518,12 +540,25 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
   // every time the composer text changes.
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
   const fileUrlsRef = useRef<string[]>([]);
+  /**
+   * Set whenever a reaction write is confirmed, so the next poll replaces the
+   * optimistic local set with the server's authoritative one.
+   *
+   * A ref rather than state: it is read by the poll interval, and state would
+   * re-run the poll effect on every toggle. Initialized true so the first poll
+   * after opening the panel always loads the server's reactions -- without
+   * that, a reload shows no reactions at all until the visitor clicks one.
+   */
+  const reactionsDirtyRef = useRef(true);
   const location = useLocation();
 
   useEffect(() => {
     let active = true;
 
     const initialize = async () => {
+      // The identity is already in state from the lazy initializer, so this
+      // only ever adds credentials to it. Overwriting it here would reintroduce
+      // the null-session window that the synchronous initializer closed.
       const nextSession = getChatSession();
 
       if (supabase) {
@@ -546,9 +581,12 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
 
       if (!active) return;
       const stored = readHistory(nextSession.visitorId);
-      setSession(nextSession);
+      setSession((current) => (current ? { ...current, ...nextSession } : nextSession));
       if (stored?.length) setMessages(stored);
       setHistoryLoaded(true);
+      // Whether or not a token was obtainable, the wait is over -- the visit can
+      // now be announced without stranding the conversation unowned.
+      setAuthSettled(true);
     };
 
     void initialize();
@@ -587,7 +625,6 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
     const visitorId = session?.visitorId;
     if (!open || !visitorId) return;
     let active = true;
-    let reactionsDirty = false;
 
     const poll = async () => {
       try {
@@ -596,8 +633,8 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
         if (remote.messages.length) {
           setMessages((current) => mergeAdminMessages(current, remote.messages));
         }
-        if (reactionsDirty) {
-          reactionsDirty = false;
+        if (reactionsDirtyRef.current) {
+          reactionsDirtyRef.current = false;
           // Wholesale replacement, not a merge: the server owns the reaction
           // set, and ReactionBar already ignores rows whose message is not in
           // the transcript, so nothing needs filtering here.
@@ -744,14 +781,27 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
       // Storage unavailable; the in-memory reset below still applies.
     }
 
-    // getChatSession mints a new id now that the stored one is gone.
+    // getChatSession mints a new id now that the stored one is gone. The
+    // credentials have to be carried across explicitly: getChatSession only
+    // knows about storage, so a bare `setSession(next)` handed the new thread
+    // a session with no access token. The server then created its conversation
+    // row with a null visitor_auth_id, which nothing ever backfills, so that
+    // thread could never receive admin replies or reactions.
     const next = getChatSession();
+    next.accessToken = session?.accessToken;
+    next.authUserId = session?.authUserId;
     setSession(next);
     setContact(null);
     setNameDraft("");
     setEmailDraft("");
     setContactError(null);
-    setHistoryLoaded(false);
+    // historyLoaded deliberately stays true. Setting it false here (as this
+    // used to) was the last write to it, so the save effect's guard never
+    // reopened and every message in the new thread was discarded on reload --
+    // one click of "new chat" permanently disabled the widget's only
+    // persistence. The gate exists solely to stop the greeting overwriting
+    // stored history before the restore lands, and by this point the restore
+    // happened long ago; the new thread legitimately starts as a bare greeting.
     setMessages([{ ...GREETING, at: Date.now() }]);
     setInput("");
     setError(null);
@@ -779,11 +829,11 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
 
   const handleOpen = () => {
     setOpen(true);
-    const activeSession = session || getChatSession();
-    if (!session) setSession(activeSession);
-    // Only announce the visit once contact details are known, so the very first
-    // row in the inbox is already attributed to a person.
-    if (contact) void announceVisit(activeSession, contact, location.pathname);
+    // Announcing is gated on authSettled, not merely on having a session: a
+    // session that exists but carries no token creates the conversation row
+    // with a null visitor_auth_id, and that column is never backfilled, so the
+    // visitor would be locked out of admin replies for the rest of the thread.
+    if (contact && authSettled && session) void announceVisit(session, contact, location.pathname);
   };
 
   const submitContact = () => {
@@ -797,8 +847,23 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
     writeStored(CONTACT_EMAIL_KEY, result.contact.email);
     setContact(result.contact);
     setMessages([{ ...GREETING, at: Date.now() }]);
-    if (session) void announceVisit(session, result.contact, location.pathname);
+    if (session && authSettled) void announceVisit(session, result.contact, location.pathname);
   };
+
+  /**
+   * Catches the case the two handlers above deliberately skip: the visitor
+   * opened the panel and gave their details before the token resolved. Without
+   * this the conversation would be announced by whoever opened it next, which
+   * may be never.
+   *
+   * `announceVisit` is itself idempotent per visitor id (it no-ops once
+   * sessionStorage records the start), so firing it once auth lands is safe
+   * even if a handler already got there first.
+   */
+  useEffect(() => {
+    if (!authSettled || !open || !contact || !session) return;
+    void announceVisit(session, contact, location.pathname);
+  }, [announceVisit, authSettled, contact, location.pathname, open, session]);
 
   /** Revokes every object URL this component has created. */
   const releaseFileUrls = useCallback(() => {
@@ -912,6 +977,10 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
           return active ? without : [...without, optimistic];
         });
       }
+      // Confirmed either way, so let the next poll reconcile against the
+      // server: it is the only thing that can pick up a reaction the admin
+      // added in the inbox, or one removed in another tab.
+      reactionsDirtyRef.current = true;
     } catch {
       setReactions((current) =>
         current.filter(

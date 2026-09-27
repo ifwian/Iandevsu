@@ -170,6 +170,23 @@ export default function ChatInboxPage() {
   // Channel shared with the visitor's widget for the open thread. Held in a ref
   // so the reply composer can broadcast without re-subscribing on each keypress.
   const threadChannelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
+  /**
+   * Monotonic token for thread loads, so a slow response cannot land on a
+   * thread the admin has already navigated away from.
+   *
+   * Without it, `loadMessages` committed whatever it fetched -- transcript,
+   * notes, activity, reactions and the visitor panel -- and with a poll running
+   * every 2s against 5 parallel reads, an in-flight request for the previous
+   * conversation routinely resolved after the next selection. The result was
+   * one visitor's transcript rendered under another visitor's name, with the
+   * header, takeover button and send target all belonging to the second.
+   */
+  const threadRequestRef = useRef(0);
+  /**
+   * Same guard for the conversation list. A poll that was in flight across
+   * sign-out would otherwise restore a pre-logout selection on the next login.
+   */
+  const listRequestRef = useRef(0);
 
   const totalUnread = useMemo(
     () => conversations.reduce((sum, conversation) => sum + unreadOf(conversation), 0),
@@ -239,12 +256,15 @@ export default function ChatInboxPage() {
 
   const loadConversations = useCallback(async () => {
     if (!token) return;
+    const seq = ++listRequestRef.current;
     setLoading(true);
     try {
       const params = new URLSearchParams({ admin: "1" });
       if (debouncedQuery) params.set("q", debouncedQuery);
       if (statusFilter !== "all") params.set("status", statusFilter);
       const data: unknown = await request(apiUrl(`/api/chat?${params.toString()}`));
+      // A newer poll (or a sign-out) has moved on; this result is stale.
+      if (seq !== listRequestRef.current) return;
       const next =
         data && typeof data === "object" && "conversations" in data && Array.isArray(data.conversations)
           ? data.conversations.filter(isConversation)
@@ -259,10 +279,11 @@ export default function ChatInboxPage() {
         setConversations([]);
         setSelectedId("");
         setMessages([]);
+      } else if (seq === listRequestRef.current) {
+        setError(caughtError instanceof Error ? caughtError.message : "Could not load conversations");
       }
-      setError(caughtError instanceof Error ? caughtError.message : "Could not load conversations");
     } finally {
-      setLoading(false);
+      if (seq === listRequestRef.current) setLoading(false);
     }
   }, [debouncedQuery, request, statusFilter, token]);
 
@@ -287,6 +308,24 @@ export default function ChatInboxPage() {
   };
 
   /**
+   * The one way to change the open thread, so per-thread UI state cannot
+   * outlive the thread it belongs to.
+   *
+   * The reply composer and the notes box both hold their draft in state that
+   * is not keyed by conversation, and both stay mounted across a switch. A
+   * half-typed reply to one visitor was therefore still in the box -- and
+   * `sendReply` reads `selectedId` at send time -- so it posted to whoever was
+   * selected next. Same for the notes draft, which `InternalNotes` also keeps
+   * in an unkeyed instance.
+   */
+  const selectConversation = (conversationId: string) => {
+    setSelectedId(conversationId);
+    setReply("");
+    setNoteError(null);
+    setConfirmDeleteId(null);
+  };
+
+  /**
    * Loads everything about the open thread in one request: transcript, notes,
    * activity, reactions and the visitor summary. The server does the five reads
    * in parallel, so the panel never shows a half-populated state on refresh.
@@ -294,10 +333,15 @@ export default function ChatInboxPage() {
   const loadMessages = useCallback(
     async (conversationId: string) => {
       if (!token || !conversationId) return;
+      const seq = ++threadRequestRef.current;
       try {
         const data: unknown = await request(
           apiUrl(`/api/chat?admin=1&conversationId=${encodeURIComponent(conversationId)}`)
         );
+        // The admin switched threads while this was in flight. Committing now
+        // would paint the old visitor's transcript and notes under the new
+        // visitor's header, while every control still targeted the new one.
+        if (seq !== threadRequestRef.current) return;
         const record = data && typeof data === "object" ? (data as Record<string, unknown>) : null;
         setMessages(record && Array.isArray(record.messages) ? record.messages.filter(isInboxMessage) : []);
         setNotes(record && Array.isArray(record.notes) ? record.notes.filter(isNote) : []);
@@ -310,7 +354,9 @@ export default function ChatInboxPage() {
         setVisitor(record && isVisitorInfo(record.visitor) ? record.visitor : null);
         setError(null);
       } catch (caughtError) {
-        setError(caughtError instanceof Error ? caughtError.message : "Could not load messages");
+        if (seq === threadRequestRef.current) {
+          setError(caughtError instanceof Error ? caughtError.message : "Could not load messages");
+        }
       }
     },
     [request, token]
@@ -319,6 +365,16 @@ export default function ChatInboxPage() {
   useEffect(() => {
     if (authReady) void loadConversations();
   }, [authReady, loadConversations]);
+
+  /**
+   * Invalidates any in-flight thread load the moment the selection changes,
+   * before the new request has even started. `loadMessages` bumps the counter
+   * itself, but on a selection change that happens in the same commit as the
+   * effect, so this closes the gap.
+   */
+  useEffect(() => {
+    threadRequestRef.current += 1;
+  }, [selectedId]);
 
   useEffect(() => {
     if (selectedId) void loadMessages(selectedId);
@@ -848,7 +904,7 @@ export default function ChatInboxPage() {
                     <button
                       key={conversation.id}
                       type="button"
-                      onClick={() => setSelectedId(conversation.id)}
+                      onClick={() => selectConversation(conversation.id)}
                       aria-current={isSelected ? "true" : undefined}
                       className={`w-full rounded-lg border p-3 text-left transition-colors ${
                         isSelected
@@ -1192,6 +1248,10 @@ export default function ChatInboxPage() {
                 className="mt-4 flex min-h-0 shrink-0 flex-col border-t border-[var(--gray-200)] pt-4 lg:max-h-[45%]"
               >
                 <InternalNotes
+                  // Keyed so the draft is discarded per thread: the component
+                  // keeps it in local state, and without a key React reuses one
+                  // instance across every conversation switch.
+                  key={selectedId}
                   notes={notes}
                   onAdd={addNote}
                   busy={noteBusy}
