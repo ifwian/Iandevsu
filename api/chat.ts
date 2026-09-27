@@ -83,6 +83,26 @@ const GEMINI_HANDSHAKE_TIMEOUT_MS = 20000;
 const GEMINI_STREAM_IDLE_TIMEOUT_MS = 30000;
 const MAX_UPSTREAM_DETAIL_LENGTH = 300;
 
+/** Matches the `chat_conversation_notes_body_len` CHECK constraint. */
+const MAX_NOTE_LENGTH = 2000;
+
+/**
+ * Route path -> the label the activity timeline shows. Duplicated from
+ * `lib/chatFormat.ts` on purpose: this file must stay free of relative imports
+ * out of `/api` (see the note at the top), so it cannot share the constant.
+ * Unknown routes fall through to the raw path rather than being dropped, so a
+ * new page shows up in the timeline the day it ships.
+ */
+function pageLabel(path: string): string {
+  const normalized = path.split("?")[0]?.split("#")[0] || "/";
+  const known: Record<string, string> = {
+    "/": "Home",
+    "/projects": "Projects",
+    "/chat-inbox": "Chat Inbox",
+  };
+  return known[normalized] ?? normalized;
+}
+
 interface ChatMessage {
   role: "user" | "model";
   text: string;
@@ -93,16 +113,57 @@ type StoredRole = "visitor" | "assistant" | "admin" | "system";
 /**
  * Triage state of a conversation. The column was originally ('open','closed'),
  * but 'closed' was never written by any code path, so the vocabulary was
- * renamed in 20260929010000_migrate_chat_status_to_active_resolved.sql.
+ * renamed in 20260929010000_migrate_chat_status_to_active_resolved.sql and
+ * extended to four states in 20260930010000_add_chat_inbox_features.sql.
+ *
+ *   active   -- open, nobody has engaged yet
+ *   waiting  -- a human took over, then stepped back; the visitor is waiting
+ *   assigned -- a human currently owns the conversation
+ *   resolved -- closed
  */
-type ConversationStatus = "active" | "resolved";
+type ConversationStatus = "active" | "waiting" | "assigned" | "resolved";
 
-const CONVERSATION_STATUSES: readonly ConversationStatus[] = ["active", "resolved"];
+const CONVERSATION_STATUSES: readonly ConversationStatus[] = [
+  "active",
+  "waiting",
+  "assigned",
+  "resolved",
+];
 
 const CONVERSATION_DEFAULT_STATUS: ConversationStatus = "active";
 
+/** Set by admin_takeover; `mode` records the same thing, this is the triage view. */
+const CONVERSATION_ASSIGNED_STATUS: ConversationStatus = "assigned";
+
+/** Set by admin_release: still needs a human, but nobody is on it. */
+const CONVERSATION_WAITING_STATUS: ConversationStatus = "waiting";
+
 function isConversationStatus(value: unknown): value is ConversationStatus {
-  return value === "active" || value === "resolved";
+  return (
+    value === "active" || value === "waiting" || value === "assigned" || value === "resolved"
+  );
+}
+
+/**
+ * Message reactions. Must match `chat_message_reactions.kind`; the CHECK
+ * constraint on the column is the real guard, this just avoids a pointless
+ * round trip for a value the client could only get wrong deliberately.
+ */
+type ReactionKind = "thumbs_up" | "heart";
+
+const REACTION_KINDS: readonly ReactionKind[] = ["thumbs_up", "heart"];
+
+function isReactionKind(value: unknown): value is ReactionKind {
+  return value === "thumbs_up" || value === "heart";
+}
+
+/** Actor key for a reaction made from the admin dashboard. */
+const ADMIN_ACTOR = "admin";
+
+type ActivityKind = "page" | "chat";
+
+function isActivityKind(value: unknown): value is ActivityKind {
+  return value === "page" || value === "chat";
 }
 
 interface ConversationRecord {
@@ -123,6 +184,49 @@ interface ConversationRecord {
    * applied -- a missing column makes PostgREST reject the whole query.
    */
   mode?: string;
+  /**
+   * Optional inbox columns from 20260930010000_add_chat_inbox_features.sql.
+   *
+   * `unread_count` is deliberately tri-state: `undefined` means the column is
+   * not there (migration not applied) and 0 means it is there and the thread is
+   * read. Collapsing the two would make an unmigrated database claim every
+   * thread is read, which is the wrong failure direction for a badge.
+   */
+  unread_count?: number;
+  /** First time this visitor was ever seen, across every session. */
+  first_seen_at?: string;
+  /** Coarse device label derived server-side from the user agent. */
+  device?: string | null;
+  /** Route the visitor was last on, reported by the widget. */
+  current_page?: string | null;
+}
+
+interface StoredReaction {
+  message_id: RowId;
+  kind: ReactionKind;
+  actor: string;
+}
+
+interface StoredNote {
+  id: RowId;
+  conversation_id: string;
+  body: string;
+  created_at: string;
+}
+
+interface StoredActivity {
+  id: RowId;
+  conversation_id: string;
+  kind: ActivityKind;
+  page: string;
+  label: string;
+  created_at: string;
+}
+
+/** Cross-session identity, derived from the Supabase anonymous auth user. */
+interface VisitorSessionStats {
+  sessionCount: number;
+  firstSeenAt: string;
 }
 
 /**
@@ -149,7 +253,11 @@ type ChatEvent =
   | "admin_takeover"
   | "admin_release"
   | "admin_status"
-  | "admin_delete";
+  | "admin_delete"
+  | "admin_read"
+  | "admin_note"
+  | "reaction"
+  | "visitor_activity";
 
 function isChatEvent(value: unknown): value is ChatEvent {
   return (
@@ -159,7 +267,11 @@ function isChatEvent(value: unknown): value is ChatEvent {
     value === "admin_takeover" ||
     value === "admin_release" ||
     value === "admin_status" ||
-    value === "admin_delete"
+    value === "admin_delete" ||
+    value === "admin_read" ||
+    value === "admin_note" ||
+    value === "reaction" ||
+    value === "visitor_activity"
   );
 }
 
@@ -175,6 +287,16 @@ interface ChatRequest {
   visitorName?: unknown;
   visitorEmail?: unknown;
   status?: unknown;
+  /** reaction: the chat_messages row being reacted to. */
+  messageId?: unknown;
+  /** reaction: 'thumbs_up' | 'heart'. */
+  kind?: unknown;
+  /** reaction: true to add, false to remove. */
+  active?: unknown;
+  /** visitor_activity: the route the visitor is on. */
+  page?: unknown;
+  /** visitor_activity: 'page' for a route change, 'chat' for opening the chat. */
+  activity?: unknown;
 }
 
 /**
@@ -763,9 +885,17 @@ function isConversationRecord(value: unknown): value is ConversationRecord {
     typeof candidate.last_message_preview === "string" &&
     // Contact details are optional, so accept a missing key, null, or a string.
     // Requiring a string here would drop every conversation created before the
-    // pre-chat form existed.
+    // pre-chat form existed. Same reasoning for the inbox columns, which only
+    // exist once their migration has been applied.
     isOptionalText(candidate.visitor_name) &&
-    isOptionalText(candidate.visitor_email)
+    isOptionalText(candidate.visitor_email) &&
+    isOptionalText(candidate.device) &&
+    isOptionalText(candidate.current_page) &&
+    isOptionalText(candidate.first_seen_at) &&
+    (candidate.unread_count === undefined ||
+      candidate.unread_count === null ||
+      typeof candidate.unread_count === "number" ||
+      typeof candidate.unread_count === "string")
   );
 }
 
@@ -795,43 +925,121 @@ function isStoredMessage(value: unknown): value is StoredMessage {
   );
 }
 
+function isStoredReaction(value: unknown): value is StoredReaction {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    isRowId(candidate.message_id) &&
+    isReactionKind(candidate.kind) &&
+    typeof candidate.actor === "string" &&
+    candidate.actor.length > 0
+  );
+}
+
+function isStoredNote(value: unknown): value is StoredNote {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    isRowId(candidate.id) &&
+    typeof candidate.conversation_id === "string" &&
+    typeof candidate.body === "string" &&
+    typeof candidate.created_at === "string"
+  );
+}
+
+function isStoredActivity(value: unknown): value is StoredActivity {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    isRowId(candidate.id) &&
+    typeof candidate.conversation_id === "string" &&
+    isActivityKind(candidate.kind) &&
+    typeof candidate.page === "string" &&
+    typeof candidate.label === "string" &&
+    typeof candidate.created_at === "string"
+  );
+}
+
 const CONVERSATION_COLUMNS =
   "id,visitor_id,visitor_auth_id,visitor_name,visitor_email,session_started_at,status,last_message_at,last_message_preview";
-const CONVERSATION_COLUMNS_WITH_MODE = `${CONVERSATION_COLUMNS},mode`;
 
 /**
- * Reads a conversation, retrying without `mode` when PostgREST rejects the
- * column. Selecting a column that does not exist fails the *entire* query, so
- * without this fallback a missing migration would take down every read rather
- * than just the takeover feature.
+ * Columns that only exist once a migration has been applied: `mode` from the
+ * takeover migrations, the rest from 20260930010000_add_chat_inbox_features.
+ *
+ * They travel as one group so a conversation is read in at most two queries
+ * (this set, then the base set) rather than one per missing column.
+ */
+const CONVERSATION_OPTIONAL_COLUMNS = "mode,unread_count,first_seen_at,device,current_page";
+
+let missingOptionalColumnsReported = false;
+
+/**
+ * Reads rows, retrying without the optional column set when PostgREST rejects
+ * it. Selecting a column that does not exist fails the *entire* query, so
+ * without this an unapplied migration would take down every read rather than
+ * just the features those columns belong to.
+ *
+ * When the retry is what succeeded, the missing columns are filled with neutral
+ * defaults so callers never have to distinguish "absent" from "empty" -- except
+ * for `unread_count`, which is left `undefined` on purpose (see ConversationRecord).
+ */
+async function selectRows(
+  filter: string,
+  tail: string
+): Promise<{ rows: unknown[]; hasOptional: boolean }> {
+  // `filter` is a PostgREST filter string with no leading "?" and possibly
+  // empty, so the separator has to be conditional -- "?&select=" is legal but
+  // sloppy, and every query here is already a hot path.
+  const head = `chat_conversations?${filter ? `${filter}&` : ""}select=`;
+  const withOptional = await supabaseRequest(
+    `${head}${CONVERSATION_COLUMNS},${CONVERSATION_OPTIONAL_COLUMNS}${tail}`
+  );
+  if (Array.isArray(withOptional)) return { rows: withOptional, hasOptional: true };
+
+  const withoutOptional = await supabaseRequest(`${head}${CONVERSATION_COLUMNS}${tail}`);
+  if (Array.isArray(withoutOptional)) {
+    if (!missingOptionalColumnsReported) {
+      missingOptionalColumnsReported = true;
+      console.warn(
+        JSON.stringify({
+          scope: "ian-chat-inbox",
+          note: "optional conversation columns unavailable -- run supabase/migrations/20260930010000_add_chat_inbox_features.sql (unread badges, visitor panel and reactions will be inert)",
+        })
+      );
+    }
+    return { rows: withoutOptional, hasOptional: false };
+  }
+
+  return { rows: [], hasOptional: false };
+}
+
+/** Applies the fallback values for a row read without the optional columns. */
+function withOptionalDefaults(row: ConversationRecord, hasOptional: boolean): ConversationRecord {
+  if (hasOptional) {
+    return {
+      ...row,
+      // PostgREST can hand back a bigint-ish number as a string; the badge
+      // needs a real number or it renders as "3" either way but compares
+      // wrongly against 0.
+      unread_count: typeof row.unread_count === "number" ? row.unread_count : Number(row.unread_count ?? 0) || 0,
+    };
+  }
+  return { ...row, mode: "ai", device: null, current_page: null };
+}
+
+/**
+ * Reads a conversation, retrying without the optional columns when PostgREST
+ * rejects them. `filter` is the filter string (no leading "?"), `tail` the part
+ * after `select=` that the caller owns.
  */
 async function selectConversation(
   filter: string,
   tail: string
 ): Promise<ConversationRecord | null> {
-  const withMode = await supabaseRequest(
-    `chat_conversations?${filter}&select=${CONVERSATION_COLUMNS_WITH_MODE}${tail}`
-  );
-  if (Array.isArray(withMode)) {
-    return withMode.find(isConversationRecord) || null;
-  }
-
-  const withoutMode = await supabaseRequest(
-    `chat_conversations?${filter}&select=${CONVERSATION_COLUMNS}${tail}`
-  );
-  if (Array.isArray(withoutMode)) {
-    const found = withoutMode.find(isConversationRecord);
-    if (found) {
-      console.warn(
-        JSON.stringify({
-          scope: "ian-chat-takeover",
-          note: "chat_conversations.mode unavailable -- run the add_chat_takeover migration",
-        })
-      );
-      return { ...found, mode: "ai" };
-    }
-  }
-  return null;
+  const { rows, hasOptional } = await selectRows(filter, tail);
+  const found = rows.find(isConversationRecord);
+  return found ? withOptionalDefaults(found, hasOptional) : null;
 }
 
 function isTakeover(conversation: ConversationRecord | null): boolean {
@@ -851,6 +1059,60 @@ interface VisitorContact {
   email: string | null;
 }
 
+/**
+ * Creates the conversation row.
+ *
+ * The inbox columns (`first_seen_at`, `unread_count`) are sent on the first
+ * attempt and dropped on the second. Postgres rejects a whole INSERT over one
+ * unknown column, so without the retry an unapplied
+ * 20260930010000_add_chat_inbox_features migration would break the chat
+ * outright -- a 503 on the visitor's first message, which is a far worse
+ * failure than the two columns being unavailable. This is the same
+ * optional-column contract the reads already follow, applied to writes.
+ */
+async function insertConversation(
+  visitorId: string,
+  visitorAuthId: string | null,
+  sessionStartedAt: number,
+  contact: VisitorContact
+): Promise<unknown[] | null> {
+  const base = {
+    visitor_id: visitorId,
+    visitor_auth_id: visitorAuthId,
+    visitor_name: contact.name,
+    visitor_email: contact.email,
+    session_started_at: new Date(sessionStartedAt).toISOString(),
+    status: CONVERSATION_DEFAULT_STATUS,
+    last_message_at: new Date().toISOString(),
+    last_message_preview: "Visitor opened chat",
+  };
+
+  const send = (body: Record<string, unknown>) =>
+    supabaseRequest("chat_conversations", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(body),
+    });
+
+  // Spelled out rather than relying on the column defaults, so the value is
+  // there even on a database where the default was never altered.
+  const withInboxColumns = await send({
+    ...base,
+    first_seen_at: new Date(sessionStartedAt).toISOString(),
+    unread_count: 0,
+  });
+  if (Array.isArray(withInboxColumns)) return withInboxColumns;
+
+  console.warn(
+    JSON.stringify({
+      scope: "ian-chat-inbox",
+      note: "conversation insert rejected the inbox columns -- run supabase/migrations/20260930010000_add_chat_inbox_features.sql (unread badges and the visitor panel will be inert)",
+    })
+  );
+  const legacy = await send(base);
+  return Array.isArray(legacy) ? legacy : null;
+}
+
 async function ensureConversation(
   visitorId: string,
   visitorAuthId: string | null,
@@ -863,22 +1125,8 @@ async function ensureConversation(
   }
   if (!hasSupabaseConfig()) return null;
 
-  const result = await supabaseRequest("chat_conversations", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      visitor_id: visitorId,
-      visitor_auth_id: visitorAuthId,
-      visitor_name: contact.name,
-      visitor_email: contact.email,
-      session_started_at: new Date(sessionStartedAt).toISOString(),
-      status: CONVERSATION_DEFAULT_STATUS,
-      last_message_at: new Date().toISOString(),
-      last_message_preview: "Visitor opened chat",
-    }),
-  });
-
-  if (!Array.isArray(result)) return null;
+  const result = await insertConversation(visitorId, visitorAuthId, sessionStartedAt, contact);
+  if (!result) return null;
 
   // The row was written (2xx) but does not match the expected shape. This used
   // to return null with no log at all, so a successful insert looked
@@ -894,7 +1142,7 @@ async function ensureConversation(
       })
     );
   }
-  return created || null;
+  return created ? withOptionalDefaults(created, true) : null;
 }
 
 /**
@@ -972,27 +1220,78 @@ async function touchConversation(
   });
 }
 
+/**
+ * Increments the unread badge.
+ *
+ * Read-modify-write rather than a database-side increment: PostgREST has no
+ * arithmetic, and the alternative (deriving unread from a `last_admin_read_at`
+ * column with a per-row COUNT) turns every 3-second inbox poll into 50
+ * aggregate queries. The lost-update window is one visitor message and only
+ * matters if the same thread is open in two admin tabs, where the next message
+ * corrects the count anyway.
+ *
+ * No-op when the column is absent -- detected from `unread_count` being
+ * `undefined` on the record rather than guessed at.
+ */
+async function bumpUnreadCount(conversation: ConversationRecord): Promise<void> {
+  if (conversation.unread_count === undefined) return;
+  await supabaseRequest(`chat_conversations?id=eq.${encodeURIComponent(conversation.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ unread_count: conversation.unread_count + 1 }),
+  });
+}
+
+/** Clears the unread badge. No-op when the column is absent or already zero. */
+async function markConversationRead(conversation: ConversationRecord): Promise<void> {
+  if (!conversation.unread_count) return;
+  await supabaseRequest(`chat_conversations?id=eq.${encodeURIComponent(conversation.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ unread_count: 0 }),
+  });
+}
+
+/**
+ * A visitor coming back to a resolved thread is a new question, so it reopens
+ * as `active`. `waiting` and `assigned` are deliberately left alone: a new
+ * message from someone already waiting on a human is still waiting, and
+ * clobbering `assigned` would drop the thread out from under an admin who is
+ * mid-reply.
+ *
+ * Returns undefined when nothing should change, so the caller does not re-assert
+ * a status it did not mean to touch.
+ */
+function nextStatusForVisitorMessage(status: string): ConversationStatus | undefined {
+  if (status === "resolved") return CONVERSATION_DEFAULT_STATUS;
+  if (isConversationStatus(status) && status !== CONVERSATION_DEFAULT_STATUS) return status;
+  return undefined;
+}
+
 async function persistVisitorMessage(
   visitorId: string,
   visitorAuthId: string | null,
   sessionStartedAt: number,
   body: string,
   contact: VisitorContact
-): Promise<string | null> {
+): Promise<{ conversationId: string; messageId: RowId | null } | null> {
   if (!hasSupabaseConfig()) return null;
   const conversation = await ensureConversation(visitorId, visitorAuthId, sessionStartedAt, contact);
   if (!conversation) return null;
-  await insertStoredMessage(conversation.id, "visitor", body);
-  // A visitor coming back is a new question, so a resolved thread reopens here
-  // rather than staying buried in the resolved filter.
-  await touchConversation(conversation.id, body, CONVERSATION_DEFAULT_STATUS);
-  return conversation.id;
+  const stored = await insertStoredMessage(conversation.id, "visitor", body);
+  await bumpUnreadCount(conversation);
+  await touchConversation(conversation.id, body, nextStatusForVisitorMessage(conversation.status));
+  return { conversationId: conversation.id, messageId: stored?.id ?? null };
 }
 
-async function persistAssistantMessage(conversationId: string | null, body: string): Promise<void> {
-  if (!conversationId) return;
-  await insertStoredMessage(conversationId, "assistant", body);
+async function persistAssistantMessage(
+  conversationId: string | null,
+  body: string
+): Promise<RowId | null> {
+  if (!conversationId) return null;
+  const stored = await insertStoredMessage(conversationId, "assistant", body);
   await touchConversation(conversationId, body);
+  return stored?.id ?? null;
 }
 
 /** How many rows an unfiltered inbox page pulls. */
@@ -1062,18 +1361,8 @@ function conversationListTail(filters: ConversationListFilters): string {
 }
 
 async function listConversations(filters: ConversationListFilters = {}): Promise<ConversationRecord[]> {
-  const tail = conversationListTail(filters);
-  const withMode = await supabaseRequest(
-    `chat_conversations?select=${CONVERSATION_COLUMNS_WITH_MODE}${tail}`
-  );
-  if (Array.isArray(withMode)) return withMode.filter(isConversationRecord);
-
-  const withoutMode = await supabaseRequest(
-    `chat_conversations?select=${CONVERSATION_COLUMNS}${tail}`
-  );
-  return Array.isArray(withoutMode)
-    ? withoutMode.filter(isConversationRecord).map((row) => ({ ...row, mode: "ai" }))
-    : [];
+  const { rows, hasOptional } = await selectRows("", conversationListTail(filters));
+  return rows.filter(isConversationRecord).map((row) => withOptionalDefaults(row, hasOptional));
 }
 
 /**
@@ -1169,6 +1458,246 @@ async function listStoredMessages(
     );
   }
   return valid;
+}
+
+/* ---------------------------------------------------------------------------
+ * Inbox feature stores.
+ *
+ * Notes, activity and reactions all live in their own tables, all cascade from
+ * chat_conversations, and none of them is readable by a visitor's browser: RLS
+ * is enabled with no policies on each, so the service-role key in this file is
+ * the only path in or out.
+ * ------------------------------------------------------------------------ */
+
+/** Newest first, matching the order the inbox renders them. */
+async function listNotes(conversationId: string): Promise<StoredNote[]> {
+  const result = await supabaseRequest(
+    `chat_conversation_notes?conversation_id=eq.${encodeURIComponent(conversationId)}&select=id,conversation_id,body,created_at&order=created_at.desc&limit=50`
+  );
+  return Array.isArray(result) ? result.filter(isStoredNote) : [];
+}
+
+async function insertNote(conversationId: string, body: string): Promise<StoredNote | null> {
+  const result = await supabaseRequest("chat_conversation_notes", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ conversation_id: conversationId, body }),
+  });
+  if (!Array.isArray(result)) return null;
+  return result.find(isStoredNote) || null;
+}
+
+async function listActivity(conversationId: string): Promise<StoredActivity[]> {
+  const result = await supabaseRequest(
+    `chat_visitor_activity?conversation_id=eq.${encodeURIComponent(conversationId)}&select=id,conversation_id,kind,page,label,created_at&order=created_at.desc&limit=40`
+  );
+  return Array.isArray(result) ? result.filter(isStoredActivity) : [];
+}
+
+async function insertActivity(
+  conversationId: string,
+  kind: ActivityKind,
+  page: string,
+  label: string
+): Promise<StoredActivity | null> {
+  const result = await supabaseRequest("chat_visitor_activity", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ conversation_id: conversationId, kind, page, label }),
+  });
+  if (!Array.isArray(result)) return null;
+  return result.find(isStoredActivity) || null;
+}
+
+/**
+ * Patches the conversation's "where are they now" fields.
+ *
+ * Only sent when something actually changed. The widget reports every route
+ * change, and PATCHing an unchanged value on each one would turn a read-only
+ * visit into a stream of writes for no benefit.
+ */
+async function updateVisitorPresence(
+  conversation: ConversationRecord,
+  page: string | null,
+  device: string | null
+): Promise<void> {
+  const patch: Record<string, string> = {};
+  if (page && page !== conversation.current_page) patch.current_page = page;
+  if (device && !conversation.device) patch.device = device;
+  if (!Object.keys(patch).length) return;
+
+  await supabaseRequest(`chat_conversations?id=eq.${encodeURIComponent(conversation.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(patch),
+  });
+}
+
+async function listReactions(conversationId: string): Promise<StoredReaction[]> {
+  const result = await supabaseRequest(
+    `chat_message_reactions?conversation_id=eq.${encodeURIComponent(conversationId)}&select=message_id,kind,actor&limit=500`
+  );
+  if (!Array.isArray(result)) return [];
+  // The conversation_id filter in the query is the security boundary -- it is
+  // the only reason a visitor can never see another conversation's reactions --
+  // so the rows are not re-checked here, only shape-validated.
+  return result.filter(isStoredReaction);
+}
+
+/**
+ * Adds or removes one reaction.
+ *
+ * Idempotent by construction: the primary key is (message_id, kind, actor), so
+ * adding twice is a conflict that the upsert resolves to the same single row,
+ * and removing a reaction that is not there matches no row. Returns whether the
+ * table is actually usable, so the caller can tell the visitor apart from a
+ * silent failure.
+ */
+async function setReaction(
+  conversationId: string,
+  messageId: RowId,
+  kind: ReactionKind,
+  actor: string,
+  active: boolean
+): Promise<boolean> {
+  if (active) {
+    const result = await supabaseRequest("chat_message_reactions", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify({ conversation_id: conversationId, message_id: messageId, kind, actor }),
+    });
+    return Array.isArray(result);
+  }
+
+  const result = await supabaseRequest(
+    `chat_message_reactions?message_id=eq.${encodeURIComponent(String(messageId))}&kind=eq.${encodeURIComponent(kind)}&actor=eq.${encodeURIComponent(actor)}`,
+    { method: "DELETE", headers: { Prefer: "return=representation" } }
+  );
+  // A delete that matched nothing returns an empty array, which is still a
+  // successful request against a working table.
+  return Array.isArray(result);
+}
+
+/**
+ * True when the message exists, belongs to this conversation, and is something
+ * a person actually said.
+ *
+ * The role check matters: a 'system' announcement is server-authored, and
+ * letting visitors react to it would let them fabricate sentiment on a notice
+ * the owner wrote.
+ */
+async function isReactableMessage(conversationId: string, messageId: RowId): Promise<boolean> {
+  const result = await supabaseRequest(
+    `chat_messages?id=eq.${encodeURIComponent(String(messageId))}&conversation_id=eq.${encodeURIComponent(conversationId)}&select=id,role&limit=1`
+  );
+  if (!Array.isArray(result) || result.length === 0) return false;
+  const role = (result[0] as Record<string, unknown>).role;
+  return role === "visitor" || role === "assistant" || role === "admin";
+}
+
+/**
+ * How many chat sessions this person has had, and when they were first seen.
+ *
+ * `visitor_id` is unique per chat thread, so a returning visitor is a *new*
+ * thread with a new id and cannot be counted from the conversation row alone.
+ * The Supabase anonymous auth id is what survives across sessions, so that is
+ * what the count groups on. Falls back to the current conversation alone when
+ * there is no auth id (anonymous auth disabled), which is the honest answer
+ * rather than a fabricated total.
+ */
+async function visitorSessionStats(
+  conversation: ConversationRecord
+): Promise<VisitorSessionStats> {
+  const fallback: VisitorSessionStats = {
+    sessionCount: 1,
+    firstSeenAt: conversation.first_seen_at ?? conversation.session_started_at,
+  };
+  if (!conversation.visitor_auth_id) return fallback;
+
+  const result = await supabaseRequest(
+    `chat_conversations?visitor_auth_id=eq.${encodeURIComponent(conversation.visitor_auth_id)}&select=session_started_at&limit=200`
+  );
+  if (!Array.isArray(result) || result.length === 0) return fallback;
+
+  let earliest: number | null = null;
+  for (const row of result) {
+    const value = (row as Record<string, unknown>).session_started_at;
+    if (typeof value !== "string") continue;
+    const at = Date.parse(value);
+    if (Number.isNaN(at)) continue;
+    if (earliest === null || at < earliest) earliest = at;
+  }
+
+  return {
+    sessionCount: result.length,
+    // The stored first_seen_at is authoritative for the current thread; the
+    // cross-session minimum only fills in when it is somehow older.
+    firstSeenAt:
+      earliest === null
+        ? fallback.firstSeenAt
+        : new Date(Math.min(earliest, Date.parse(fallback.firstSeenAt) || earliest)).toISOString(),
+  };
+}
+
+/**
+ * Coarse device label, derived here rather than trusted from the client.
+ *
+ * The visitor's browser is not a source of truth about its own environment --
+ * a user agent header is trivially forged and this string is displayed in the
+ * admin panel. Reading it server-side costs nothing and needs no client
+ * cooperation.
+ */
+function describeDevice(userAgent: string | undefined): string | null {
+  if (!userAgent) return null;
+  const ua = userAgent.slice(0, 300);
+
+  const browser = /Edg\//i.test(ua)
+    ? "Edge"
+    : /OPR\/|Opera/i.test(ua)
+      ? "Opera"
+      : /Firefox\//i.test(ua)
+        ? "Firefox"
+        : /Chrome\//i.test(ua)
+          ? "Chrome"
+          : /Safari\//i.test(ua)
+            ? "Safari"
+            : "browser";
+
+  const platform = /Windows/i.test(ua)
+    ? "Windows"
+    : /iPhone|iPad|iPod/i.test(ua)
+      ? "iOS"
+      : /Android/i.test(ua)
+        ? "Android"
+        : /Mac OS X|Macintosh/i.test(ua)
+          ? "macOS"
+          : /Linux/i.test(ua)
+            ? "Linux"
+            : "unknown OS";
+
+  // iPadOS reports a Macintosh UA, so the tablet check has to come first.
+  const form = /iPad|Tablet|PlayBook|Silk/i.test(ua)
+    ? "tablet"
+    : /Mobi|iPhone|Android|IEMobile/i.test(ua)
+      ? "mobile"
+      : "desktop";
+
+  return `${form} · ${browser} on ${platform}`;
+}
+
+/**
+ * Resolves the conversation an incoming request is about, from either side.
+ *
+ * The admin knows the id; a visitor only knows their own `visitorId`. Returns
+ * null when neither resolves, so an unauthorised caller cannot reach a thread
+ * it does not own.
+ */
+async function resolveConversation(
+  visitorId: string,
+  conversationId: string
+): Promise<ConversationRecord | null> {
+  if (conversationId) return findConversationById(conversationId);
+  return findConversationByVisitor(visitorId);
 }
 
 function getLastUserMessage(messages: ChatMessage[]): string {
@@ -1521,13 +2050,44 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
       if (conversationId) {
         const conversation = await findConversationById(conversationId);
         if (!conversation) return res.status(404).json({ error: "Conversation not found" });
-        return res.status(200).json({ messages: await listStoredMessages(conversationId) });
+
+        // Everything the right-hand panel needs, in one round trip. Five reads
+        // issued in parallel rather than in sequence: the inbox polls this
+        // every 2 seconds, so serialising them would make each refresh take the
+        // sum of five round trips.
+        const [messages, notes, activity, reactions, stats] = await Promise.all([
+          listStoredMessages(conversationId),
+          listNotes(conversationId),
+          listActivity(conversationId),
+          listReactions(conversationId),
+          visitorSessionStats(conversation),
+        ]);
+
+        return res.status(200).json({
+          messages,
+          notes,
+          activity,
+          reactions,
+          // `firstSeenAt` comes back separately from the row so the panel has
+          // one authoritative value: the row's own copy, or an older one
+          // recovered from this visitor's earlier sessions.
+          visitor: {
+            name: conversation.visitor_name,
+            email: conversation.visitor_email,
+            firstSeenAt: stats.firstSeenAt,
+            sessionStartedAt: conversation.session_started_at,
+            currentPage: conversation.current_page ?? null,
+            device: conversation.device ?? null,
+            sessionCount: stats.sessionCount,
+            visitorId: conversation.visitor_id,
+          },
+        });
       }
 
-      // Triage filters. `q` matches visitor name, email, or id; `status` is
-      // 'active' or 'resolved'. An unrecognised status is ignored rather than
-      // rejected, so a stale client degrades to the full list instead of an
-      // error page.
+      // Triage filters. `q` matches visitor name, email, or id; `status` is one
+      // of active / waiting / assigned / resolved. An unrecognised status is
+      // ignored rather than rejected, so a stale client degrades to the full
+      // list instead of an error page.
       const requestedStatus = query.get("status");
       return res.status(200).json({
         conversations: await listConversations({
@@ -1549,10 +2109,15 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
       if (conversation && !adminAccess && conversation.visitor_auth_id !== authenticatedVisitorId) {
         return res.status(403).json({ error: "Visitor session does not match" });
       }
-      const messages = conversation
-      ? await listStoredMessages(conversation.id, ["admin", "system"])
-      : [];
-      return res.status(200).json({ messages });
+      if (!conversation) return res.status(200).json({ messages: [] });
+
+      // Reactions cover the *whole* conversation, not just the admin/system
+      // messages returned above, so a visitor can 👍 their own message. The
+      // rows carry only (message_id, kind, actor) -- no message bodies -- so
+      // this does not leak the transcript back to the client.
+      const reactions = await listReactions(conversation.id);
+      const messages = await listStoredMessages(conversation.id, ["admin", "system"]);
+      return res.status(200).json({ messages, reactions });
     }
 
     // Public probe the widget already calls. `persistence` lets the UI say
@@ -1633,12 +2198,78 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
       ? `${PROFILE.goesBy} has joined the chat -- you're now talking to the real ${PROFILE.goesBy}!`
       : `${PROFILE.goesBy} stepped away, so I'm back to answering questions.`;
     await insertStoredMessage(conversationId, "system", announcement);
+    // No status argument: the PATCH below is the single authoritative write,
+    // and re-asserting status through touchConversation would be a second
+    // write that could race the admin's next click.
     await touchConversation(conversationId, announcement);
 
+    // Taking over is what "assigned" means in the triage list, and releasing
+    // is what "waiting" means: still needs a human, nobody is on it. Best
+    // effort -- the announcement is already written, so a status write failing
+    // here (e.g. the four-value CHECK not yet applied) must not fail the whole
+    // takeover.
+    const triageStatus = takingOver
+      ? CONVERSATION_ASSIGNED_STATUS
+      : CONVERSATION_WAITING_STATUS;
+    const statusApplied = await setConversationStatus(conversationId, triageStatus);
+
     console.info(
-      JSON.stringify({ scope: "ian-chat-takeover", conversationId, mode, takingOver })
+      JSON.stringify({ scope: "ian-chat-takeover", conversationId, mode, takingOver, statusApplied })
     );
     return res.status(200).json({ ok: true, conversationId, mode, announcement });
+  }
+
+  if (event === "admin_read") {
+    if (!(await hasAdminAccess(req))) {
+      return res.status(401).json({ error: "Admin authorization required" });
+    }
+    if (!hasSupabaseConfig()) {
+      return res.status(503).json(supabaseNotConfiguredBody());
+    }
+
+    const conversationId = typeof body.conversationId === "string" ? body.conversationId.trim() : "";
+    if (!conversationId) {
+      return res.status(400).json({ error: "conversationId is required" });
+    }
+
+    const conversation = await findConversationById(conversationId);
+    if (!conversation) return res.status(404).json({ error: "Conversation not found" });
+
+    await markConversationRead(conversation);
+    return res.status(200).json({ ok: true, conversationId, unreadCount: 0 });
+  }
+
+  if (event === "admin_note") {
+    if (!(await hasAdminAccess(req))) {
+      return res.status(401).json({ error: "Admin authorization required" });
+    }
+    if (!hasSupabaseConfig()) {
+      return res.status(503).json(supabaseNotConfiguredBody());
+    }
+
+    const conversationId = typeof body.conversationId === "string" ? body.conversationId.trim() : "";
+    const text = typeof body.text === "string" ? body.text.trim() : "";
+    if (!conversationId || !text) {
+      return res.status(400).json({ error: "conversationId and text are required" });
+    }
+    if (text.length > MAX_NOTE_LENGTH) {
+      return res.status(400).json({ error: `Notes are capped at ${MAX_NOTE_LENGTH} characters` });
+    }
+
+    const conversation = await findConversationById(conversationId);
+    if (!conversation) return res.status(404).json({ error: "Conversation not found" });
+
+    const note = await insertNote(conversationId, text);
+    if (!note) {
+      return res.status(502).json({
+        error: "Could not save the note. If this persists, run the add_chat_inbox_features migration.",
+      });
+    }
+
+    // Deliberately does NOT call touchConversation: an internal note is not
+    // part of the conversation, and bumping the preview would overwrite the
+    // visitor's last message in the list and make the thread look active.
+    return res.status(200).json({ ok: true, note });
   }
 
   if (event === "admin_status") {
@@ -1666,18 +2297,29 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
 
     const updated = await setConversationStatus(conversationId, status);
     if (!updated) {
-      return res.status(502).json({ error: "Could not update the conversation status" });
+      // Almost always the CHECK constraint: 'waiting' and 'assigned' were added
+      // to it in 20260930010000, and Postgres rejects the write until that
+      // migration is applied.
+      return res.status(502).json({
+        error:
+          status === "active" || status === "resolved"
+            ? "Could not update the conversation status"
+            : `Could not set the status to "${status}". Run supabase/migrations/20260930010000_add_chat_inbox_features.sql to add it.`,
+      });
     }
 
-    // Log the resolution in the thread so the state change has a visible
-    // trail. It is also what the visitor sees, since the widget renders the
-    // 'admin' and 'system' roles. touchConversation is called without a status:
-    // the PATCH above is already authoritative, and re-asserting it here would
-    // be a second write that could race the admin's next action.
-    const announcement =
-      status === "resolved"
-        ? `${PROFILE.goesBy} marked this conversation as resolved -- reply here if you need anything else.`
-        : `${PROFILE.goesBy} reopened this conversation.`;
+    // Log the state change in the thread so it has a visible trail. It is also
+    // what the visitor sees, since the widget renders the 'admin' and 'system'
+    // roles. touchConversation is called without a status: the PATCH above is
+    // already authoritative, and re-asserting it here would be a second write
+    // that could race the admin's next action.
+    const statusAnnouncement: Record<ConversationStatus, string> = {
+      resolved: `${PROFILE.goesBy} marked this conversation as resolved -- reply here if you need anything else.`,
+      active: `${PROFILE.goesBy} reopened this conversation.`,
+      waiting: `${PROFILE.goesBy} marked this as waiting -- I'll keep an eye on it.`,
+      assigned: `${PROFILE.goesBy} is on this conversation now.`,
+    };
+    const announcement = statusAnnouncement[status];
     await insertStoredMessage(conversationId, "system", announcement);
     // Keeps the list preview showing the announcement instead of a stale
     // message, matching what the takeover handler does.
@@ -1753,6 +2395,81 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
     email: getVisitorEmail(body.visitorEmail),
   };
 
+  /* Reactions arrive from both sides, so this is the one visitor-facing event
+   * with its own authorization: the admin proves it with a session, a visitor
+   * proves it by matching the conversation's own visitor_auth_id. */
+  if (event === "reaction") {
+    if (!hasSupabaseConfig()) return res.status(503).json(supabaseNotConfiguredBody());
+
+    const conversationId = typeof body.conversationId === "string" ? body.conversationId.trim() : "";
+    const kind = body.kind;
+    const messageId = body.messageId;
+
+    if (!isRowId(messageId)) {
+      return res.status(400).json({ error: "messageId is required" });
+    }
+    if (!isReactionKind(kind)) {
+      return res.status(400).json({ error: `kind must be one of: ${REACTION_KINDS.join(", ")}` });
+    }
+
+    const conversation = await resolveConversation(visitorId, conversationId);
+    if (!conversation) return res.status(404).json({ error: "Conversation not found" });
+
+    // isValidAdminSession rather than hasAdminAccess: the latter logs a
+    // "denied: no-valid-session" warning, which is right for a dashboard load
+    // and pure noise for every single reaction a visitor sends.
+    const adminAccess = isValidAdminSession(req);
+    if (!adminAccess) {
+      if (!visitorAuthId || conversation.visitor_auth_id !== visitorAuthId) {
+        return res.status(403).json({ error: "Visitor session does not match" });
+      }
+      // A visitor can only ever act as themselves; the client sends no actor,
+      // and the server derives it. Otherwise one visitor could clear or forge
+      // another's reactions.
+    }
+
+    const actor = adminAccess ? ADMIN_ACTOR : conversation.visitor_id;
+    if (!await isReactableMessage(conversation.id, messageId)) {
+      return res.status(400).json({ error: "That message cannot be reacted to" });
+    }
+
+    const active = body.active !== false;
+    const stored = await setReaction(conversation.id, messageId, kind, actor, active);
+    if (!stored) {
+      return res.status(502).json({
+        error: "Could not save the reaction. If this persists, run the add_chat_inbox_features migration.",
+      });
+    }
+
+    return res.status(200).json({ ok: true, conversationId: conversation.id, kind, actor, active });
+  }
+
+  if (event === "visitor_activity") {
+    if (!hasSupabaseConfig()) return res.status(200).json({ ok: true, recorded: false });
+
+    const conversationId = typeof body.conversationId === "string" ? body.conversationId.trim() : "";
+    const conversation = await resolveConversation(visitorId, conversationId);
+    // Silently fine if there is no thread yet: a visitor can browse the site
+    // before ever opening the chat, and there is nothing to attach it to.
+    if (!conversation) return res.status(200).json({ ok: true, recorded: false });
+
+    if (!visitorAuthId || conversation.visitor_auth_id !== visitorAuthId) {
+      return res.status(403).json({ error: "Visitor session does not match" });
+    }
+
+    const kind: ActivityKind = isActivityKind(body.activity) ? body.activity : "page";
+    const page = cleanText(body.page, 200) || "/";
+    // The label is derived from the page rather than trusted, so a crafted
+    // label cannot inject arbitrary text into the admin's activity timeline.
+    const label = kind === "chat" ? "Opened Chat" : pageLabel(page);
+    const device = describeDevice(readHeader(req, "user-agent"));
+
+    await updateVisitorPresence(conversation, page, device);
+    const entry = await insertActivity(conversation.id, kind, page, label);
+
+    return res.status(200).json({ ok: true, recorded: Boolean(entry) });
+  }
+
   if (event === "chat_started") {
     // ensureConversation returns null when the insert fails for any reason.
     // Reporting ok:true regardless is what let a CHECK-constraint mismatch on
@@ -1797,13 +2514,14 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
   const modelMessages = trimmed.slice(firstUserIndex);
 
   logConversation(event, visitorId, sessionStartedAt, modelMessages);
-  const conversationId = await persistVisitorMessage(
+  const persisted = await persistVisitorMessage(
     visitorId,
     visitorAuthId,
     sessionStartedAt,
     getLastUserMessage(modelMessages),
     contact
   );
+  const conversationId = persisted?.conversationId ?? null;
 
   // persistVisitorMessage returns null on any write failure -- a schema
   // mismatch, a CHECK violation, or RLS. That used to be swallowed, so the
@@ -1840,10 +2558,16 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
 
   // While an admin has taken the conversation over, the assistant must stay
   // quiet -- otherwise the visitor gets two conflicting answers. The visitor
-  // message is already stored above, so the human sees it in the inbox.
+  // message is already stored above, so the human sees it in the inbox. Its id
+  // is echoed back so the widget can put a reaction bar under the visitor's own
+  // message, which is the only one it cannot otherwise identify.
   if (isTakeover(await findConversationByVisitor(visitorId))) {
     await notificationPromise;
-    return res.status(200).json({ takeover: true, conversationId });
+    return res.status(200).json({
+      takeover: true,
+      conversationId,
+      visitorMessageId: persisted?.messageId ?? null,
+    });
   }
 
   const apiKey = getGeminiApiKey();
@@ -1907,10 +2631,18 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
 
   try {
     const reply = await proxyGeminiStream(geminiResponse, res);
-    await persistAssistantMessage(conversationId, reply);
+    const assistantMessageId = await persistAssistantMessage(conversationId, reply);
     logConversation(event, visitorId, sessionStartedAt, [...modelMessages, { role: "model", text: reply }]);
     await notificationPromise;
-    writeServerEvent(res, { type: "done", reply });
+    // The ids ride along on `done` rather than in a separate response: this is
+    // a single SSE stream, and the widget needs both ids to render reaction
+    // bars under the exchange it just sent.
+    writeServerEvent(res, {
+      type: "done",
+      reply,
+      visitorMessageId: persisted?.messageId ?? null,
+      assistantMessageId: assistantMessageId ?? null,
+    });
     return res.end();
   } catch (error) {
     await notificationPromise;

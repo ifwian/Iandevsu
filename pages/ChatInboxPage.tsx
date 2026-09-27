@@ -1,44 +1,50 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Copy, MessageCircle, RefreshCw, Search, Send, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/api";
-
-interface Conversation {
-  id: string;
-  visitor_id: string;
-  session_started_at: string;
-  status: string;
-  last_message_at: string;
-  last_message_preview: string;
-  /** Optional contact details -- null on conversations predating the pre-chat form. */
-  visitor_name: string | null;
-  visitor_email: string | null;
-  /** 'ai' | 'takeover'. Undefined when the takeover migration has not been run. */
-  mode?: string;
-}
-
-interface InboxMessage {
-  id: string | number;
-  conversation_id: string;
-  role: "visitor" | "assistant" | "admin" | "system";
-  body: string;
-  created_at: string;
-}
+import { useTypingSignal } from "@/lib/useTypingSignal";
+import {
+  CONVERSATION_STATUSES,
+  formatClock,
+  formatRelative,
+  isReaction,
+  isVisitorActivity,
+  reactionKey,
+  type ConversationStatus,
+  type Reaction,
+  type ReactionKind,
+  type VisitorActivity,
+} from "@/lib/chatFormat";
+import StatusPill from "@/components/chat/StatusPill";
+import ReactionBar from "@/components/chat/ReactionBar";
+import TypingIndicator from "@/components/chat/TypingIndicator";
+import VisitorPanel from "@/components/chat/inbox/VisitorPanel";
+import InternalNotes from "@/components/chat/inbox/InternalNotes";
+import ActivityTimeline from "@/components/chat/inbox/ActivityTimeline";
+import {
+  isConversation,
+  isInboxMessage,
+  isNote,
+  isVisitorInfo,
+  normalizeContact,
+  roleLabel,
+  visitorLabel,
+  type Conversation,
+  type InboxMessage,
+  type Note,
+  type VisitorInfo,
+} from "@/components/chat/inbox/types";
 
 const SESSION_STORAGE_KEY = "ian-chat-admin-session";
 const PRESENCE_COLOR = "#22c55e";
 
-/**
- * chat_messages.id is a Postgres `bigint`, which PostgREST may hand back as
- * either a JSON number or a string. Requiring a number caused the whole
- * transcript to be filtered out and rendered as "No messages in this
- * conversation", so accept either shape.
- */
-function isRowId(value: unknown): value is string | number {
-  if (typeof value === "number") return Number.isFinite(value);
-  return typeof value === "string" && value.trim().length > 0;
-}
+const REALTIME_TYPING_EVENT = "typing";
+/** Matches the visitor widget's timeout: a beat every 3s, expire after 6s. */
+const TYPING_IDLE_TIMEOUT_MS = 6000;
+
+/** Actor key for reactions made from this dashboard. */
+const ADMIN_ACTOR = "admin";
 
 function getStoredSession(): string {
   if (typeof window === "undefined") return "";
@@ -58,55 +64,6 @@ function storeSession(value: string): void {
   }
 }
 
-/** Absent, null, or a string -- the contact columns are optional. */
-function isOptionalText(value: unknown): boolean {
-  return value === undefined || value === null || typeof value === "string";
-}
-
-function normalizeContact(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function isConversation(value: unknown): value is Conversation {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.id === "string" &&
-    typeof candidate.visitor_id === "string" &&
-    typeof candidate.session_started_at === "string" &&
-    typeof candidate.status === "string" &&
-    typeof candidate.last_message_at === "string" &&
-    typeof candidate.last_message_preview === "string" &&
-    // Must stay optional, otherwise conversations created before the pre-chat
-    // form (and the migration) would vanish from the list entirely.
-    isOptionalText(candidate.visitor_name) &&
-    isOptionalText(candidate.visitor_email)
-  );
-}
-
-/** Best label for a visitor: their name, else a trimmed id. */
-function visitorLabel(conversation: Conversation): string {
-  return normalizeContact(conversation.visitor_name) || `anonymous · ${conversation.visitor_id.slice(0, 8)}`;
-}
-
-function isInboxMessage(value: unknown): value is InboxMessage {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    isRowId(candidate.id) &&
-    typeof candidate.conversation_id === "string" &&
-    // 'system' must be accepted. Takeover and resolution announcements are
-    // stored with that role, and rejecting it here silently dropped them from
-    // the transcript the admin is reading.
-    (candidate.role === "visitor" ||
-      candidate.role === "assistant" ||
-      candidate.role === "admin" ||
-      candidate.role === "system") &&
-    typeof candidate.body === "string" &&
-    typeof candidate.created_at === "string"
-  );
-}
-
 function getErrorMessage(data: unknown, fallback: string): string {
   if (data && typeof data === "object" && "error" in data && typeof data.error === "string") {
     return data.error;
@@ -118,24 +75,20 @@ function isUnauthorizedError(error: unknown): boolean {
   return error instanceof Error && (error as Error & { status?: number }).status === 401;
 }
 
-function formatTime(value: string): string {
+function formatFull(value: string | null | undefined): string {
+  if (!value) return "";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleString();
 }
 
-function roleLabel(role: InboxMessage["role"]): string {
-  if (role === "visitor") return "visitor";
-  if (role === "admin") return "you";
-  if (role === "system") return "notice";
-  return "assistant";
-}
-
 /** Triage filter for the visitor list. Mirrors the server's status vocabulary. */
-type StatusFilter = "all" | "active" | "resolved";
+type StatusFilter = "all" | ConversationStatus;
 
 const STATUS_FILTERS: readonly { value: StatusFilter; label: string }[] = [
   { value: "all", label: "all" },
   { value: "active", label: "active" },
+  { value: "waiting", label: "waiting" },
+  { value: "assigned", label: "assigned" },
   { value: "resolved", label: "resolved" },
 ];
 
@@ -155,6 +108,16 @@ function matchesQuery(conversation: Conversation, term: string): boolean {
   return visitorLabel(conversation).toLowerCase().includes(term);
 }
 
+/** Unread count, tolerating the column not existing. */
+function unreadOf(conversation: Conversation): number {
+  return typeof conversation.unread_count === "number" && conversation.unread_count > 0
+    ? conversation.unread_count
+    : 0;
+}
+
+/** The right-hand column's two scroll regions, as a tab. */
+type PanelTab = "visitor" | "activity";
+
 export default function ChatInboxPage() {
   const [session, setSession] = useState(getStoredSession);
   const [passwordDraft, setPasswordDraft] = useState("");
@@ -163,6 +126,10 @@ export default function ChatInboxPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [messages, setMessages] = useState<InboxMessage[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [activity, setActivity] = useState<VisitorActivity[]>([]);
+  const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [visitor, setVisitor] = useState<VisitorInfo | null>(null);
   const [reply, setReply] = useState("");
   const [query, setQuery] = useState("");
   // The value actually sent to the server. `query` updates on every keystroke
@@ -170,11 +137,16 @@ export default function ChatInboxPage() {
   // request per character.
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [panelTab, setPanelTab] = useState<PanelTab>("visitor");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [takeoverBusy, setTakeoverBusy] = useState(false);
-  const [statusBusy, setStatusBusy] = useState(false);
+  const [statusBusy, setStatusBusy] = useState<string | null>(null);
+  const [noteBusy, setNoteBusy] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [reactionBusy, setReactionBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [visitorTyping, setVisitorTyping] = useState(false);
   // Conversation id awaiting confirmation, so a stray click cannot wipe a
   // thread. Cleared on any other selection.
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -186,13 +158,23 @@ export default function ChatInboxPage() {
     [conversations, selectedId]
   );
 
-  // Derived from the selected conversation so the buttons always reflect the
+  // Derived from the selected conversation so the controls always reflect the
   // server, never a stale local guess.
   const takeoverActive = selectedConversation?.mode === "takeover";
   const selectedEmail = normalizeContact(selectedConversation?.visitor_email ?? null);
-  const selectedResolved = selectedConversation?.status === "resolved";
+  const selectedStatus = selectedConversation?.status ?? "active";
+  const selectedResolved = selectedStatus === "resolved";
+  const selectedVisitorId = selectedConversation?.visitor_id ?? "";
 
   const token = session;
+  // Channel shared with the visitor's widget for the open thread. Held in a ref
+  // so the reply composer can broadcast without re-subscribing on each keypress.
+  const threadChannelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
+
+  const totalUnread = useMemo(
+    () => conversations.reduce((sum, conversation) => sum + unreadOf(conversation), 0),
+    [conversations]
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), SEARCH_DEBOUNCE_MS);
@@ -263,9 +245,10 @@ export default function ChatInboxPage() {
       if (debouncedQuery) params.set("q", debouncedQuery);
       if (statusFilter !== "all") params.set("status", statusFilter);
       const data: unknown = await request(apiUrl(`/api/chat?${params.toString()}`));
-      const next = data && typeof data === "object" && "conversations" in data && Array.isArray(data.conversations)
-        ? data.conversations.filter(isConversation)
-        : [];
+      const next =
+        data && typeof data === "object" && "conversations" in data && Array.isArray(data.conversations)
+          ? data.conversations.filter(isConversation)
+          : [];
       setConversations(next);
       setSelectedId((current) => current || next[0]?.id || "");
       setError(null);
@@ -303,15 +286,28 @@ export default function ChatInboxPage() {
     setStatusFilter("all");
   };
 
+  /**
+   * Loads everything about the open thread in one request: transcript, notes,
+   * activity, reactions and the visitor summary. The server does the five reads
+   * in parallel, so the panel never shows a half-populated state on refresh.
+   */
   const loadMessages = useCallback(
     async (conversationId: string) => {
       if (!token || !conversationId) return;
       try {
-        const data: unknown = await request(apiUrl(`/api/chat?admin=1&conversationId=${encodeURIComponent(conversationId)}`));
-        const next = data && typeof data === "object" && "messages" in data && Array.isArray(data.messages)
-          ? data.messages.filter(isInboxMessage)
-          : [];
-        setMessages(next);
+        const data: unknown = await request(
+          apiUrl(`/api/chat?admin=1&conversationId=${encodeURIComponent(conversationId)}`)
+        );
+        const record = data && typeof data === "object" ? (data as Record<string, unknown>) : null;
+        setMessages(record && Array.isArray(record.messages) ? record.messages.filter(isInboxMessage) : []);
+        setNotes(record && Array.isArray(record.notes) ? record.notes.filter(isNote) : []);
+        setActivity(
+          record && Array.isArray(record.activity) ? record.activity.filter(isVisitorActivity) : []
+        );
+        setReactions(
+          record && Array.isArray(record.reactions) ? record.reactions.filter(isReaction) : []
+        );
+        setVisitor(record && isVisitorInfo(record.visitor) ? record.visitor : null);
         setError(null);
       } catch (caughtError) {
         setError(caughtError instanceof Error ? caughtError.message : "Could not load messages");
@@ -340,6 +336,23 @@ export default function ChatInboxPage() {
     return () => window.clearInterval(interval);
   }, [loadMessages, selectedId, token]);
 
+  /**
+   * Best-effort realtime on the admin side.
+   *
+   * Worth being explicit about what this does and does not do today: this page
+   * authenticates with CHAT_ADMIN_PASSWORD and never establishes a Supabase
+   * session, so the anon role subscribes here. The SELECT policies on these
+   * tables are `to authenticated`, which the anon role does not satisfy, so
+   * these events do not currently arrive. The 2- and 3-second pollers above are
+   * what actually keep this page live -- the subscriptions are left in place
+   * because they cost nothing and start working the moment an admin Supabase
+   * session exists.
+   *
+   * The tables with no policies at all (internal notes, activity, reactions)
+   * must stay that way: granting an admin-scoped SELECT policy would mean
+   * granting it to *someone*, and these rows are the ones a visitor must never
+   * reach. They are served through the serverless function instead.
+   */
   useEffect(() => {
     const realtimeClient = supabase;
     if (!authReady || !realtimeClient || !token) return;
@@ -362,6 +375,100 @@ export default function ChatInboxPage() {
       void realtimeClient.removeChannel(channel);
     };
   }, [loadConversations, loadMessages, selectedId, token]);
+
+  /**
+   * Typing: joins the *visitor's* channel for the open thread.
+   *
+   * The channel is named after the visitor id in both directions, which is what
+   * makes this work without any server involvement: the widget subscribes to
+   * `visitor-chat-<id>` and the inbox subscribes to the same topic, so a
+   * broadcast from either side reaches the other. Re-subscribing on every
+   * selection is the only cost, and it is one channel per visitor switch.
+   *
+   * Unlike the postgres_changes subscriptions above, this one genuinely works:
+   * Supabase broadcast is not routed through PostgREST, so it is not subject to
+   * the RLS policies. The trade-off is that broadcast channels are public by
+   * default -- anyone who guesses a topic could inject a fake typing signal.
+   * The topic embeds the visitor id (a UUID kept in sessionStorage), so that is
+   * a low-stakes risk, and it buys the visitor a real "someone is replying"
+   * signal instead of a two-second poll.
+   */
+  useEffect(() => {
+    const realtimeClient = supabase;
+    if (!authReady || !realtimeClient || !selectedVisitorId) {
+      threadChannelRef.current = null;
+      return;
+    }
+
+    const channel = realtimeClient.channel(`visitor-chat-${selectedVisitorId}`);
+    threadChannelRef.current = channel;
+    channel.on("broadcast", { event: REALTIME_TYPING_EVENT }, (payload) => {
+      const data = payload.payload as { typing?: unknown } | undefined;
+      if (!data || data.typing !== true) return;
+      setVisitorTyping(true);
+    });
+    void channel.subscribe();
+
+    return () => {
+      threadChannelRef.current = null;
+      void realtimeClient.removeChannel(channel);
+    };
+  }, [authReady, selectedVisitorId]);
+
+  /**
+   * Expires the indicator. Without this a visitor who closes the tab
+   * mid-sentence, or a lost broadcast, would leave "visitor is typing..." on
+   * screen indefinitely -- the admin has no other way to know it stopped.
+   */
+  useEffect(() => {
+    if (!visitorTyping) return;
+    const timer = window.setTimeout(() => setVisitorTyping(false), TYPING_IDLE_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [visitorTyping, messages]);
+
+  /** Identical callback identity to `threadChannelRef` swapping, so the hook
+   *  only re-arms when the selected thread actually changes. */
+  const sendTypingSignal = useCallback(() => {
+    const channel = threadChannelRef.current;
+    if (!channel || channel.state !== "joined") return;
+    void channel.send({
+      type: "broadcast",
+      event: REALTIME_TYPING_EVENT,
+      payload: { typing: true },
+    });
+  }, []);
+
+  useTypingSignal({ broadcast: sendTypingSignal, active: Boolean(reply.trim()) && !sending });
+
+  /**
+   * Clears the unread badge for the open thread.
+   *
+   * Gated on the badge actually being set, and re-run when the transcript
+   * grows. Two properties matter here: it must fire on *new messages arriving
+   * in the open thread* (otherwise a thread the admin is actively watching
+   * keeps a badge), and it must not fire on every 2-second poll of an
+   * unchanged thread, which would be a write every poll forever.
+   */
+  const messageCount = messages.length;
+  const selectedUnread = selectedConversation ? unreadOf(selectedConversation) : 0;
+  useEffect(() => {
+    if (!authReady || !token || !selectedId || selectedUnread === 0) return;
+    void request(apiUrl("/api/chat"), {
+      method: "POST",
+      body: JSON.stringify({ event: "admin_read", conversationId: selectedId }),
+    })
+      .then(() => {
+        setConversations((current) =>
+          current.map((conversation) =>
+            conversation.id === selectedId ? { ...conversation, unread_count: 0 } : conversation
+          )
+        );
+      })
+      // Non-fatal: the badge clears again on the next successful poll, and a
+      // failed write must not surface as an error over a thread the admin can
+      // perfectly well read.
+      .catch(() => undefined);
+  }, [authReady, messageCount, request, selectedId, selectedUnread, token]);
 
   const login = async () => {
     const password = passwordDraft.trim();
@@ -397,6 +504,10 @@ export default function ChatInboxPage() {
     setConversations([]);
     setSelectedId("");
     setMessages([]);
+    setNotes([]);
+    setActivity([]);
+    setReactions([]);
+    setVisitor(null);
     clearFilters();
   };
 
@@ -440,17 +551,17 @@ export default function ChatInboxPage() {
     }
   };
 
-  const setStatus = async (status: "active" | "resolved") => {
+  const setStatus = async (status: ConversationStatus) => {
     if (!selectedId || statusBusy) return;
-    setStatusBusy(true);
+    setStatusBusy(status);
     setError(null);
     try {
       await request(apiUrl("/api/chat"), {
         method: "POST",
         body: JSON.stringify({ event: "admin_status", conversationId: selectedId, status }),
       });
-      // Resolving a conversation while the "active" filter is on would drop it
-      // out of the list and yank the open thread away, so fall back to the
+      // Resolving a conversation while its own status filter is on would drop
+      // it out of the list and yank the open thread away, so fall back to the
       // unfiltered list. Predictable: the filter only resets when the change we
       // just made is the reason the row would disappear.
       if (statusFilter === status) setStatusFilter("all");
@@ -458,7 +569,59 @@ export default function ChatInboxPage() {
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Could not update the status");
     } finally {
-      setStatusBusy(false);
+      setStatusBusy(null);
+    }
+  };
+
+  const addNote = async (text: string) => {
+    if (!token || !selectedId || noteBusy) return;
+    setNoteBusy(true);
+    setNoteError(null);
+    try {
+      await request(apiUrl("/api/chat"), {
+        method: "POST",
+        body: JSON.stringify({ event: "admin_note", conversationId: selectedId, text }),
+      });
+      await loadMessages(selectedId);
+    } catch (caughtError) {
+      setNoteError(caughtError instanceof Error ? caughtError.message : "Could not save the note");
+    } finally {
+      setNoteBusy(false);
+    }
+  };
+
+  const toggleReaction = async (messageId: string | number, kind: ReactionKind, active: boolean) => {
+    if (!token || !selectedId || reactionBusy) return;
+    setReactionBusy(true);
+
+    const optimistic: Reaction = { message_id: messageId, kind, actor: ADMIN_ACTOR };
+    setReactions((current) => {
+      const without = current.filter(
+        (reaction) =>
+          reactionKey(reaction.message_id, reaction.kind, reaction.actor) !==
+          reactionKey(messageId, kind, ADMIN_ACTOR)
+      );
+      return active ? [...without, optimistic] : without;
+    });
+
+    try {
+      await request(apiUrl("/api/chat"), {
+        method: "POST",
+        body: JSON.stringify({ event: "reaction", conversationId: selectedId, messageId, kind, active }),
+      });
+    } catch (caughtError) {
+      // Roll back rather than leave a reaction on screen that was never stored.
+      setReactions((current) => {
+        const without = current.filter(
+          (reaction) =>
+            reactionKey(reaction.message_id, reaction.kind, reaction.actor) !==
+            reactionKey(messageId, kind, ADMIN_ACTOR)
+        );
+        return active ? without : [...without, optimistic];
+      });
+      setError(caughtError instanceof Error ? caughtError.message : "Could not save the reaction");
+    } finally {
+      setReactionBusy(false);
     }
   };
 
@@ -478,6 +641,10 @@ export default function ChatInboxPage() {
       if (selectedId === conversationId) {
         setSelectedId("");
         setMessages([]);
+        setNotes([]);
+        setActivity([]);
+        setReactions([]);
+        setVisitor(null);
       }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Could not delete the conversation");
@@ -505,9 +672,8 @@ export default function ChatInboxPage() {
       className="flex h-[100dvh] flex-col overflow-hidden px-5 py-6 sm:px-8"
       style={{ fontFamily: "var(--font-mono)" }}
     >
-      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col">
+      <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col">
         <header className="mb-6 flex shrink-0 flex-wrap items-end justify-between gap-4 border-b border-[var(--gray-200)] pb-5">
-
           <div>
             <Link to="/" className="mb-4 inline-flex items-center gap-2 text-xs text-[var(--gray-500)] transition-colors hover:text-[var(--ink)]">
               <ArrowLeft size={14} />
@@ -518,13 +684,24 @@ export default function ChatInboxPage() {
             <p className="mt-2 text-sm text-[var(--gray-500)]">Review visitor sessions and reply in real time.</p>
           </div>
           {token && (
-            <button
-              type="button"
-              onClick={disconnect}
-              className="rounded-full border border-[var(--gray-300)] px-3 py-2 text-xs text-[var(--gray-500)] transition-colors hover:border-[var(--ink)] hover:text-[var(--ink)]"
-            >
-              disconnect
-            </button>
+            <div className="flex items-center gap-3">
+              {/* A single number rather than a per-row count: the point is
+                  "is there anything I have not looked at", and summing it here
+                  answers that without making the admin read 50 rows. */}
+              {totalUnread > 0 && (
+                <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
+                  <span className="chat-unread-badge">{totalUnread > 99 ? "99+" : totalUnread}</span>
+                  unread
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={disconnect}
+                className="rounded-full border border-[var(--gray-300)] px-3 py-2 text-xs text-[var(--gray-500)] transition-colors hover:border-[var(--ink)] hover:text-[var(--ink)]"
+              >
+                disconnect
+              </button>
+            </div>
           )}
         </header>
 
@@ -572,75 +749,75 @@ export default function ChatInboxPage() {
             {error && <p className="mt-3 text-xs text-red-500" role="alert">{error}</p>}
           </section>
         ) : (
-          // min-h-0 on the grid and on both panels is what actually stops the
+          // min-h-0 on the grid and on every panel is what actually stops the
           // page growing: without it a flex/grid child refuses to shrink below
           // its content, so the transcript pushed the whole page taller.
           //
-          // The explicit rows matter on mobile, where the two panels stack:
-          // with `auto` rows the thread row sized itself to the transcript and
-          // `flex-1` was inert, so the page grew again. `minmax(0,1fr)` gives
-          // it the leftover height and lets it shrink. Reset to a single row at
-          // lg, where the panels are side-by-side columns instead.
-          <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-5 lg:grid-cols-[300px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
-            {/* Capped on mobile so the thread still gets usable height; on lg
-                it stretches to the full column via the grid. */}
-            <aside className="card flex max-h-[42vh] min-h-0 shrink-0 flex-col p-4 lg:max-h-none lg:shrink lg:flex-1">
+          // Three explicit rows below lg, where the panels stack: with `auto`
+          // rows a panel sized itself to its content and `flex-1` was inert, so
+          // the page grew again. `minmax(0,1fr)` gives each the leftover height
+          // and lets it shrink. One row from lg, where they are columns instead.
+          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,0.9fr)_minmax(0,1.5fr)_minmax(0,1.1fr)] gap-5 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)_minmax(0,300px)] lg:grid-rows-[minmax(0,1fr)]">
+            <aside className="card flex min-h-0 flex-col p-4">
               <div className="shrink-0">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-sm font-semibold">visitors</h2>
-                <button
-                  type="button"
-                  onClick={() => void loadConversations()}
-                  aria-label="Refresh conversations"
-                  className="text-[var(--gray-500)] transition-colors hover:text-[var(--ink)]"
-                >
-                  <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-                </button>
-              </div>
-
-              <div className="relative mb-3">
-                <Search
-                  size={14}
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--gray-400)]"
-                />
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search name or email..."
-                  aria-label="Search conversations by visitor name or email"
-                  className="w-full rounded-lg border border-[var(--gray-300)] bg-[var(--gray-50)] py-2 pl-9 pr-8 text-xs outline-none focus:border-[var(--ink)]"
-                />
-                {query && (
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold">visitors</h2>
                   <button
                     type="button"
-                    onClick={() => setQuery("")}
-                    aria-label="Clear search"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--gray-400)] transition-colors hover:text-[var(--ink)]"
+                    onClick={() => void loadConversations()}
+                    aria-label="Refresh conversations"
+                    className="text-[var(--gray-500)] transition-colors hover:text-[var(--ink)]"
                   >
-                    <X size={13} />
+                    <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
                   </button>
-                )}
-              </div>
+                </div>
 
-              <div className="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter by conversation status">
-                {STATUS_FILTERS.map((filter) => (
-                  <button
-                    key={filter.value}
-                    type="button"
-                    onClick={() => setStatusFilter(filter.value)}
-                    aria-pressed={statusFilter === filter.value}
-                    className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.08em] transition-colors ${
-                      statusFilter === filter.value
-                        ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]"
-                        : "border-[var(--gray-300)] text-[var(--gray-500)] hover:border-[var(--ink)] hover:text-[var(--ink)]"
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
+                <div className="relative mb-3">
+                  <Search
+                    size={14}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--gray-400)]"
+                  />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search name or email..."
+                    aria-label="Search conversations by visitor name or email"
+                    className="w-full rounded-lg border border-[var(--gray-300)] bg-[var(--gray-50)] py-2 pl-9 pr-8 text-xs outline-none focus:border-[var(--ink)]"
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      aria-label="Clear search"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--gray-400)] transition-colors hover:text-[var(--ink)]"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter by conversation status">
+                  {STATUS_FILTERS.map((filter) => (
+                    <button
+                      key={filter.value}
+                      type="button"
+                      onClick={() => setStatusFilter(filter.value)}
+                      aria-pressed={statusFilter === filter.value}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.08em] transition-colors ${
+                        statusFilter === filter.value
+                          ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]"
+                          : "border-[var(--gray-300)] text-[var(--gray-500)] hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                      }`}
+                    >
+                      {filter.value !== "all" && (
+                        <StatusPill status={filter.value} variant="dot" hideLabel />
+                      )}
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Only the list scrolls; the search field and status chips stay
@@ -664,52 +841,84 @@ export default function ChatInboxPage() {
                     )}
                   </div>
                 )}
-                {visibleConversations.map((conversation) => (
-                  <button
-                    key={conversation.id}
-                    type="button"
-                    onClick={() => setSelectedId(conversation.id)}
-                    className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                      selectedId === conversation.id
-                        ? "border-[var(--ink)] bg-[var(--gray-100)]"
-                        : "border-[var(--gray-200)] hover:border-[var(--gray-400)]"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-xs font-semibold">{visitorLabel(conversation)}</span>
-                      <span className="shrink-0 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
-                        {conversation.status}
-                      </span>
-                    </div>
-                    {normalizeContact(conversation.visitor_email) && (
-                      <p className="mt-1 truncate text-[11px] text-[var(--gray-500)]">
-                        {normalizeContact(conversation.visitor_email)}
+                {visibleConversations.map((conversation) => {
+                  const unread = unreadOf(conversation);
+                  const isSelected = selectedId === conversation.id;
+                  return (
+                    <button
+                      key={conversation.id}
+                      type="button"
+                      onClick={() => setSelectedId(conversation.id)}
+                      aria-current={isSelected ? "true" : undefined}
+                      className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                        isSelected
+                          ? "border-[var(--ink)] bg-[var(--gray-100)]"
+                          : "border-[var(--gray-200)] hover:border-[var(--gray-400)]"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span
+                          className={`min-w-0 flex-1 truncate text-xs ${unread ? "font-semibold" : "font-medium"}`}
+                          style={{ color: "var(--ink)" }}
+                        >
+                          {visitorLabel(conversation)}
+                        </span>
+                        <span className="flex flex-shrink-0 items-center gap-1.5">
+                          <StatusPill status={conversation.status} variant="dot" />
+                          {unread > 0 && (
+                            <span className="chat-unread-badge" title={`${unread} unread`}>
+                              {unread > 99 ? "99+" : unread}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      {normalizeContact(conversation.visitor_email) && (
+                        <p className="mt-1 truncate text-[11px] text-[var(--gray-500)]">
+                          {normalizeContact(conversation.visitor_email)}
+                        </p>
+                      )}
+                      <p
+                        className="mt-2 truncate text-xs"
+                        style={{ color: unread ? "var(--ink)" : "var(--gray-500)" }}
+                      >
+                        {conversation.last_message_preview || "No messages yet"}
                       </p>
-                    )}
-                    <p className="mt-2 truncate text-xs text-[var(--gray-500)]">{conversation.last_message_preview || "No messages yet"}</p>
-                    <p className="mt-2 text-[11px] text-[var(--gray-400)]">{formatTime(conversation.last_message_at)}</p>
-                  </button>
-                ))}
+                      <p
+                        className="mt-2 text-[11px]"
+                        style={{ color: "var(--gray-400)" }}
+                        title={formatFull(conversation.last_message_at)}
+                      >
+                        {formatRelative(conversation.last_message_at)}
+                      </p>
+                    </button>
+                  );
+                })}
               </div>
               {filtersActive && visibleConversations.length > 0 && (
-                <p className="mt-3 text-[11px] text-[var(--gray-400)]">
+                <p className="mt-3 shrink-0 text-[11px] text-[var(--gray-400)]">
                   showing {visibleConversations.length} of {conversations.length} loaded
                 </p>
               )}
             </aside>
 
-            <section className="card flex min-h-0 min-w-0 flex-1 flex-col p-5">
+            <section className="card flex min-h-0 min-w-0 flex-col p-5">
               {!selectedConversation ? (
                 <div className="flex flex-1 items-center justify-center text-sm text-[var(--gray-500)]">Select a visitor to read the conversation.</div>
               ) : (
                 <>
                   <div className="shrink-0 border-b border-[var(--gray-200)] pb-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h2 className="text-sm font-semibold">
-                          {normalizeContact(selectedConversation.visitor_name) || "anonymous visitor"}
+                        <h2 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                          <span className="truncate">
+                            {normalizeContact(selectedConversation.visitor_name) || "anonymous visitor"}
+                          </span>
+                          <StatusPill status={selectedStatus} />
                         </h2>
                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--gray-500)]">
+                          <span title={selectedConversation.session_started_at}>
+                            started {formatRelative(selectedConversation.session_started_at)}
+                          </span>
                           {selectedConversation.visitor_email ? (
                             <span className="inline-flex items-center gap-1.5">
                               <a
@@ -732,26 +941,10 @@ export default function ChatInboxPage() {
                           ) : (
                             <span className="italic opacity-70">no email given</span>
                           )}
-                          <span className="break-all opacity-70">{selectedConversation.visitor_id}</span>
                         </div>
                       </div>
+
                       <div className="flex flex-col items-end gap-2">
-                        <span className="rounded-full border border-[var(--gray-300)] px-2 py-1 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
-                          started {formatTime(selectedConversation.session_started_at)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => void setStatus(selectedResolved ? "active" : "resolved")}
-                          disabled={statusBusy}
-                          className="rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] transition-colors disabled:opacity-50"
-                          style={
-                            selectedResolved
-                              ? { backgroundColor: "var(--ink)", color: "var(--bg)" }
-                              : { border: "1px solid var(--gray-300)", color: "var(--gray-500)" }
-                          }
-                        >
-                          {statusBusy ? "working..." : selectedResolved ? "reopen" : "resolve"}
-                        </button>
                         <button
                           type="button"
                           onClick={() => void toggleTakeover()}
@@ -771,11 +964,41 @@ export default function ChatInboxPage() {
                         </button>
                       </div>
                     </div>
-                    {selectedResolved && (
-                      <p className="mt-3 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
-                        resolved -- replying does not reopen it, but a new visitor message will
-                      </p>
-                    )}
+
+                    {/* Status as a row of one-click pills rather than a
+                        <select>: these are triage actions, and a menu that
+                        hides the four states behind a click is what made the
+                        old two-state toggle easy to forget existed. */}
+                    <div
+                      className="mt-4 flex flex-wrap items-center gap-1.5"
+                      role="group"
+                      aria-label="Set conversation status"
+                    >
+                      <span className="micro-label mr-1" style={{ color: "var(--gray-400)" }}>
+                        status
+                      </span>
+                      {CONVERSATION_STATUSES.map((status) => {
+                        const active = selectedStatus === status;
+                        return (
+                          <button
+                            key={status}
+                            type="button"
+                            onClick={() => void setStatus(status)}
+                            disabled={statusBusy !== null || active}
+                            aria-pressed={active}
+                            className="rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.08em] transition-colors disabled:opacity-50"
+                            style={
+                              active
+                                ? { borderColor: "var(--ink)", backgroundColor: "var(--ink)", color: "var(--bg)" }
+                                : { borderColor: "var(--gray-300)", color: "var(--gray-500)" }
+                            }
+                          >
+                            {status === selectedStatus && statusBusy === status ? "saving..." : status}
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     {takeoverActive && (
                       <p
                         className="mt-3 text-[11px] uppercase tracking-[0.08em]"
@@ -827,23 +1050,66 @@ export default function ChatInboxPage() {
 
                   <div className="min-h-0 flex-1 space-y-3 overflow-y-auto py-5" aria-live="polite">
                     {messages.length === 0 && <p className="text-xs text-[var(--gray-500)]">No messages in this conversation.</p>}
-                    {messages.map((message) => (
-                      <div key={message.id} className={`flex ${message.role === "visitor" ? "justify-start" : "justify-end"}`}>
-                        <div className="max-w-[85%]">
-                          <p className="mb-1 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)]">{roleLabel(message.role)}</p>
-                          <p
-                            className="whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-relaxed"
-                            style={{
-                              backgroundColor: message.role === "admin" ? "var(--ink)" : "var(--gray-100)",
-                              color: message.role === "admin" ? "var(--bg)" : "var(--ink)",
-                            }}
-                          >
-                            {message.body}
-                          </p>
-                          <p className="mt-1 text-right text-[11px] text-[var(--gray-400)]">{formatTime(message.created_at)}</p>
+                    {messages.map((message) => {
+                      if (message.role === "system") {
+                        return (
+                          <div key={message.id} className="flex justify-center">
+                            <p
+                              role="status"
+                              className="max-w-[85%] break-words rounded-lg border border-[var(--gray-200)] bg-[var(--gray-50)] px-3 py-2 text-center text-[11px] leading-relaxed text-[var(--gray-500)]"
+                            >
+                              {message.body}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      const isOwn = message.role === "admin";
+                      return (
+                        <div
+                          key={message.id}
+                          className={`chat-reaction-row flex flex-col ${isOwn ? "items-end" : "items-start"}`}
+                        >
+                          <div className="chat-meta" style={{ justifyContent: isOwn ? "flex-end" : "flex-start" }}>
+                            <span style={{ color: "var(--ink)" }}>{roleLabel(message.role)}</span>
+                            <span aria-hidden="true">·</span>
+                            <time
+                              dateTime={message.created_at}
+                              title={formatFull(message.created_at)}
+                              className="text-[var(--gray-400)]"
+                            >
+                              {formatClock(message.created_at)}
+                            </time>
+                          </div>
+                          <div className={`max-w-[85%] ${isOwn ? "self-end" : "self-start"}`}>
+                            <p
+                              className="whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-relaxed"
+                              style={{
+                                backgroundColor: isOwn ? "var(--ink)" : "var(--gray-100)",
+                                color: isOwn ? "var(--bg)" : "var(--ink)",
+                              }}
+                            >
+                              {message.body}
+                            </p>
+                            <ReactionBar
+                              messageId={message.id}
+                              reactions={reactions}
+                              actor={ADMIN_ACTOR}
+                              onToggle={(kind, active) => void toggleReaction(message.id, kind, active)}
+                              busy={reactionBusy}
+                              align={isOwn ? "end" : "start"}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
+
+                    {visitorTyping && (
+                      <TypingIndicator
+                        name={normalizeContact(selectedConversation.visitor_name) || "visitor"}
+                        announce
+                      />
+                    )}
                   </div>
 
                   <div className="shrink-0 border-t border-[var(--gray-200)] pt-4">
@@ -851,11 +1117,17 @@ export default function ChatInboxPage() {
                       value={reply}
                       onChange={(event) => setReply(event.target.value)}
                       maxLength={600}
+                      rows={2}
                       placeholder="Reply to this visitor..."
-                      className="min-h-20 w-full resize-y rounded-lg border border-[var(--gray-300)] bg-[var(--gray-50)] px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
+                      aria-label="Reply to this visitor"
+                      className="min-h-16 w-full resize-y rounded-lg border border-[var(--gray-300)] bg-[var(--gray-50)] px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
                     />
                     <div className="mt-3 flex items-center justify-between gap-3">
-                      <span className="text-[11px] text-[var(--gray-500)]">Replies appear in the visitor&apos;s chat window.</span>
+                      <span className="text-[11px] text-[var(--gray-500)]">
+                        {selectedResolved
+                          ? "Resolved -- replying does not reopen it, but a new visitor message will."
+                          : "Replies appear in the visitor's chat window."}
+                      </span>
                       <button
                         type="button"
                         onClick={() => void sendReply()}
@@ -869,8 +1141,65 @@ export default function ChatInboxPage() {
                   </div>
                 </>
               )}
-              {error && <p className="mt-3 text-xs text-red-500" role="alert">{error}</p>}
+              {error && <p className="mt-3 shrink-0 text-xs text-red-500" role="alert">{error}</p>}
             </section>
+
+            <aside className="card flex min-h-0 flex-col p-4">
+              {/* Notes are pinned to the bottom rather than sitting in the tab
+                  strip: they are the one thing an admin opens this panel to
+                  write, and a third tab would hide the composer. */}
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="flex shrink-0 gap-1.5" role="tablist" aria-label="Visitor context">
+                  {(
+                    [
+                      { value: "visitor", label: "visitor" },
+                      { value: "activity", label: "activity" },
+                    ] as const
+                  ).map((tab) => (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={panelTab === tab.value}
+                      onClick={() => setPanelTab(tab.value)}
+                      className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] transition-colors ${
+                        panelTab === tab.value
+                          ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]"
+                          : "border-[var(--gray-300)] text-[var(--gray-500)] hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-3 flex min-h-0 flex-1 flex-col">
+                  {panelTab === "visitor" ? (
+                    visitor ? (
+                      <VisitorPanel visitor={visitor} copied={copied} onCopyEmail={() => void copyEmail()} />
+                    ) : (
+                      <p className="py-3 text-[11px] italic leading-relaxed text-[var(--gray-400)]">
+                        No visitor details loaded yet.
+                      </p>
+                    )
+                  ) : (
+                    <ActivityTimeline activity={activity} currentPage={selectedConversation?.current_page ?? null} />
+                  )}
+                </div>
+              </div>
+
+              <div
+                className="mt-4 flex min-h-0 shrink-0 flex-col border-t border-[var(--gray-200)] pt-4 lg:max-h-[45%]"
+              >
+                <InternalNotes
+                  notes={notes}
+                  onAdd={addNote}
+                  busy={noteBusy}
+                  error={noteError}
+                  disabled={!selectedConversation}
+                />
+              </div>
+            </aside>
           </div>
         )}
       </div>
