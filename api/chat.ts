@@ -148,7 +148,8 @@ type ChatEvent =
   | "admin_reply"
   | "admin_takeover"
   | "admin_release"
-  | "admin_status";
+  | "admin_status"
+  | "admin_delete";
 
 function isChatEvent(value: unknown): value is ChatEvent {
   return (
@@ -157,7 +158,8 @@ function isChatEvent(value: unknown): value is ChatEvent {
     value === "admin_reply" ||
     value === "admin_takeover" ||
     value === "admin_release" ||
-    value === "admin_status"
+    value === "admin_status" ||
+    value === "admin_delete"
   );
 }
 
@@ -458,9 +460,67 @@ function supabaseNotConfiguredBody(): { error: string; missing: string[] } {
   };
 }
 
+/**
+ * PostgREST error bodies look like
+ *   { code, details, hint, message }
+ * and `details` is long (it echoes the whole failing row). Truncating the raw
+ * body therefore cut off `message` -- the only field that says *why* -- which
+ * is how a CHECK-constraint rejection managed to look like a silent no-op.
+ * These fields are logged individually and never truncated.
+ */
+function describeSupabaseError(body: string, status: number, path: string, method: string): string {
+  let parsed: unknown = null;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    // not JSON; fall through to the raw snippet
+  }
+
+  if (parsed && typeof parsed === "object") {
+    const e = parsed as { code?: unknown; message?: unknown; details?: unknown; hint?: unknown };
+    const message = typeof e.message === "string" ? e.message : "";
+    if (message) {
+      console.error(
+        JSON.stringify({
+          scope: "ian-chat-supabase",
+          status,
+          method,
+          path,
+          code: typeof e.code === "string" ? e.code : null,
+          message,
+          details: typeof e.details === "string" ? e.details.slice(0, MAX_UPSTREAM_DETAIL_LENGTH) : null,
+          hint: typeof e.hint === "string" ? e.hint : null,
+        })
+      );
+      return message;
+    }
+  }
+
+  console.error(
+    JSON.stringify({
+      scope: "ian-chat-supabase",
+      status,
+      method,
+      path,
+      message: "unparseable error body",
+      detail: body.slice(0, MAX_UPSTREAM_DETAIL_LENGTH),
+    })
+  );
+  return body.slice(0, MAX_UPSTREAM_DETAIL_LENGTH);
+}
+
 async function supabaseRequest(path: string, init: RequestInit = {}): Promise<unknown | null> {
   const config = getSupabaseConfig();
-  if (!config) return null;
+  if (!config) {
+    console.error(
+      JSON.stringify({
+        scope: "ian-chat-supabase-config",
+        message: "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set -- no chat data can be read or written",
+        path,
+      })
+    );
+    return null;
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SUPABASE_TIMEOUT_MS);
@@ -468,6 +528,7 @@ async function supabaseRequest(path: string, init: RequestInit = {}): Promise<un
   headers.set("apikey", config.serviceRoleKey);
   headers.set("Authorization", `Bearer ${config.serviceRoleKey}`);
   headers.set("Content-Type", "application/json");
+  const method = init.method || "GET";
 
   try {
     const response = await fetch(`${config.url}/rest/v1/${path}`, {
@@ -477,21 +538,25 @@ async function supabaseRequest(path: string, init: RequestInit = {}): Promise<un
     });
 
     if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      console.warn(
-        JSON.stringify({
-          scope: "ian-chat-supabase",
-          status: response.status,
-          path,
-          detail: detail.slice(0, MAX_UPSTREAM_DETAIL_LENGTH),
-        })
-      );
+      const body = await response.text().catch(() => "");
+      describeSupabaseError(body, response.status, path, method);
       return null;
     }
 
     if (response.status === 204) return null;
     return await response.json().catch(() => null);
-  } catch {
+  } catch (error) {
+    // Previously a bare `catch { return null }`: a DNS failure, a timeout or a
+    // bad URL all looked identical to "nothing to do".
+    console.error(
+      JSON.stringify({
+        scope: "ian-chat-supabase",
+        method,
+        path,
+        message: error instanceof Error ? error.message : String(error),
+        note: "request threw before a response was received",
+      })
+    );
     return null;
   } finally {
     clearTimeout(timeout);
@@ -814,7 +879,22 @@ async function ensureConversation(
   });
 
   if (!Array.isArray(result)) return null;
-  return result.find(isConversationRecord) || null;
+
+  // The row was written (2xx) but does not match the expected shape. This used
+  // to return null with no log at all, so a successful insert looked
+  // identical to a failed one.
+  const created = result.find(isConversationRecord);
+  if (!created) {
+    console.error(
+      JSON.stringify({
+        scope: "ian-chat-supabase",
+        message: "conversation insert returned 2xx but the row failed shape validation",
+        visitorId,
+        keysReturned: result.length ? Object.keys(result[0] as object) : null,
+      })
+    );
+  }
+  return created || null;
 }
 
 /**
@@ -994,6 +1074,25 @@ async function listConversations(filters: ConversationListFilters = {}): Promise
   return Array.isArray(withoutMode)
     ? withoutMode.filter(isConversationRecord).map((row) => ({ ...row, mode: "ai" }))
     : [];
+}
+
+/**
+ * Deletes a conversation outright. `chat_messages.conversation_id` is declared
+ * `on delete cascade`, so the transcript goes with it -- no second query and
+ * no orphaned rows.
+ */
+async function deleteConversation(conversationId: string): Promise<boolean> {
+  const result = await supabaseRequest(
+    `chat_conversations?id=eq.${encodeURIComponent(conversationId)}`,
+    {
+      method: "DELETE",
+      // return=representation rather than return=minimal: a 204 comes back as
+      // null through supabaseRequest, which is indistinguishable from failure.
+      // Echoing the deleted row lets us confirm what actually went.
+      headers: { Prefer: "return=representation" },
+    }
+  );
+  return Array.isArray(result) && result.length > 0;
 }
 
 /** Sets active/resolved. Returns the new status, or null if the write failed. */
@@ -1590,6 +1689,39 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ ok: true, conversationId, status, announcement });
   }
 
+  if (event === "admin_delete") {
+    if (!(await hasAdminAccess(req))) {
+      return res.status(401).json({ error: "Admin authorization required" });
+    }
+    if (!hasSupabaseConfig()) {
+      return res.status(503).json(supabaseNotConfiguredBody());
+    }
+
+    const conversationId = typeof body.conversationId === "string" ? body.conversationId.trim() : "";
+    if (!conversationId) {
+      return res.status(400).json({ error: "conversationId is required" });
+    }
+
+    // Confirm it exists first so a bad id is a clean 404 rather than a
+    // confusing "could not delete".
+    const conversation = await findConversationById(conversationId);
+    if (!conversation) return res.status(404).json({ error: "Conversation not found" });
+
+    const deleted = await deleteConversation(conversationId);
+    if (!deleted) {
+      return res.status(502).json({ error: "Could not delete the conversation" });
+    }
+
+    console.info(
+      JSON.stringify({
+        scope: "ian-chat-delete",
+        conversationId,
+        visitorId: conversation.visitor_id,
+      })
+    );
+    return res.status(200).json({ ok: true, conversationId });
+  }
+
   if (event === "admin_reply") {
     if (!(await hasAdminAccess(req))) {
       return res.status(401).json({ error: "Admin authorization required" });
@@ -1622,11 +1754,29 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
   };
 
   if (event === "chat_started") {
-    await ensureConversation(visitorId, visitorAuthId, sessionStartedAt, contact);
+    // ensureConversation returns null when the insert fails for any reason.
+    // Reporting ok:true regardless is what let a CHECK-constraint mismatch on
+    // chat_conversations.status look like a healthy chat for as long as it
+    // took to notice no threads were being created at all.
+    const created = await ensureConversation(visitorId, visitorAuthId, sessionStartedAt, contact);
+    if (!created) {
+      console.error(
+        JSON.stringify({
+          scope: "ian-chat-supabase",
+          event,
+          visitorId,
+          note: "conversation was NOT created -- check chat_conversations columns and migrations",
+        })
+      );
+      return res.status(503).json({
+        error: "Chat is temporarily unavailable. Please try again in a moment.",
+      });
+    }
     logConversation(event, visitorId, sessionStartedAt, []);
     await notifyChatEvent(event, visitorId, sessionStartedAt, []);
-    return res.status(200).json({ ok: true, event });
+    return res.status(200).json({ ok: true, event: "chat_started" });
   }
+
 
   const messages = Array.isArray(body.messages) ? body.messages.filter(isChatMessage) : [];
   if (!messages.length) {
@@ -1654,6 +1804,25 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
     getLastUserMessage(modelMessages),
     contact
   );
+
+  // persistVisitorMessage returns null on any write failure -- a schema
+  // mismatch, a CHECK violation, or RLS. That used to be swallowed, so the
+  // widget got a normal-looking reply while the visitor's message was never
+  // stored and never reached the inbox. Storage being down is not the
+  // visitor's fault, so the AI still answers, but the failure is logged
+  // loudly and flagged in a response header instead of being invisible.
+  if (!conversationId) {
+    console.error(
+      JSON.stringify({
+        scope: "ian-chat-supabase",
+        event,
+        visitorId,
+        note: "visitor message was NOT persisted -- check chat_conversations columns and migrations",
+      })
+    );
+    res.setHeader("X-Chat-Persisted", "false");
+  }
+
   // Never left dangling: an unhandled rejection here would take the whole
   // invocation down instead of just skipping the notification.
   const notificationPromise = notifyChatEvent(

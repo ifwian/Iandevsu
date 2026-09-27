@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, Copy, MessageCircle, RefreshCw, Search, Send, X } from "lucide-react";
+import { ArrowLeft, Check, Copy, MessageCircle, RefreshCw, Search, Send, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/api";
@@ -175,6 +175,10 @@ export default function ChatInboxPage() {
   const [takeoverBusy, setTakeoverBusy] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Conversation id awaiting confirmation, so a stray click cannot wipe a
+  // thread. Cleared on any other selection.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const selectedConversation = useMemo(
@@ -458,6 +462,30 @@ export default function ChatInboxPage() {
     }
   };
 
+  const deleteConversation = async (conversationId: string) => {
+    if (deletingId) return;
+    setDeletingId(conversationId);
+    setError(null);
+    try {
+      await request(apiUrl("/api/chat"), {
+        method: "POST",
+        body: JSON.stringify({ event: "admin_delete", conversationId }),
+      });
+      setConfirmDeleteId(null);
+      // Drop the row locally rather than refetching, so the list does not
+      // visibly re-sort mid-interaction.
+      setConversations((current) => current.filter((row) => row.id !== conversationId));
+      if (selectedId === conversationId) {
+        setSelectedId("");
+        setMessages([]);
+      }
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Could not delete the conversation");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const copyEmail = async () => {
     if (!selectedEmail) return;
     try {
@@ -470,9 +498,16 @@ export default function ChatInboxPage() {
   };
 
   return (
-    <div className="min-h-screen px-5 py-6 sm:px-8" style={{ fontFamily: "var(--font-mono)" }}>
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-[var(--gray-200)] pb-5">
+    // Fixed-height shell. `h-[100dvh]` rather than `min-h-screen`: the page
+    // used to grow with the transcript, so a long thread turned into an
+    // unmanageably tall page. Everything below scrolls inside itself.
+    <div
+      className="flex h-[100dvh] flex-col overflow-hidden px-5 py-6 sm:px-8"
+      style={{ fontFamily: "var(--font-mono)" }}
+    >
+      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col">
+        <header className="mb-6 flex shrink-0 flex-wrap items-end justify-between gap-4 border-b border-[var(--gray-200)] pb-5">
+
           <div>
             <Link to="/" className="mb-4 inline-flex items-center gap-2 text-xs text-[var(--gray-500)] transition-colors hover:text-[var(--ink)]">
               <ArrowLeft size={14} />
@@ -494,11 +529,11 @@ export default function ChatInboxPage() {
         </header>
 
         {!authReady ? (
-          <section className="card mx-auto max-w-lg p-6 text-center text-sm text-[var(--gray-500)]">
+          <section className="card mx-auto my-auto max-w-lg p-6 text-center text-sm text-[var(--gray-500)]">
             Restoring admin session...
           </section>
         ) : !token ? (
-          <section className="card mx-auto max-w-lg p-6">
+          <section className="card mx-auto my-auto max-w-lg p-6">
             <div className="mb-4 flex items-center gap-3">
               <MessageCircle size={20} />
               <div>
@@ -537,8 +572,20 @@ export default function ChatInboxPage() {
             {error && <p className="mt-3 text-xs text-red-500" role="alert">{error}</p>}
           </section>
         ) : (
-          <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
-            <aside className="card min-h-[540px] p-4">
+          // min-h-0 on the grid and on both panels is what actually stops the
+          // page growing: without it a flex/grid child refuses to shrink below
+          // its content, so the transcript pushed the whole page taller.
+          //
+          // The explicit rows matter on mobile, where the two panels stack:
+          // with `auto` rows the thread row sized itself to the transcript and
+          // `flex-1` was inert, so the page grew again. `minmax(0,1fr)` gives
+          // it the leftover height and lets it shrink. Reset to a single row at
+          // lg, where the panels are side-by-side columns instead.
+          <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-5 lg:grid-cols-[300px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
+            {/* Capped on mobile so the thread still gets usable height; on lg
+                it stretches to the full column via the grid. */}
+            <aside className="card flex max-h-[42vh] min-h-0 shrink-0 flex-col p-4 lg:max-h-none lg:shrink lg:flex-1">
+              <div className="shrink-0">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-sm font-semibold">visitors</h2>
                 <button
@@ -594,8 +641,11 @@ export default function ChatInboxPage() {
                   </button>
                 ))}
               </div>
+              </div>
 
-              <div className="space-y-2">
+              {/* Only the list scrolls; the search field and status chips stay
+                  pinned so filtering is always reachable. */}
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
                 {visibleConversations.length === 0 && !loading && (
                   <div className="py-8 text-center">
                     <p className="text-xs text-[var(--gray-500)]">
@@ -648,12 +698,12 @@ export default function ChatInboxPage() {
               )}
             </aside>
 
-            <section className="card flex min-h-[540px] min-w-0 flex-col p-5">
+            <section className="card flex min-h-0 min-w-0 flex-1 flex-col p-5">
               {!selectedConversation ? (
                 <div className="flex flex-1 items-center justify-center text-sm text-[var(--gray-500)]">Select a visitor to read the conversation.</div>
               ) : (
                 <>
-                  <div className="border-b border-[var(--gray-200)] pb-4">
+                  <div className="shrink-0 border-b border-[var(--gray-200)] pb-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="min-w-0">
                         <h2 className="text-sm font-semibold">
@@ -734,9 +784,48 @@ export default function ChatInboxPage() {
                         you are answering this chat -- the assistant is paused
                       </p>
                     )}
+
+                    {/* Destructive action, kept in its own bordered row beneath
+                        the resolve / takeover controls so it can never overlap
+                        them or the visitor details above. Still two-step: the
+                        first click arms it, the second confirms. */}
+                    <div className="mt-4 flex justify-end border-t border-[var(--gray-200)] pt-4">
+                      {confirmDeleteId === selectedConversation.id ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
+                            delete this thread and its messages?
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void deleteConversation(selectedConversation.id)}
+                            disabled={deletingId === selectedConversation.id}
+                            className="rounded-full border border-[var(--ink)] bg-[var(--ink)] px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] text-[var(--bg)] transition-opacity disabled:opacity-50"
+                          >
+                            {deletingId === selectedConversation.id ? "deleting..." : "delete"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="rounded-full border border-[var(--gray-300)] px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)] transition-colors hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                          >
+                            cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(selectedConversation.id)}
+                          disabled={deletingId === selectedConversation.id}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--gray-300)] px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)] transition-colors hover:border-[var(--ink)] hover:text-[var(--ink)] disabled:opacity-50"
+                        >
+                          <Trash2 size={13} strokeWidth={1.7} />
+                          delete session
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex-1 space-y-3 overflow-y-auto py-5" aria-live="polite">
+                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto py-5" aria-live="polite">
                     {messages.length === 0 && <p className="text-xs text-[var(--gray-500)]">No messages in this conversation.</p>}
                     {messages.map((message) => (
                       <div key={message.id} className={`flex ${message.role === "visitor" ? "justify-start" : "justify-end"}`}>
@@ -757,7 +846,7 @@ export default function ChatInboxPage() {
                     ))}
                   </div>
 
-                  <div className="border-t border-[var(--gray-200)] pt-4">
+                  <div className="shrink-0 border-t border-[var(--gray-200)] pt-4">
                     <textarea
                       value={reply}
                       onChange={(event) => setReply(event.target.value)}

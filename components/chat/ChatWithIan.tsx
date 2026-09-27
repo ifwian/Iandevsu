@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { MessageCircle, Send, X } from "lucide-react";
+import { MessageCircle, RotateCcw, Send, X } from "lucide-react";
 import { PROFILE } from "@/content/profile";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/api";
@@ -54,6 +54,14 @@ const CONTACT_NAME_KEY = "ian-chat-visitor-name";
 const CONTACT_EMAIL_KEY = "ian-chat-visitor-email";
 const MAX_NAME_LENGTH = 80;
 const MAX_EMAIL_LENGTH = 254;
+
+/**
+ * Client-side backstop for a stalled SSE stream, in ms. Deliberately a little
+ * above the server's GEMINI_STREAM_IDLE_TIMEOUT_MS (30s) so the server's own
+ * error message wins when it does fire, and this only catches the case where
+ * the connection dies without the server noticing.
+ */
+const STREAM_IDLE_TIMEOUT_MS = 40_000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 
 interface VisitorContact {
@@ -460,6 +468,52 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
+  /**
+   * Starts a brand-new visitor thread.
+   *
+   * `chat_conversations.visitor_id` is UNIQUE and the server does
+   * find-or-create on it, so a fresh thread is only possible with a fresh id.
+   * Everything keyed by the old id is cleared so the new thread starts empty
+   * rather than inheriting the previous transcript.
+   */
+  const startFreshThread = () => {
+    // Abort first. Without this an in-flight SSE reply keeps streaming after
+    // the id has changed: the server finishes persisting it against the OLD
+    // visitorId while the client writes those chunks into the NEW thread's
+    // message list -- so the reply vanishes from the visitor's view and the
+    // inbox shows a thread that appears to have gone silent.
+    abortRef.current?.abort();
+    abortRef.current = null;
+
+    const previousId = session?.visitorId;
+    try {
+      if (previousId) {
+        localStorage.removeItem(`${HISTORY_PREFIX}${previousId}`);
+        sessionStorage.removeItem(`${START_NOTIFIED_KEY}:${previousId}`);
+      }
+      sessionStorage.removeItem(VISITOR_STORAGE_KEY);
+      sessionStorage.removeItem(SESSION_STARTED_KEY);
+      // Re-prompt for the pre-chat form, since the new thread is a new visitor.
+      writeStored(CONTACT_NAME_KEY, "");
+      writeStored(CONTACT_EMAIL_KEY, "");
+    } catch {
+      // Storage unavailable; the in-memory reset below still applies.
+    }
+
+    // getChatSession mints a new id now that the stored one is gone.
+    const next = getChatSession();
+    setSession(next);
+    setContact(null);
+    setNameDraft("");
+    setEmailDraft("");
+    setContactError(null);
+    setHistoryLoaded(false);
+    setMessages([GREETING]);
+    setInput("");
+    setError(null);
+    setLoading(false);
+  };
+
   const handleOpen = () => {
     setOpen(true);
     const activeSession = session || getChatSession();
@@ -498,6 +552,10 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
 
     const controller = new AbortController();
     abortRef.current = controller;
+    // Distinguishes a deliberate abort (new thread / unmount, where the reply
+    // is abandoned on purpose) from the idle watchdog firing, which is a real
+    // failure the visitor should be told about.
+    let timedOut = false;
 
     const updateAssistant = (textValue: string) => {
       setMessages((current) => {
@@ -533,38 +591,57 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
         let buffer = "";
         let streamedText = "";
 
+        // Idle watchdog. The server has its own 30s stream guard, but that only
+        // helps while the server is alive and the socket is healthy. Without a
+        // client-side backstop, a stalled or half-open connection leaves
+        // `reader.read()` pending forever and the composer's spinner stuck on.
+        // Set slightly above the server's GEMINI_STREAM_IDLE_TIMEOUT_MS so the
+        // server's own message wins the race when it does fire.
+        let idleTimer: number | undefined;
+        const armIdleTimer = () => {
+          if (idleTimer !== undefined) window.clearTimeout(idleTimer);
+          idleTimer = window.setTimeout(() => {
+            timedOut = true;
+            void reader.cancel().catch(() => undefined);
+            controller.abort();
+          }, STREAM_IDLE_TIMEOUT_MS);
+        };
+        armIdleTimer();
+
         const processBlock = (block: string): StreamEvent | null => parseStreamBlock(block);
 
-        while (true) {
-          const { done, value } = await reader.read();
-          buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-          const blocks = buffer.split(/\r?\n\r?\n/);
-          buffer = blocks.pop() || "";
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            armIdleTimer();
+            buffer += decoder.decode(value || new Uint8Array(), { stream: true });
+            const blocks = buffer.split(/\r?\n\r?\n/);
+            buffer = blocks.pop() || "";
 
-          for (const block of blocks) {
-            const event = processBlock(block);
-            if (!event) continue;
-            if (event.type === "error") throw new Error(event.error || "Chat stream failed");
-            if (event.type === "chunk" && event.text) {
-              streamedText += event.text;
-              updateAssistant(streamedText);
-            }
-            if (event.type === "done" && event.reply) {
-              streamedText = event.reply;
-              updateAssistant(streamedText);
-            }
-          }
-
-          if (done) {
-            if (buffer.trim()) {
-              const event = processBlock(buffer);
-              if (event?.type === "error") throw new Error(event.error || "Chat stream failed");
-              if (event?.type === "done" && event.reply) {
+            for (const block of blocks) {
+              const event = processBlock(block);
+              if (!event) continue;
+              if (event.type === "error") throw new Error(event.error || "Chat stream failed");
+              if (event.type === "chunk" && event.text) {
+                streamedText += event.text;
+                updateAssistant(streamedText);
+              }
+              if (event.type === "done" && event.reply) {
                 streamedText = event.reply;
                 updateAssistant(streamedText);
               }
             }
-            break;
+          }
+        } finally {
+          if (idleTimer !== undefined) window.clearTimeout(idleTimer);
+          buffer += decoder.decode();
+          if (buffer.trim()) {
+            const event = processBlock(buffer);
+            if (event?.type === "done" && event.reply) {
+              streamedText = event.reply;
+              updateAssistant(streamedText);
+            }
           }
         }
 
@@ -577,13 +654,21 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
         updateAssistant(data.reply);
       }
     } catch (caughtError) {
-      if (controller.signal.aborted) return;
+      // A deliberate abort (new thread, unmount) abandons the reply on purpose,
+      // so it stays silent. A watchdog abort is a genuine failure.
+      if (controller.signal.aborted && !timedOut) return;
       setMessages((current) => {
         const next = [...current];
         if (next[assistantIndex]?.role === "model" && !next[assistantIndex].text) next.splice(assistantIndex, 1);
         return next;
       });
-      setError(caughtError instanceof Error ? caughtError.message : "Something went wrong -- try again.");
+      setError(
+        timedOut
+          ? "The assistant stopped responding. Please try again."
+          : caughtError instanceof Error
+            ? caughtError.message
+            : "Something went wrong -- try again."
+      );
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
       setLoading(false);
@@ -669,15 +754,27 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label="Close chat"
-              className="flex h-6 w-6 flex-shrink-0 items-center justify-center"
-              style={{ color: "var(--gray-400)" }}
-            >
-              <X size={15} />
-            </button>
+            <div className="flex flex-shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={startFreshThread}
+                aria-label="Start a new chat"
+                title="Start a new chat"
+                className="flex h-6 w-6 items-center justify-center"
+                style={{ color: "var(--gray-400)" }}
+              >
+                <RotateCcw size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Close chat"
+                className="flex h-6 w-6 items-center justify-center"
+                style={{ color: "var(--gray-400)" }}
+              >
+                <X size={15} />
+              </button>
+            </div>
           </div>
 
           {contact ? (
