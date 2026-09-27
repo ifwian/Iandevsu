@@ -1,3 +1,16 @@
+-- Base schema for a FRESH database: the single starting point, with every
+-- column, constraint and index the chat inbox needs already in place.
+--
+-- To bring an EXISTING database up to date, do not use this file -- it leads
+-- with `create table if not exists`, so on a database that already has
+-- chat_conversations the inline constraints below are silently skipped. Use
+-- supabase/APPLY_PENDING.sql instead, which is the ordered union of the
+-- migrations and is safe to paste into an existing database more than once.
+--
+-- Keep this file in step with the migrations: every index and named length
+-- check in supabase/migrations/ must appear here, or a fresh install and a
+-- migrated database end up with different constraints.
+
 create extension if not exists pgcrypto;
 
 create table if not exists public.profiles (
@@ -10,8 +23,10 @@ create table if not exists public.chat_conversations (
   id uuid primary key default gen_random_uuid(),
   visitor_id text not null unique,
   visitor_auth_id uuid,
-  visitor_name text,
-  visitor_email text,
+  visitor_name text constraint chat_conversations_visitor_name_len
+    check (visitor_name is null or char_length(visitor_name) <= 80),
+  visitor_email text constraint chat_conversations_visitor_email_len
+    check (visitor_email is null or char_length(visitor_email) <= 254),
   session_started_at timestamptz not null,
   status text not null default 'active' check (status in ('active', 'waiting', 'assigned', 'resolved')),
   mode text not null default 'ai' check (mode in ('ai', 'takeover')),
@@ -19,8 +34,10 @@ create table if not exists public.chat_conversations (
   last_message_at timestamptz not null default now(),
   last_message_preview text not null default '',
   unread_count integer not null default 0 check (unread_count >= 0),
-  device text,
-  current_page text,
+  device text constraint chat_conversations_device_len
+    check (char_length(device) <= 120),
+  current_page text constraint chat_conversations_current_page_len
+    check (char_length(current_page) <= 200),
   created_at timestamptz not null default now()
 );
 
@@ -87,9 +104,10 @@ create index if not exists chat_conversations_last_message_at_idx
 create index if not exists chat_conversations_visitor_auth_id_idx
   on public.chat_conversations (visitor_auth_id);
 
+-- Plain, not partial: the inbox's default triage filter is 'active'. See
+-- migrations/20260929010000_migrate_chat_status_to_active_resolved.sql.
 create index if not exists chat_conversations_status_idx
-  on public.chat_conversations (status)
-  where status = 'resolved';
+  on public.chat_conversations (status);
 
 create index if not exists chat_conversations_unread_idx
   on public.chat_conversations (unread_count desc)
@@ -107,6 +125,10 @@ create index if not exists chat_message_reactions_conversation_idx
 create index if not exists chat_conversations_visitor_email_idx
   on public.chat_conversations (visitor_email)
   where visitor_email is not null;
+
+create index if not exists chat_conversations_visitor_name_idx
+  on public.chat_conversations (visitor_name)
+  where visitor_name is not null;
 
 create index if not exists chat_messages_conversation_created_at_idx
   on public.chat_messages (conversation_id, created_at asc);

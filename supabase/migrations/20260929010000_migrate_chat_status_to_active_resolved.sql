@@ -52,12 +52,20 @@ alter table public.chat_conversations
 alter table public.chat_conversations
   alter column status set default 'active';
 
--- The inbox filters and searches on these columns, so index them. Both are
--- partial on the common case: most rows are 'active', and most rows have an
--- email, so indexing only the resolved/named rows keeps the index small.
+-- The inbox filters and searches on these columns, so index them. The email
+-- index is partial because most rows have an email and the index only has to
+-- cover searching. The status index is deliberately NOT partial: it was
+-- originally `where status = 'resolved'`, which was reasonable against the
+-- two-state vocabulary but excluded the four-state inbox's default triage
+-- filter ('active') from the index entirely. A plain index on a low-cardinality
+-- column is small -- one entry per row -- and serves every filter.
+--
+-- Dropped before creation because `create index if not exists` would keep the
+-- old partial definition on any database that already ran this migration.
+drop index if exists public.chat_conversations_status_idx;
+
 create index if not exists chat_conversations_status_idx
-  on public.chat_conversations (status)
-  where status = 'resolved';
+  on public.chat_conversations (status);
 
 create index if not exists chat_conversations_visitor_email_idx
   on public.chat_conversations (visitor_email)
