@@ -22,14 +22,19 @@ export default function AboutMe() {
       style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
-        <p className="section-eyebrow mb-6 " style={{ fontFamily: "var(--font-mono)" }}>
-          02 &mdash; about
-        </p>
-        
-        <h2 
-          className="mb-6 text-xl sm:text-2xl lg:text-3xl font-semibold tracking-tight text-[var(--ink)]"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
+        <div className="section-shell">
+          {/* The eyebrow moved into the title bar, where it is the section's
+              label on a shared control. It is still the same `.section-eyebrow`
+              every other section uses -- the bar only zeroes its bottom margin
+              and adds ellipsis, so the typography is untouched. */}
+          <div className="section-shell-bar">
+            <p className="section-eyebrow">02 &mdash; about</p>
+          </div>
+
+          <div className="scanlines" aria-hidden="true" />
+
+          <div className="section-shell-body">
+        <h2 className="section-title">
           about me
         </h2>
 
@@ -75,6 +80,8 @@ export default function AboutMe() {
           ))}
         </div>
 
+          </div>
+        </div>
       </div>
     </section>
   );

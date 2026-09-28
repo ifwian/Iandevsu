@@ -1486,7 +1486,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                         type="button"
                         onClick={() => void send(action.prompt)}
                         disabled={!session}
-                        className="pill transition-colors hover:border-[var(--ink)] hover:text-[var(--ink)] disabled:opacity-50"
+                        className="pill disabled:opacity-50"
                       >
                         {action.label}
                       </button>

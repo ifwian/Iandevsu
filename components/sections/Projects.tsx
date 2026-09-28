@@ -8,11 +8,15 @@ export default function Projects() {
   return (
     <section id="projects" className="section-frame px-5 py-16 lg:px-6" style={{ fontFamily: "var(--font-mono)" }}>
       <div className="w-full max-w-4xl mx-auto">
-        <p className="section-eyebrow mb-1">03 &mdash; projects</p>
+        <div className="section-shell">
+          <div className="section-shell-bar">
+            <p className="section-eyebrow">03 &mdash; projects</p>
+          </div>
 
-        <h2 className="mb-2 text-xl sm:text-2xl font-semibold tracking-tight text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
-          projects
-        </h2>
+          <div className="scanlines" aria-hidden="true" />
+
+          <div className="section-shell-body">
+      <h2 className="section-title">projects</h2>
 
         {/* Section description -- prose, so Source Serif 4. */}
         <p
@@ -39,6 +43,8 @@ export default function Projects() {
               &#8599;
             </span>
           </Link>
+        </div>
+          </div>
         </div>
       </div>
     </section>

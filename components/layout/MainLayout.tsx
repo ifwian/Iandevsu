@@ -1,24 +1,105 @@
 "use client";
 
-import { ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Sidebar from "./Sidebar";
 import ScrollTopButton from "./ScrollTopButton";
+import CommandPalette from "@/components/ui/CommandPalette";
+import { NAV_ITEMS } from "@/lib/navigation";
 
 interface MainLayoutProps {
   children: ReactNode;
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  /**
+   * Adapts the shared nav list to what the palette expects.
+   *
+   * The palette takes `id`, the nav calls the same value `href` because it is an
+   * anchor target. Mapping here rather than renaming either keeps the palette
+   * free of any knowledge of anchors -- it hands back an opaque id and lets the
+   * caller decide what to do with it -- and keeps `href` meaningful for the
+   * scroll-spy, which compares against it.
+   */
+  const paletteItems = useMemo(
+    () =>
+      NAV_ITEMS.map(({ href, label, keywords, Icon }) => ({
+        id: href,
+        label,
+        keywords,
+        Icon,
+      })),
+    []
+  );
+
+  /**
+   * ⌘K / Ctrl+K anywhere on the page.
+   *
+   * Bound on the document rather than on the trigger, so the palette is
+   * reachable without aiming at the sidebar -- the whole point of a shortcut.
+   * `metaKey` covers macOS and `ctrlKey` everything else; both are accepted so
+   * the same chord works on a Windows machine with a Mac keyboard.
+   *
+   * `preventDefault` because browsers bind ⌘K to the address-bar search, and
+   * without it the palette would open *and* focus the URL bar.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "k") return;
+      if (!event.metaKey && !event.ctrlKey) return;
+      event.preventDefault();
+
+      setPaletteOpen((open) => {
+        /**
+         * The typing guard only applies when opening. Once the palette is up its
+         * own search field holds focus, and blocking there would strand the
+         * shortcut: ⌘K would neither open nor close, leaving Escape as the only
+         * way out. Typing in the chat composer or a note field still means a
+         * literal "k".
+         */
+        if (!open) {
+          const target = event.target as HTMLElement | null;
+          const tag = target?.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return open;
+        }
+        return !open;
+      });
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  /**
+   * Jumps to a section and dismisses the palette.
+   *
+   * `scrollIntoView()` is called with no options on purpose: `html` already
+   * carries `scroll-behavior: smooth`, and the `prefers-reduced-motion` block in
+   * theme.css resets it to `auto`. Passing `behavior: "smooth"` here would
+   * override that media query from a stylesheet the visitor cannot reach.
+   */
+  const jumpTo = useCallback((id: string) => {
+    setPaletteOpen(false);
+    const target = document.querySelector(id);
+    if (!target) return;
+    target.scrollIntoView();
+    // `replaceState` rather than assigning `location.hash`, so the URL becomes
+    // copyable without pushing a history entry per jump -- and without React
+    // Router observing a change it did not make.
+    window.history.replaceState(null, "", id);
+  }, []);
+
   return (
     <>
       {/* No font utility on the wrapper on purpose. `font-geist-mono` was never
           a real class in this project, so it was silently doing nothing. Each
-          section picks its own role (--font-mono / --font-display /
-          --font-serif) and everything else inherits Geist from `body`. */}
+          section picks its own role (--font-mono / --font-display / --font-serif)
+          and everything else inherits Geist from `body`. */}
       <div className="flex min-h-screen flex-col lg:flex-row">
         {/* Sidebar wrapper */}
         <div className="w-0 shrink-0">
-          <Sidebar />
+          <Sidebar onOpenPalette={() => setPaletteOpen(true)} />
         </div>
 
         {/* Main content wrapper. `sidebar-offset` replaces the old `lg:pl-80`;
@@ -40,6 +121,13 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
         <ScrollTopButton />
       </div>
+
+      <CommandPalette
+        open={paletteOpen}
+        items={paletteItems}
+        onClose={() => setPaletteOpen(false)}
+        onSelect={jumpTo}
+      />
     </>
   );
 }

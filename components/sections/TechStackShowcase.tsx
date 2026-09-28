@@ -63,31 +63,30 @@ export default function TechStackShowcase() {
       style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
-        <div className="mb-1.5 flex items-baseline justify-between">
-          <p 
-            className="section-eyebrow font-medium mb-0 tracking-wider"
-            style={{ fontFamily: "var(--font-mono)" }}
-          >
-            04 &mdash; stack
-          </p>
+        <div className="section-shell">
+          {/* The eyebrow and the toggle both live in the title bar now, so they
+              share a baseline and the bar reads as one control. The `group` on
+              the button is for the arrow's `group-hover:` lift. */}
+          <div className="section-shell-bar">
+            <p className="section-eyebrow">04 &mdash; stack</p>
 
-          <button
-            type="button"
-            onClick={() => setShowAll(!showAll)}
-            className="group text-xs transition-colors text-[var(--gray-500)] hover:text-[var(--ink)] cursor-pointer bg-transparent border-none p-0 flex items-center gap-1"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            <span>{showAll ? "show peek" : "view all stack"}</span>
-            <span className={`inline-block transition-transform duration-200 ${showAll ? "rotate-45" : "group-hover:-translate-y-0.5 group-hover:translate-x-0.5"}`}>
-              &#8599;
-            </span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setShowAll(!showAll)}
+              aria-expanded={showAll}
+              className="section-shell-action group"
+            >
+              <span>{showAll ? "show peek" : "view all stack"}</span>
+              <span className={`inline-block transition-transform duration-200 ${showAll ? "rotate-45" : "group-hover:-translate-y-0.5 group-hover:translate-x-0.5"}`}>
+                &#8599;
+              </span>
+            </button>
+          </div>
 
-        <h2 
-          className="mb-2 text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)] leading-tight"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
+          <div className="scanlines" aria-hidden="true" />
+
+          <div className="section-shell-body">
+        <h2 className="section-title">
           tech stack
         </h2>
 
@@ -138,6 +137,8 @@ export default function TechStackShowcase() {
             ))}
           </div>
         )}
+          </div>
+        </div>
       </div>
     </section>
   );

@@ -1,0 +1,187 @@
+/* DepthCarousel
+   ------------------------------------------------------------------
+   Plain CSS with `depth-carousel__*` class names, not a CSS module. The BEM
+   names are specific enough that nothing leaks, and it keeps the class
+   names identical to the React Bits original so the markup is recognisable.
+
+   THREE NESTED BOXES, AND THE REASONING MATTERS:
+   Changing the hierarchy to fix the flat-render problem is easy to get
+   subtly wrong, so the roles are fixed here rather than improvised:
+
+     .depth-carousel          perspective  -- the 3D vanishing point
+     .depth-carousel__stage   overflow     -- clips the fan
+     .depth-carousel__track   preserve-3d  -- the shared 3D context
+     .depth-carousel__card    translateZ   -- position in that context
+
+   `perspective` cannot live on the clipping element. Per the css-transforms
+   spec, a `transform-style: preserve-3d` element whose `overflow` is anything
+   other than `visible` is rendered as if it were `flat` -- so putting
+   `overflow: hidden` and `preserve-3d` on the same box silently cancels the
+   depth, which is exactly the "flat stacked cards" symptom. Clipping and
+   3D therefore have to be two separate elements.
+
+   `perspective` is set inline on `.depth-carousel` from the component's
+   `perspective` prop; the rest is static and lives here. */
+
+.depth-carousel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.depth-carousel__stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+  cursor: grab;
+  /* Horizontal drags belong to the carousel, vertical belongs to the page.
+     Without this a touch drag inside the carousel scrolls the whole page
+     sideways attempt or the page vertically and the carousel never moves. */
+  touch-action: pan-y;
+}
+
+.depth-carousel__stage:active {
+  cursor: grabbing;
+}
+
+.depth-carousel__stage:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* The shared 3D context. No `overflow` here -- that is the stage's job. */
+.depth-carousel__track {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+}
+
+.depth-carousel__card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* Centred with a negative margin rather than `translate(-50%, -50%)`,
+     because the per-frame transform already owns `translate3d`/`rotateY`.
+     Folding the centring into that string would also rotate the card about
+     the wrong origin. Multiplied by -0.5 rather than divided by -2: the
+     latter is a division by a negative literal, which is valid but is the
+     first thing to break if the card size ever arrives as a calc(). */
+  margin-top: calc(var(--card-height, 0px) * -0.5);
+  margin-left: calc(var(--card-width, 0px) * -0.5);
+
+  overflow: hidden;
+  /* A hairline, not a shadow: the cards sit on a near-black stage where a
+     soft drop shadow is invisible, while a border still reads. */
+  border: 1px solid var(--gray-300);
+  background-color: var(--gray-200);
+  /* The compositor animates transform and opacity, so the 3D work stays off
+     the main thread. */
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.depth-carousel__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Slight desaturation pulls the photos into the same monochrome register as
+     the rest of the page rather than fighting it with full colour. */
+  filter: saturate(0.85) contrast(1.02);
+}
+
+/* ---------- Arrows ---------- */
+
+.depth-carousel__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--gray-300);
+  background-color: var(--gray-100);
+  color: var(--gray-500);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.depth-carousel__arrow:hover,
+.depth-carousel__arrow:focus-visible {
+  color: var(--ink);
+  border-color: var(--ink);
+  background-color: var(--gray-50);
+}
+
+.depth-carousel__arrow--left {
+  left: 10px;
+}
+
+.depth-carousel__arrow--right {
+  right: 10px;
+}
+
+/* ---------- Dots ---------- */
+
+.depth-carousel__dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12px;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.depth-carousel__dot {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--gray-400);
+  background-color: transparent;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    width 0.2s ease;
+}
+
+/* Wider as well as filled, so the current position reads without relying on
+   colour alone -- which matters in both themes and for a colour-blind reader. */
+.depth-carousel__dot[data-active="true"] {
+  width: 20px;
+  background-color: var(--ink);
+  border-color: var(--ink);
+}
+
+.depth-carousel__dot:hover,
+.depth-carousel__dot:focus-visible {
+  border-color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .depth-carousel__arrow,
+  .depth-carousel__dot {
+    transition: none;
+  }
+}

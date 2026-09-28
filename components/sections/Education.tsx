@@ -68,14 +68,17 @@ export default function Education() {
       style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
-        <p className="section-eyebrow mb-1 font-medium">05 &mdash; education</p>
+        <div className="section-shell">
+          <div className="section-shell-bar">
+            <p className="section-eyebrow">05 &mdash; education</p>
+          </div>
 
-        <h2 
-          className="mb-2 text-xl sm:text-2xl font-semibold tracking-tight text-[var(--ink)]"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          education &amp; certifications
-        </h2>
+          <div className="scanlines" aria-hidden="true" />
+
+          <div className="section-shell-body">
+      <h2 className="section-title">
+        education &amp; certifications
+      </h2>
 
         {/* Section description -- prose, so Source Serif 4. */}
         <p
@@ -167,12 +170,14 @@ export default function Education() {
           >
             technical foundation
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {FOUNDATION.map((item) => (
-              <span
-                key={item}
-                className="pill transition-colors duration-200 hover:border-[var(--ink)] hover:text-[var(--ink)]"
-              >
+              /* Bare `.pill` -- its hover and transition now live in the class.
+                 The `transition-colors duration-200 hover:*` that used to sit
+                 here was redundant, and `transition-colors` sets the whole
+                 `transition` property, so it would have overridden the class's
+                 timing depending on stylesheet order. */
+              <span key={item} className="pill">
                 {item}
               </span>
             ))}
@@ -227,6 +232,8 @@ export default function Education() {
               </li>
             ))}
           </ol>
+        </div>
+          </div>
         </div>
       </div>
     </section>

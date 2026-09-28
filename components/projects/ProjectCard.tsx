@@ -31,7 +31,14 @@ export default function ProjectCard({ project }: { project: Project }) {
       <div className="flex flex-1 flex-col justify-between p-5">
         <div>
           <div className="mb-1 flex items-center justify-between gap-2">
-            <h3 className="text-base font-semibold text-[var(--ink)] tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+            {/* `min-w-0` on a flex child is not optional. Flex children default
+                to `min-width: auto`, which refuses to shrink below the content's
+                min-content width -- and the status pill beside it is
+                `shrink-0`, so this heading absorbs every bit of the shrinking.
+                Without `min-w-0` a title whose longest word is wider than
+                (card - pill) pushes the row past the card edge instead of
+                wrapping. */}
+            <h3 className="min-w-0 text-base font-semibold text-[var(--ink)] tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
               {project.title}
             </h3>
 

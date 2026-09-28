@@ -94,30 +94,26 @@ export default function GithubActivity() {
       style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
-        {/* Eyebrow and Profile Link */}
-        <div className="mb-2 flex items-baseline justify-between">
-          <p 
-            className="section-eyebrow mb-1.5 tracking-wider"
-            style={{ fontFamily: "var(--font-mono)" }}
-          >
-            07 &mdash; github
-          </p>
-          <a
-            href={`https://github.com/${GITHUB_USERNAME}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-[var(--gray-400)] hover:text-[var(--ink)] transition-colors flex items-center gap-1"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            @{GITHUB_USERNAME} <span className="text-[11px]">&#8599;</span>
-          </a>
-        </div>
+        <div className="section-shell">
+          {/* Eyebrow and profile link share the title bar, so the handle sits on
+              the same baseline as the label rather than beside the heading. */}
+          <div className="section-shell-bar">
+            <p className="section-eyebrow">07 &mdash; github</p>
+            <a
+              href={`https://github.com/${GITHUB_USERNAME}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="section-shell-action"
+            >
+              @{GITHUB_USERNAME} <span>&#8599;</span>
+            </a>
+          </div>
 
+          <div className="scanlines" aria-hidden="true" />
+
+          <div className="section-shell-body">
         {/* Section Heading */}
-        <h2 
-          className="mb-2 text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)] leading-tight"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
+        <h2 className="section-title">
           github activity
         </h2>
 
@@ -126,37 +122,84 @@ export default function GithubActivity() {
           A snapshot of my contribution history for 2026.
         </p>
 
-        {/* Card Container with Smooth Box Hover Effects */}
+        {/* Card Container with Smooth Box Hover Effects.
+            The `hover:shadow-[...]` utility that used to sit here is gone rather
+            than corrected. `.card` already carries `box-shadow:
+            var(--shadow-resting)` and a `:hover` rule lifting to
+            `var(--shadow-hover)` with a 0.35s transition, so the utility was
+            overriding a themed token with a hardcoded `rgb(0,0,0,0.3)` -- a
+            value tuned for the dark palette, which reads as a grey smudge in
+            light mode. Deleting it restores the token for both themes. */}
         <div 
-          className="card flex flex-col p-4 sm:p-6 lg:p-8 rounded-xl bg-[var(--gray-50)] border border-[var(--gray-200)] transition-all duration-300 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.3)]"
+          className="card flex flex-col p-4 sm:p-6 lg:p-8 rounded-xl bg-[var(--gray-50)] border border-[var(--gray-200)] transition-all duration-300 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)]"
         >
-          <div className="w-full">
-            
-            {/* Month Labels */}
-<div 
-              className="relative h-4 w-full mb-3 text-[11px] sm:text-[11px] text-[var(--gray-400)] uppercase"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              {monthLabels.map((m) => (
-                <span
-                  key={m.text + m.weekIndex}
-                  className="absolute whitespace-nowrap"
-                  style={{ left: `${(m.weekIndex / totalWeeks) * 100}%` }}
-                >
-                  {m.text}
-                </span>
-              ))}
-            </div>
+          {/**
+           * Horizontal scroller for the month labels and the grid together.
+           *
+           * A year is 53 columns and the day cells are `1fr` with a 2-3px gap.
+           * Squeezing that into a phone width left each day around 2.7px -- not
+           * an overflow, but a graph nobody could read or tap, and `hover:scale-125`
+           * on a 2.7px cell does nothing at all.
+           *
+           * So the pair scrolls instead of shrinking: the inner block holds a
+           * floor width that keeps the cells legible, and below that the card
+           * scrolls sideways. At `sm` and up there is more room than the floor
+           * needs, so it never actually scrolls and the card looks untouched.
+           *
+           * The labels live inside the scroller rather than above it because they
+           * are positioned as a percentage of the grid's width -- outside, they
+           * would stay put while the grid moved and drift off their months.
+           *
+           * `pb-1` keeps the last row of cells off the scrollbar edge, and
+           * `overscroll-x-contain` stops a sideways flick here from hijacking the
+           * page's own vertical scroll.
+           */}
+          <div className="w-full overflow-x-auto overscroll-x-contain pb-1">
+            <div className="min-w-[22rem] sm:min-w-0">
+              {/* Month Labels */}
+              <div 
+                className="relative h-4 w-full mb-3 text-[11px] text-[var(--gray-400)] uppercase"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {monthLabels.map((m) => {
+                  /**
+                   * Each label is anchored to the week its month starts on, as a
+                   * percentage. December's anchor is around 98% of the width, and
+                   * `whitespace-nowrap` means the label cannot reflow -- so the
+                   * default left-anchored render ran the full width of the word
+                   * past the right edge.
+                   *
+                   * Fixed by pulling the trailing labels back by their own width,
+                   * so their right edge lands on the anchor instead of their left.
+                   * Three steps rather than a binary flip, because a single month
+                   * is narrower than the space the last two or three share.
+                   */
+                  const ratio = m.weekIndex / totalWeeks;
+                  const pullBack = ratio > 0.94 ? "-translate-x-full" : ratio > 0.86 ? "-translate-x-1/2" : "";
 
-            {/* Contribution Grid */}
-            <div
-              className="grid w-full gap-[2px] sm:gap-[3px]"
-              style={{
-                gridTemplateColumns: `repeat(${totalWeeks}, 1fr)`,
-                gridTemplateRows: "repeat(7, 1fr)",
-                gridAutoFlow: "column",
-              }}
-            >
+                  return (
+                    <span
+                      key={m.text + m.weekIndex}
+                      className={`absolute whitespace-nowrap ${pullBack}`.trim()}
+                      style={{ left: `${ratio * 100}%` }}
+                    >
+                      {m.text}
+                    </span>
+                  );
+                })}
+              </div>
+
+              {/* Contribution Grid. `auto-rows-fr` is not used here because the
+                  cells are square by `aspect-square` and the row height is set
+                  by the seven-row track list below. */}
+              <div
+                className="grid w-full gap-[2px] sm:gap-[3px]"
+                style={{
+                  gridTemplateColumns: `repeat(${totalWeeks}, 1fr)`,
+                  gridTemplateRows: "repeat(7, 1fr)",
+                  gridAutoFlow: "column",
+                }}
+              >
               {weeks?.map((week, wi) =>
                 week.map((day, di) => {
                   const levelClass = day
@@ -176,8 +219,8 @@ export default function GithubActivity() {
                   );
                 })
               )}
+              </div>
             </div>
-
           </div>
 
           {/* Footer Summary & Legend */}
@@ -211,6 +254,8 @@ export default function GithubActivity() {
             </div>
           </div>
             
+        </div>
+          </div>
         </div>
       </div>
     </section>

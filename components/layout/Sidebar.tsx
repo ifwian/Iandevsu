@@ -1,31 +1,99 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Mail, MapPin } from "lucide-react";
+import { Mail, MapPin, Search } from "lucide-react";
 import { PROFILE } from "@/content/profile";
+import { NAV_ITEMS } from "@/lib/navigation";
 import ChatWithIan from "@/components/chat/ChatWithIan";
+import LiveStatus from "./LiveStatus";
 import ThemeToggle from "./ThemeToggle";
-
-interface NavItem {
-  href: string;
-  label: string;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { href: "#home", label: "home" },
-  { href: "#about", label: "about" },
-  { href: "#projects", label: "projects" },
-  { href: "#stack", label: "stack" },
-  { href: "#education", label: "education" },
-  { href: "#life", label: "life" },
-  { href: "#github", label: "github" },
-  { href: "#blog", label: "blog" },
-];
 
 interface SidebarNavProps {
   active: string;
   mobile?: boolean;
   onNavigate?: () => void;
+}
+
+/**
+ * The platform's modifier glyph, resolved once on mount.
+ *
+ * Rendered as ⌘ on Apple platforms and "ctrl" elsewhere, because showing "⌘K" to
+ * someone on Windows or Linux describes a chord their keyboard does not have.
+ * Starts as the neutral "K" so the first paint -- and any render before the
+ * effect runs -- shows something true rather than the wrong modifier.
+ */
+function useModifierLabel(): string {
+  const [label, setLabel] = useState("K");
+  useEffect(() => {
+    const isApple = /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
+    setLabel(isApple ? "⌘K" : "ctrl k");
+  }, []);
+  return label;
+}
+
+/**
+ * The single navigation affordance that replaced the long section list on the
+ * desktop rail.
+ *
+ * Terminal-styled on purpose -- bracketed label, monospace, a `>` prompt glyph --
+ * to match the rest of the sidebar's register rather than looking like a web
+ * button dropped into it.
+ *
+ * The hover is a border and text colour change, not a fill. `.clinerules` is
+ * explicit that emphasis here comes from inversion or typography and never from
+ * a new colour, and a filled button would also be the loudest thing in a rail
+ * that is otherwise hairline rules and 11px mono.
+ */
+function SidebarCommandButton({ onOpen }: { onOpen: () => void }) {
+  const modifier = useModifierLabel();
+
+  return (
+    <div className="border-b border-[var(--gray-200)] py-5">
+      <button
+        type="button"
+        onClick={onOpen}
+        /**
+         * Deliberately the same box as the "chat with Ian" button below it, so
+         * the two read as one control family: same `rounded-lg`, same
+         * `px-3 py-2.5`, same `text-xs`, same 14px icon, same `--gray-50` fill.
+         *
+         * `leading-none` is what actually pins the height. Without it the label
+         * sits in a ~1.5 line box and the button comes out a few pixels taller
+         * than its neighbour -- the earlier version of this looked misaligned
+         * precisely because it was missing this one class.
+         */
+        className="group flex w-full items-center gap-2 rounded-lg border border-[var(--gray-300)] px-3 py-2.5 text-left text-xs leading-none transition-colors duration-200 hover:border-[var(--ink)]"
+        style={{ backgroundColor: "var(--gray-50)", color: "var(--gray-500)", fontFamily: "var(--font-mono)" }}
+      >
+        <Search
+          size={14}
+          strokeWidth={1.8}
+          aria-hidden="true"
+          className="shrink-0 transition-colors duration-200 group-hover:text-[var(--ink)]"
+        />
+        <span className="min-w-0 flex-1 truncate transition-colors duration-200 group-hover:text-[var(--ink)]">
+          jump to section
+        </span>
+        {/**
+         * The shortcut is shown on the control, not only in a tooltip: it is the
+         * only way a visitor learns the palette has a keyboard shortcut.
+         *
+         * `py-px` rather than `py-0.5` on purpose. This tag is the tallest thing
+         * in the row, so its height is what sets the button's height: 10px line
+         * + 2px padding + 2px border = 14px, exactly the icon beside it. At
+         * `py-0.5` it reached 20px and pushed the button back out of alignment
+         * with the chat button, which is what this whole control was resized to
+         * match.
+         */}
+        <kbd
+          className="shrink-0 rounded border border-[var(--gray-300)] px-1 py-px text-[10px] leading-none text-[var(--gray-400)] transition-colors duration-200 group-hover:border-[var(--gray-400)] group-hover:text-[var(--gray-500)]"
+          style={{ fontFamily: "var(--font-mono)" }}
+        >
+          {modifier}
+        </kbd>
+      </button>
+    </div>
+  );
 }
 
 function SidebarNav({ active, mobile = false, onNavigate }: SidebarNavProps) {
@@ -171,6 +239,11 @@ function SidebarMobileFooter() {
   return (
     <div className="mt-6">
       <SidebarActions className="border-b-0 pb-0" />
+      {/* Same clock and status line as the desktop rail, so the drawer is not a
+          stripped-down version of the sidebar it stands in for. */}
+      <div className="pt-5">
+        <LiveStatus status="building v2 portfolio" />
+      </div>
       <div className="pt-5">
         <SidebarContact />
       </div>
@@ -180,9 +253,11 @@ function SidebarMobileFooter() {
 
 interface SidebarProps {
   className?: string;
+  /** Opens the ⌘K palette. Owned by MainLayout, which renders the modal. */
+  onOpenPalette?: () => void;
 }
 
-export default function Sidebar({ className = "" }: SidebarProps) {
+export default function Sidebar({ className = "", onOpenPalette }: SidebarProps) {
   const [active, setActive] = useState<string>("#home");
   const [open, setOpen] = useState(false);
 
@@ -225,7 +300,22 @@ export default function Sidebar({ className = "" }: SidebarProps) {
       >
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           <SidebarIdentity />
-          <SidebarNav active={active} />
+          {/*
+            The numbered section list is gone from the rail -- it duplicated the
+            palette and made the sidebar the longest thing on the page. The
+            palette is the way in now. The list is still rendered in the mobile
+            drawer below, where it is the only navigation a touch user has: a
+            hamburger that opened a drawer containing one button which opened a
+            modal would be strictly worse than not having a drawer.
+          */}
+          <SidebarCommandButton onOpen={() => onOpenPalette?.()} />
+          {/* The status readout is a group like every other block in the rail --
+              same divider, same `py-5` -- rather than three loose lines sitting
+              in the gap between two bordered sections. Without its own border
+              and padding it read as overflow from the button above it. */}
+          <div className="border-b border-[var(--gray-200)] py-5">
+            <LiveStatus status="building v2 portfolio" />
+          </div>
           <SidebarActions />
         </div>
         {/* `mt-auto` pins the contact block to the bottom of the flex column,

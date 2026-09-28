@@ -49,19 +49,18 @@ export default function BlogSection() {
       style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
-        {/* Section Eyebrow in Geist Mono */}
-        <p 
-          className="section-eyebrow mb-1.5 tracking-wider"
-          style={{ fontFamily: "var(--font-mono)" }}
-        >
-          08 &mdash; blog
-        </p>
+        <div className="section-shell">
+          <div className="section-shell-bar">
+            <p className="section-eyebrow">08 &mdash; blog</p>
+          </div>
 
-        {/* Section Heading in the display role (Kode Mono) */}
-        <h2 
-          className="mb-2 text-2xl sm:text-3xl font-bold tracking-tight text-[var(--ink)] leading-tight"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
+          <div className="scanlines" aria-hidden="true" />
+
+          <div className="section-shell-body">
+        {/* Section Heading. This one was `text-2xl sm:text-3xl` -- larger than
+            every other section on mobile and tablet -- which is the single most
+            visible thing that stopped the section headers reading as a set. */}
+        <h2 className="section-title">
           blog
         </h2>
 
@@ -81,7 +80,11 @@ export default function BlogSection() {
               href={post.link}
               target={post.isLive ? "_blank" : "_self"}
               rel="noopener noreferrer"
-              className={`group flex flex-col bg-transparent rounded-2xl overflow-hidden transition-all`}
+              /* `min-w-0` because this is a grid child, and grid items carry the
+                 same `min-width: auto` default as flex items -- a long title
+                 would refuse to wrap and overflow the column rather than
+                 shrinking into it. */
+              className="group flex min-w-0 flex-col bg-transparent rounded-2xl overflow-hidden transition-all"
             >
               {/* Thumbnail Preview Box */}
               <div className="w-full h-48 sm:h-52 rounded-2xl overflow-hidden border border-[var(--gray-200)] bg-[var(--gray-50)] mb-4 relative flex items-center justify-center">
@@ -111,6 +114,8 @@ export default function BlogSection() {
               </h3>
             </a>
           ))}
+        </div>
+          </div>
         </div>
       </div>
     </section>

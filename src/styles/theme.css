@@ -319,7 +319,21 @@ h1, h2, h3, h4, h5, h6 {
    14px / text-sm, matching the reference implementation's section header
    (`text-sm text-gray-400`). Was 11px, and every call site also carried a
    `text-xs` utility that overrode the class anyway, so the size is defined
-   here once and the per-call overrides were removed. */
+   here once and the per-call overrides were removed.
+
+   The margin and letter-spacing now live here too, for the same reason. Eight
+   call sites had drifted across five different `mb-*` values (0, 1, 1.5, 2 and
+   6 -- a 24px gap on one section and none at all on another), and four of them
+   added `tracking-wider`, which is `letter-spacing: 0.05em` -- about 0.7px at
+   this size, so it was quietly *reducing* the 1px defined here rather than
+   increasing it. Two more added `font-medium`. Every one of those was an
+   override fighting this rule, and which one won depended on stylesheet order:
+   Tailwind is loaded from the Play CDN at runtime here, so `theme.css` and the
+   utilities are both unlayered and precedence falls to injection order.
+
+   Fixing it at the source rather than standardising the call sites means the
+   per-site utilities are gone, nothing is left to fight, and every section
+   inherits the same rhythm from one place. */
 .section-eyebrow {
   font-family: var(--font-mono);
   font-size: 14px;
@@ -328,6 +342,45 @@ h1, h2, h3, h4, h5, h6 {
   text-transform: uppercase;
   color: var(--gray-500);
   margin-bottom: 0.75rem;
+  font-weight: 400;
+}
+
+/* Section headings ("about me", "tech stack").
+   Same reasoning as `.section-eyebrow`, one step further down: seven sections
+   had each spelled their own heading out of raw utilities and drifted into four
+   different shapes.
+
+   Concretely, before this existed:
+     - blog       was text-2xl / sm:text-3xl, so on a phone and a tablet its
+                  heading rendered LARGER than all six other sections'
+     - about + life carried an extra lg:text-3xl step, so on desktop those two
+                  grew while the other five stayed at sm:text-2xl
+     - weight was font-semibold in three places and font-bold in four
+     - leading-tight was on four headings and absent on three
+     - the bottom margin was mb-2, mb-4 and mb-6 across the set
+
+   So the eyebrow lined up but the block underneath it did not, which is what
+   made the section headers read as unrelated to one another. Fixing the class
+   rather than the call sites means the next section added inherits the scale
+   instead of picking one of the four that were already in use.
+
+   `font-weight: 600` matches the hero's h1, so the name and the section
+   headings sit in the same weight family. The hero's h1 deliberately does NOT
+   use this class -- it is the page's one large title, not a section heading. */
+.section-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  margin-bottom: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .section-title {
+    font-size: 1.5rem;
+  }
 }
 
 /* ---------- Cards ---------- */
@@ -340,10 +393,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .card:hover {
-  box-shadow: var(--shadow-hover);
+  box-shadow:
+    var(--shadow-hover),
+    0 0 0 1px color-mix(in srgb, var(--ink) 6%, transparent);
   transform: translateY(-2px);
   border-color: var(--gray-300);
-}
+  }
+
 
 @media (prefers-reduced-motion: reduce) {
   .card:hover {
@@ -351,6 +407,383 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* ---------- Hero frame ----------
+   The hero is the one block that gets terminal chrome: a window title bar, an
+   inner glow, and a scanline texture. Every other section stays a plain column,
+   which is what makes the hero reading as the "screen" the rest of the page is
+   displayed on.
+
+   The glows are built from `--ink` with `color-mix` rather than a literal
+   `rgba(0,0,0,.3)`, for two reasons. `.clinerules` forbids hardcoding a colour;
+   and deriving the alpha from the ink token means the glow retints itself between
+   light and dark, where a fixed black alpha reads as a grey smudge against a
+   near-black background instead of a glow.
+
+   The glow is monochrome on purpose. `--ink` at low alpha *is* light, so it reads
+   as a lit edge without introducing a hue -- the palette has no accent colour,
+   and a coloured border here would be the one thing on the page breaking that
+   rule. */
+.hero-frame {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--gray-200);
+  border-radius: 16px;
+  background-color: var(--gray-50);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ink) 5%, transparent),
+    0 20px 60px -30px color-mix(in srgb, var(--ink) 45%, transparent);
+}
+
+.hero-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-bottom: 1px solid var(--gray-200);
+  background-color: var(--gray-100);
+  /* 1.25rem horizontally, not 0.9rem. The title bar is flush with the frame's own
+     edge while the body below it carries the frame's `p-5`, so a smaller value
+     here put the "~" of the path about 5px left of the name underneath it. */
+  padding: 0.5rem 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--gray-500);
+}
+
+/* Sits above the frame's background but below the content, so the text is never
+   read through the lines. `aria-hidden` because a texture is not content.
+
+   3% ink. At 7% the lines crossed the hero's 11px uppercase header and the quote
+   on a 4px period -- uncomfortably close to their x-height, so the smallest text
+   on the page started to look striped rather than solid. 3% keeps the CRT read as
+   a texture and leaves the text clean.
+
+   `z-index: 0` plus `pointer-events: none` are load-bearing rather than
+   decorative: the content layers are `position: relative` with no z-index, so
+   they paint above this, and a texture that swallowed clicks would make every
+   link and button inside a section unclickable over the lines.
+
+   One class for the whole site, used by the hero frame and every section shell,
+   so the texture cannot be tuned one place and left stale in another.
+
+   `border-radius: inherit` rather than a fixed value, so the texture follows
+   whichever container it is in -- 16px inside `.hero-frame`, 14px inside
+   `.section-shell`. That is what lets the section shell skip `overflow: hidden`
+   and still have square-free corners. */
+.scanlines {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ink) 3%, transparent) 0 1px,
+    transparent 1px 4px
+  );
+  animation: scan-drift 7s linear infinite;
+}
+
+@keyframes scan-drift {
+  from {
+    background-position-y: 0;
+  }
+  to {
+    background-position-y: 4px;
+  }
+}
+
+/* The drift is the only thing here that moves, so it is the only thing a
+   reduced-motion visitor should not get. The static lines stay: they are a
+   texture, not an animation. */
+@media (prefers-reduced-motion: reduce) {
+  .scanlines {
+    animation: none;
+  }
+}
+
+/* Portrait treatment. The doubled ring is a `box-shadow` spread rather than a
+   second border so it draws outside the element's own 1px edge and does not
+   change its box size -- a real border here would push the 5:6 frame out of
+   proportion and shift the flex row beside it. */
+.hero-portrait {
+  border: 1px solid var(--gray-300);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--bg) 55%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--ink) 6%, transparent);
+  transition:
+    border-color 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out);
+}
+
+.hero-portrait:hover {
+  border-color: var(--ink);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--bg) 55%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--ink) 11%, transparent),
+    0 0 26px -4px color-mix(in srgb, var(--ink) 32%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-portrait {
+    transition: none;
+  }
+}
+
+/* The name. Bumped a step from the `text-3xl sm:text-4xl` it had inline, with a
+   negative letter-spacing to stop the display font's wide metrics from opening
+   gaps in the word, and its own line-height so the subtitle below can be spaced
+   off the baseline rather than by a magic margin. */
+.hero-name {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+@media (min-width: 640px) {
+  .hero-name {
+    font-size: 2.5rem;
+  }
+}
+
+/* Subtitle, as a small-caps-ish mono strapline under the name rather than body
+   copy: it is a label, so it takes the mono register, and the tracked-out
+   lowercase at 11px reads as terminal chrome next to the display name. */
+.hero-subtitle {
+  margin-top: 0.65rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+@media (min-width: 640px) {
+  .hero-subtitle {
+    font-size: 12px;
+  }
+}
+
+/* ---------- Terminal pill ----------
+   The site's shared action-chip shape, used by the hero's social buttons
+   (github / linkedin / instagram) and the "i like to build" items.
+
+   Extracted from the social buttons' own utility list rather than written fresh,
+   so the two match *exactly* instead of approximately -- the values here are
+   those utilities' values, and having both surfaces read from one rule is what
+   stops them drifting apart the way the section eyebrows and headings did.
+
+   `transition` is written out longhand because the utilities it replaces were
+   `transition-colors`, whose default is 150ms on cubic-bezier(0.4,0,0.2,1) --
+   spelled out here so the two really are the same curve. No
+   `prefers-reduced-motion` guard, matching what these buttons always did: a
+   colour fade is not vestibular motion, and the guards in this file are for
+   transforms and looping animation. */
+.terminal-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 999px;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  /* No `line-height` here on purpose. The body sets 1.6, and the utilities this
+     rule replaced left the buttons inheriting it; specifying 1.2 -- the tighter
+     value a chip usually wants -- would have quietly made the social buttons
+     about 4px shorter than before. Inheriting keeps them identical and keeps the
+     build items identical to them, which is the whole point. */
+  letter-spacing: 0.04em;
+  /* `text-transform: none`, matching the `normal-case` these buttons carried.
+     Worth being explicit: `.pill` and `.micro-label` both uppercase, and without
+     this line a chip reading "websites" would render "WEBSITES" and stop
+     matching the social buttons next to it. */
+  text-transform: none;
+  color: var(--gray-500);
+  transition:
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.terminal-pill:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+/* Bracketed index inside a build pill: a gutter marker, not content. Muted so it
+   sits behind the label, lifting to ink with the rest of the chip on hover.
+   A fixed min-width keeps `[01]` and `[10]` from shifting their labels, and
+   tabular numerals stop the digits jittering. */
+.terminal-pill .build-pill-index {
+  flex-shrink: 0;
+  min-width: 2.4ch;
+  color: var(--gray-400);
+  font-variant-numeric: tabular-nums;
+  transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.terminal-pill:hover .build-pill-index {
+  color: var(--ink);
+}
+
+/* ---------- Build panel ("i like to build") ----------
+   A self-contained terminal panel: a title bar, then the three items as a
+   horizontal badge row. This replaced a loose tracked label with free-floating
+   pills, which read as three unrelated chips rather than one list -- there was
+   no shared edge saying they belonged together.
+
+   Sits inside `.hero-frame`, so it is a panel within the window. It reuses that
+   window's own vocabulary deliberately: same 8px radius scaled to 10px, same
+   `--gray-200` hairline, same `--gray-100` bar for the title row. The dot marks
+   are the same trio as the hero's title bar, so the two chrome rows read as the
+   same component at two depths. */
+.build-panel {
+  position: relative;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  background-color: var(--gray-50);
+  overflow: hidden;
+}
+
+.build-panel-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--gray-200);
+  background-color: var(--gray-100);
+  padding: 0.4rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+/* Centred below 768px, flush left from tablet up, matching the hero column and
+   the `.terminal-pill` chips inside it. */
+.build-panel-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .build-panel-body {
+    justify-content: flex-start;
+  }
+}
+
+/* ---------- Section shell ----------
+   The bordered window every section from 02 to 08 sits in, so the page reads as
+   one terminal rather than the hero being the only decorated block.
+
+   Deliberately quieter than `.hero-frame`, which keeps its glow. The hero is the
+   one screen you are looking *at*; the sections are what it displays, and eight
+   equally-glowing boxes would flatten that and make the page monotonous. Same
+   hairline, same radius family, same `--gray-50` ground, same title-bar
+   treatment as `.build-panel` -- so the vocabulary is shared even though the
+   emphasis is not.
+
+   No `overflow: hidden`, which the hero frame does carry. The Life section's
+   photo `Stack` rotates its cards up to about 21 degrees around a 90%/90% origin,
+   which throws a card corner roughly 70px outside its own 280px box; a clipping
+   shell would slice those corners off. Rounding is achieved instead by rounding
+   the bar and letting `.scanlines` inherit the radius, so nothing needs to be
+   clipped and nothing is. */
+.section-shell {
+  position: relative;
+  border: 1px solid var(--gray-200);
+  border-radius: 14px;
+  background-color: var(--gray-50);
+  box-shadow: var(--shadow-resting);
+  transition:
+    border-color 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out);
+}
+
+/* "Light up slightly" for the shell: the border warms and a faint ink ring
+   appears, the same pair `.build-panel:hover` and `.card:hover` use. One
+   vocabulary for every bordered surface on the site. */
+.section-shell:hover {
+  border-color: var(--gray-300);
+  box-shadow:
+    var(--shadow-resting),
+    0 0 0 1px color-mix(in srgb, var(--ink) 7%, transparent),
+    0 18px 48px -28px color-mix(in srgb, var(--ink) 40%, transparent);
+}
+
+.section-shell-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-bottom: 1px solid var(--gray-200);
+  /* Rounds the bar's own top corners to the shell's, since the shell no longer
+     clips. 13px rather than 14px: the bar sits inside the shell's 1px border,
+     so matching the outer radius exactly leaves a hairline of background at each
+     corner. */
+  border-radius: 13px 13px 0 0;
+  background-color: var(--gray-100);
+  padding: 0.5rem 1.1rem;
+  min-width: 0;
+}
+
+/* The eyebrow sits in the bar, so its own bottom margin would pad the bar
+   asymmetrically. Zeroed here; the bar's padding owns the spacing. */
+.section-shell-bar .section-eyebrow {
+  margin-bottom: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Slot for a section's own control at the right of the bar -- the "view all
+   stack" toggle and the GitHub handle both live here, which is what keeps them
+   on the eyebrow's baseline instead of beside the heading. */
+.section-shell-action {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gray-500);
+  transition: color 0.2s var(--ease-out);
+}
+
+.section-shell-action:hover,
+.section-shell-action:focus-visible {
+  color: var(--ink);
+}
+
+.section-shell-body {
+  position: relative;
+  padding: 1.5rem 1.1rem 1.75rem;
+}
+
+@media (min-width: 640px) {
+  .section-shell-bar {
+    padding: 0.5rem 1.5rem;
+  }
+  .section-shell-body {
+    padding: 1.75rem 1.5rem 2rem;
+  }
+}
 /* ---------- Chat panel ----------
    Height lives here rather than inline so the `vh` -> `svh` fallback can be
    expressed as two declarations. `100vh` on mobile includes the strip behind
@@ -543,6 +976,19 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid var(--gray-300);
   border-radius: 999px;
   padding: 2px 8px;
+  transition:
+    color 0.2s var(--ease-out),
+    border-color 0.2s var(--ease-out);
+}
+
+/* Border and text warm to ink, the same pair `.terminal-pill` and
+   `.section-shell-action` use -- one hover vocabulary for every chip on the
+   site. Previously only the chat's quick-replies had a hover; the Education
+   foundation tags and the Life interest pills had none at all, so the same
+   component behaved differently depending on where it was rendered. */
+.pill:hover {
+  color: var(--ink);
+  border-color: var(--ink);
 }
 
 .pill-inverted {

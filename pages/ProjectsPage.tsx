@@ -5,7 +5,14 @@ import ProjectCard from "@/components/projects/ProjectCard";
 
 export default function ProjectsPage() {
   return (
-    <div className="sidebar-offset min-h-screen px-6 py-16" style={{ fontFamily: "var(--font-mono)" }}>
+    /**
+     * `px-5 lg:px-6` rather than a flat `px-6`. This route is its own page shell
+     * rather than a `.section-frame`, so nothing forced it to match -- and it
+     * did not: 24px of gutter against the home sections' 20px below lg, for the
+     * same `max-w-4xl` column. Same class string as the sections so the two
+     * routes cannot drift again.
+     */
+    <div className="sidebar-offset min-h-screen px-5 py-16 lg:px-6" style={{ fontFamily: "var(--font-mono)" }}>
       <div className="w-full max-w-4xl mx-auto">
         <Link
           to="/"
@@ -18,7 +25,7 @@ export default function ProjectsPage() {
           back to home
         </Link>
 
-        <p className="section-eyebrow mb-1">all projects</p>
+        <p className="section-eyebrow">all projects</p>
         <h1 className="mb-2 text-3xl font-semibold tracking-tight text-white" style={{ fontFamily: "var(--font-display)" }}>
           projects
         </h1>
