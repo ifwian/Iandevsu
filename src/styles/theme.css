@@ -435,20 +435,62 @@ h1, h2, h3, h4, h5, h6 {
     0 20px 60px -30px color-mix(in srgb, var(--ink) 45%, transparent);
 }
 
+/* The hero's section marker ("01 -- who am i?"), which sits ABOVE the window
+   rather than inside a `.section-shell-bar` the way 02-08 sit inside theirs.
+
+   Two things it has to own, and neither can be left to a utility:
+
+   1. `.section-eyebrow` carries `margin-bottom: 0.75rem` of its own, and the
+      `.section-shell-bar .section-eyebrow` rule that cancels it only reaches
+      markers inside a bar. With this marker outside the frame nothing cancelled
+      it, so it stacked with the wrapper's own `mb-6` -- 24px + 12px = a 36px
+      gulf between the marker and the top of the terminal window, which read as
+      two separate blocks rather than a label sitting above a window. Zeroed
+      here, at the higher specificity, so the single value below is the real gap.
+
+   2. A Tailwind `mb-*` on the same element would lose to (or win against) this
+      file depending on injection order, since the Play CDN's utilities and
+      theme.css are both unlayered. The spacing is declared here instead.
+
+   1rem rather than the marker's own 0.75rem, so the marker is visibly tied to
+   the window below it; the same 0.5rem scale the bar and body paddings use. */
+.hero-eyebrow-row {
+  margin-bottom: 1rem;
+}
+
+.hero-eyebrow-row .section-eyebrow {
+  margin-bottom: 0;
+}
+
 .hero-titlebar {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   border-bottom: 1px solid var(--gray-200);
   background-color: var(--gray-100);
-  /* 1.25rem horizontally, not 0.9rem. The title bar is flush with the frame's own
-     edge while the body below it carries the frame's `p-5`, so a smaller value
-     here put the "~" of the path about 5px left of the name underneath it. */
+  /* Horizontal padding steps WITH the body's own, at each breakpoint. The bar is
+     flush with the frame's edge while the body below it carries the frame's
+     padding, so a fixed 1.25rem here lined the path up with the name underneath
+     on a phone (body `p-5` = 20px) and then drifted by 8px at `sm` and 16px at
+     `lg` as the body grew to `p-7`/`p-9`. One shared scale, three steps, so the
+     two rows stay on the same left edge at every width. */
   padding: 0.5rem 1.25rem;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.5px;
   color: var(--gray-500);
+}
+
+@media (min-width: 640px) {
+  .hero-titlebar {
+    padding: 0.5rem 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-titlebar {
+    padding: 0.5rem 2rem;
+  }
 }
 
 /* Sits above the frame's background but below the content, so the text is never
@@ -784,6 +826,546 @@ h1, h2, h3, h4, h5, h6 {
     padding: 1.75rem 1.5rem 2rem;
   }
 }
+
+/* ---------- Section 02: About ----------
+   The interior of the About window. The window itself (`.section-shell`, its
+   bar, its body padding) is untouched and shared with 03-08 -- only what sits
+   inside the body is section-specific, and it is all scoped under `.about-*` so
+   none of it can reach another section.
+
+   COLOUR IS THE CONSTRAINT. The tokens above are monochrome by design ("no
+   accent colour, ever"), and the glow here follows `.hero-frame`'s existing
+   answer to that: `--ink` at low alpha, via `color-mix`. `--ink` at low alpha
+   *is* light, so the border reads as lit rather than tinted, and it retints
+   itself between light and dark for free. A literal green or cyan here would be
+   the one thing on the page breaking that rule, and would render the same in
+   both themes -- a fixed hex is a fixed hex whether the background is white or
+   near-black, so it would either vanish or glare depending on the visitor's
+   system setting. If a green accent is ever wanted, it belongs as a new token
+   aliased to `--status-active` in all three theme blocks, the way
+   `--accent-positive` is, not as a value typed into a rule here.
+
+   The heading deliberately does NOT resize. It keeps `.section-title`, so it
+   stays on the same scale as the six other section headings; bumping About's
+   alone is the drift `.section-title`'s own comment records having already
+   fixed once (blog rendering larger than everything else on a phone). What
+   changed here is the cursor and the hover, not the type size.
+
+   `.title-row` / `.title-cursor` below are deliberately NOT `.about-*`. They
+   started here, but /projects needs the identical treatment for its own h1, and
+   a second copy of a blinking-cursor keyframe under a second name is two things
+   to keep in step for no reason. */
+.title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.1em;
+  /* `text-shadow` is inherited, so this reaches the heading's text span but not
+     the cursor block beside it (that is a background, not glyphs). */
+  transition: text-shadow 0.4s var(--ease-out);
+}
+
+/* Two haloes rather than one: the tight one is the lit edge, the wide one is
+   the falloff. A single shadow at this radius reads as a grey smudge in light
+   mode, because that is exactly what a wide black-ish alpha over white is. */
+.title-row:hover {
+  text-shadow:
+    0 0 14px color-mix(in srgb, var(--ink) 34%, transparent),
+    0 0 34px color-mix(in srgb, var(--ink) 16%, transparent);
+}
+
+/* The block cursor after a heading. A background block, not an underscore
+   character: `_` is not in every mono face the project loads, and a missing
+   glyph renders as tofu. Sized in `em` off the heading so it tracks the
+   heading's own step rather than a fixed pixel height -- which is why the h1 on
+   /projects and the h2 here can share one rule at two different type sizes.
+
+   `steps(1, end)` makes it a hard on/off, which is what a terminal cursor is;
+   an eased fade would read as a soft glow rather than a cursor blinking.
+
+   `aria-hidden` at every call site: it is decoration implying "editable", and
+   these are static reads -- announcing a cursor would be a false claim. */
+.title-cursor {
+  display: inline-block;
+  flex: none;
+  width: 0.5em;
+  height: 1.02em;
+  background-color: var(--ink);
+  animation: title-cursor-blink 1.15s steps(1, end) infinite;
+}
+
+@keyframes title-cursor-blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* The blink is the one thing here that moves, so it is the one thing a
+   reduced-motion visitor should not get. Held at full opacity, which is the
+   cursor's resting state, rather than hidden -- a heading with a gap where its
+   last letter should be reads as broken. */
+@media (prefers-reduced-motion: reduce) {
+  .title-cursor {
+    animation: none;
+  }
+}
+
+/* Narrative column. `line-height: 1.75` at 15px and 1.8 at 17px: serif at this
+   size needs more leading than the 1.6 the body sets, or the ascenders and
+   descenders of adjacent lines crowd on a dark background. The measure is
+   capped so the column does not stretch to the full max-w-4xl and break lines
+   at awkward points. */
+.about-prose {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--gray-400);
+  max-width: 62ch;
+}
+
+@media (min-width: 640px) {
+  .about-prose {
+    font-size: 17px;
+    line-height: 1.8;
+  }
+}
+
+.about-prose p + p {
+  margin-top: 1rem;
+}
+
+/* The phrase highlights inside the prose. Lifts the words from `--gray-400` to
+   `--ink` -- a jump from about 5:1 to full contrast against the shell -- and
+   underlines them in the same thin ink rule `.text-link` already uses, so the
+   two marks are the same gesture and not two different ideas.
+
+   The underline is `underline` at an offset with a 30%-ink colour rather than
+   a solid one, for the reason `.text-link` gives: a full-strength rule under
+   17px serif competes with the glyphs. */
+.about-em {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--ink) 30%, transparent);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+
+/* ---------- Specs block ----------
+   A `key ....... value` dump rather than prose, so the right column gives facts
+   the left column is too long to state. It is the one place on the page that
+   format: a spec sheet is the only place a dotted leader belongs.
+
+   Reuses `.build-panel` for the box and `.build-panel-bar` for the chrome --
+   the same window vocabulary as the hero's "i like to build" panel and the
+   section shells, so it reads as the same component at a third depth rather
+   than as a new invention. It is not interactive, so unlike the widgets below
+   it carries no hover state: lifting on hover would imply a click. */
+/* `font-size` is here, not on the rows: `.build-panel` sets no size, so without
+   this the key/value rows below would inherit the body's 15px and read as body
+   copy inside a panel of chrome. 11px is the floor `.micro-label` documents. */
+.about-specs {
+  font-size: 11px;
+}
+
+/* Overrides `.build-panel-bar`'s 10px, which is below the 11px floor
+   `.micro-label` sets, and widens its tracking to match `.section-eyebrow`.
+   Equal specificity, later in the file, so it wins without a fight. */
+.about-specs-bar {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+.about-specs-rows {
+  padding: 0.85rem 0.9rem;
+}
+
+.about-specs-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  line-height: 1.5;
+}
+
+.about-specs-row + .about-specs-row {
+  margin-top: 0.6rem;
+}
+
+.about-specs-key {
+  flex: none;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* The dotted leader. A flex child that grows to fill the gap between key and
+   value, with its own bottom border, so the rule is always exactly as long as
+   the free space and the value stays flush right without a per-row width. */
+.about-specs-leader {
+  flex: 1 1 auto;
+  min-width: 0.75rem;
+  align-self: center;
+  margin: 0 0.1rem;
+  border-bottom: 1px dotted var(--gray-300);
+}
+
+.about-specs-value {
+  flex: none;
+  color: var(--ink);
+  text-align: right;
+}
+
+/* The stack tags under the rows. `.pill` unchanged -- it is the project's
+   existing tag primitive and its hover is the only state these have. */
+.about-specs-stack {
+  border-top: 1px solid var(--gray-200);
+  padding: 0.85rem 0.9rem 0.9rem;
+}
+
+/* ---------- Fact widgets ----------
+   The four quick facts, upgraded from `.card` boxes into terminal micro-widgets.
+
+   Same hover vocabulary as `.card` and `.section-shell` -- border to `--ink`
+   plus the two-part ink-alpha ring-and-falloff shadow -- so they are still
+   recognisably the same objects as the cards elsewhere on the page, just
+   better lit. Nothing here is clickable, so (as with the Education `.pill` row)
+   the hover is a border and glow, never a fill or a cursor: a pointer or a
+   colour wash would promise an action that does not exist. */
+.about-widget {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  /* Translucent, which is what makes the `backdrop-filter` below do anything
+     at all: a blur behind an opaque fill is invisible. At this alpha the fill
+     is still solidly legible as a surface, and the shell's scanlines show
+     faintly through it, so the widget reads as frosted glass over the CRT
+     texture the whole page already sits on. */
+  background-color: color-mix(in srgb, var(--gray-50) 74%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 0.85rem 0.9rem 0.95rem;
+  transition:
+    border-color 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out),
+    transform 0.35s var(--ease-out),
+    background-color 0.35s var(--ease-out);
+}
+
+.about-widget:hover {
+  border-color: var(--ink);
+  background-color: color-mix(in srgb, var(--gray-100) 82%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent),
+    0 16px 40px -24px color-mix(in srgb, var(--ink) 45%, transparent);
+  transform: translateY(-2px);
+}
+
+/* A 2px lift is the same distance `.card:hover` moves, and is guarded the same
+   way below. A widget is not interactive, so this is the whole of the depth
+   cue -- no scale, which would make four boxes jitter against a static grid. */
+@media (prefers-reduced-motion: reduce) {
+  .about-widget:hover {
+    transform: none;
+  }
+}
+
+.about-widget-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.about-widget-icon {
+  flex: none;
+  color: var(--gray-400);
+  transition: color 0.35s var(--ease-out);
+}
+
+.about-widget:hover .about-widget-icon {
+  color: var(--ink);
+}
+
+/* The label. `text-wrap: nowrap` plus `overflow: hidden` rather than letting it
+   wrap: "first line of code" is the longest label, and at 11px with this
+   tracking it needs a wide box to stay on one line -- wrapping it to two would
+   misalign the icon against the other three headers. The two longest labels get
+   a slightly tighter tracking from `.about-widget-label-tight` rather than a
+   font-size drop, so all four stay on the same optical scale. */
+.about-widget-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.3;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.about-widget-label-tight {
+  letter-spacing: 0.06em;
+}
+
+/* The indicator dot at the far end of the header. Same idea as the hero title
+   bar's chrome dots and the hero's live stat, minus the pulse: a pulsing dot
+   implies a state that is changing, and these four facts are not. */
+.about-widget-dot {
+  margin-left: auto;
+  flex: none;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background-color: var(--gray-300);
+  transition: background-color 0.35s var(--ease-out);
+}
+
+.about-widget:hover .about-widget-dot {
+  background-color: var(--ink);
+}
+
+.about-widget-value {
+  font-family: var(--font-display);
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  /* Full-opacity `--ink`, not the `--gray-400` the prose uses: this is the one
+     thing in the widget the visitor is actually here to read, and it is 14px
+     against a translucent fill, so it takes the strongest contrast on the
+     page. `tabular-nums` because "2nd Year" and "Age 17" are the values most
+     likely to sit next to other digits, and proportional figures would make the
+     hover re-flow. */
+  font-variant-numeric: tabular-nums;
+  margin-top: auto;
+}
+
+/* ---------- Project card ----------
+   One component, two call sites: the 03 PROJECTS preview on the home page and
+   the full /projects index. Both sit inside a `.section-shell`, so the card is
+   a panel within a window, and it borrows the same chrome vocabulary as
+   `.build-panel` and the hero frame -- hairline, `--gray-100` bar, trio of dots.
+
+   It keeps `.card` for its resting/hover pair, because `.card:hover` is the
+   site's one shared "light up slightly" treatment and re-deriving it here would
+   be a second definition that could drift. Only the additions are new. */
+.project-card {
+  overflow: hidden;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The card's own title bar, so a card reads as a window rather than as a
+   bordered box with a picture in it. This is what "card header" means here.
+
+   Same 8px vertical / 1rem horizontal as `.section-shell-bar`, and the same
+   `min-width: 0` requirement, because the path beside the dots is a flex child
+   that has to be allowed to `truncate`. */
+.project-card-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  border-bottom: 1px solid var(--gray-200);
+  background-color: var(--gray-100);
+  padding: 0.5rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+  color: var(--gray-500);
+}
+
+/* The `01` / `02` gutter marker. `tabular-nums` and a `2.4ch` floor so the path
+   text does not shift sideways as the index changes width, matching
+   `.build-pill-index`. */
+.project-card-index {
+  flex: none;
+  min-width: 2.4ch;
+  font-variant-numeric: tabular-nums;
+  color: var(--gray-400);
+}
+
+.project-card:hover .project-card-index {
+  color: var(--ink);
+}
+
+.project-card-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.3s var(--ease-out);
+}
+
+.project-card:hover .project-card-path {
+  color: var(--ink);
+}
+
+/* The preview area. Still a placeholder rather than a screenshot -- nothing in
+   `content/projects.ts` has a thumbnail to show -- but the giant washed-out
+   first letter this used to centre is gone, replaced by a hairline grid and a
+   corner tick, which reads as "no preview" without shouting. */
+.project-card-preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-bottom: 1px solid var(--gray-200);
+  background-color: var(--gray-100);
+}
+
+.project-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+@media (min-width: 640px) {
+  .project-card-body {
+    padding: 1.15rem 1.35rem 1.25rem;
+  }
+}
+
+.project-card-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  /* `min-width: 0` is load-bearing, not decorative: the status tag beside it is
+     `flex: none`, so without this the heading absorbs all the shrinking and a
+     long single-word title pushes the row past the card's edge instead of
+     wrapping. */
+  min-width: 0;
+}
+
+.project-card-role {
+  margin-top: 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+/* Serif, because this is prose describing a project rather than a label. */
+.project-card-summary {
+  margin-top: 0.6rem;
+  font-family: var(--font-serif);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--gray-400);
+}
+
+/* The devicon row. `aria-hidden` is on each icon in the markup; the stack is
+   decorative next to a prose description that already names the technologies in
+   words, so nothing is lost to a screen reader. */
+.project-card-stack {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+.project-card-stack img,
+.project-card-stack i {
+  font-size: 15px;
+  line-height: 1;
+  /* 11px devicon glyphs on a 14px body would look like dirt; this is the same
+     bump the hero's build pills already rely on. */
+  filter: saturate(0.9);
+  opacity: 0.85;
+  transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+}
+
+.project-card:hover .project-card-stack i {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.project-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: auto;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--gray-200);
+}
+
+/* ---------- Status tag ----------
+   `.pill` with ONE deliberate difference: the project's status is a state, and
+   the home-page 03 preview and the /projects index both need to be scannable
+   for "which of these are actually live". So the tag is a `.pill` that can carry
+   a tone, rather than a pile of utilities re-stating what `.pill` already sets.
+
+   That pile was the previous implementation and it fought the class on six axes
+   (`rounded` vs `border-radius: 999px`, `border-[var(--gray-200)]` vs the
+   class's `gray-300`, `px-2 py-0.5` vs `2px 8px`, `bg-[var(--gray-100)]`,
+   `text-[var(--gray-500)]`, and an inline `fontFamily` that beat the class's own
+   face). Whichever won depended on stylesheet order, since the Tailwind CDN and
+   this file are both unlayered. The tone now comes from one attribute here.
+
+   The selector is `.pill.project-tag`, not `.project-tag`, and it is compound on
+   purpose. `.pill` is defined LATER in this file than the rules below, and both
+   are single-class, so at equal specificity the later one would simply win and
+   every tone here would silently do nothing -- `--ink` tags rendering as
+   `--gray-500`, with no error anywhere. The compound form scores 0-2-0 against
+   `.pill`'s 0-1-0, so the tone holds whatever order these two end up in. Same
+   reason `.section-shell-bar .section-eyebrow` and `.terminal-pill
+   .build-pill-index` are written the way they are. */
+.pill.project-tag {
+  --project-tag-tone: var(--gray-500);
+  --project-tag-edge: var(--gray-300);
+  --project-tag-fill: transparent;
+  flex: none;
+  color: var(--project-tag-tone);
+  border-color: var(--project-tag-edge);
+  background-color: var(--project-tag-fill);
+}
+
+/* Live-ish: something shipped or about to. `--ink`, not a green -- the palette
+   is monochrome and a colour here would be the only one on the page. */
+.pill.project-tag[data-tone="live"] {
+  --project-tag-tone: var(--ink);
+  --project-tag-edge: var(--ink);
+  --project-tag-fill: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+/* Being built right now. Reads as active against the templates without
+   pretending to be a status dot, which would collide with the chat inbox's
+   four real states. */
+.pill.project-tag[data-tone="active"] {
+  --project-tag-tone: var(--ink);
+  --project-tag-edge: var(--ink);
+  --project-tag-fill: transparent;
+}
+
+/* A practice template. Deliberately the quietest of the three: these are the
+   rows nobody needs to act on. */
+.pill.project-tag[data-tone="template"] {
+  --project-tag-tone: var(--gray-400);
+  --project-tag-edge: var(--gray-200);
+}
+
 /* ---------- Chat panel ----------
    Height lives here rather than inline so the `vh` -> `svh` fallback can be
    expressed as two declarations. `100vh` on mobile includes the strip behind
@@ -915,6 +1497,616 @@ h1, h2, h3, h4, h5, h6 {
 .chat-reaction-chip[aria-pressed="true"] {
   background-color: var(--ink);
   border-color: var(--ink);
+  color: var(--bg);
+}
+
+/* ---------- Chat inbox dashboard ----------
+   /chat-inbox only. Scoped under `.inbox-*` so none of it can reach the public
+   visitor chat, which reuses the `.chat-*` primitives above unchanged -- the two
+   surfaces share a message format but not a purpose, and the admin one is
+   dense, scrollable and read at arm's length.
+
+   THE CONTRAST BUG THIS BLOCK EXISTS TO FIX
+   A visitor bubble used to be `background: var(--gray-100)` sitting inside a
+   panel that was `var(--gray-50)`. Those are adjacent steps in the same ramp:
+
+     light   #f5f5f5 on #fafafa   -- 5/255 apart
+     dark    #1e1e22 on #18181b   -- 6/255 apart
+
+   which is not a surface, it is a rounding error. The bubbles had no edge, so a
+   visitor's message was separated from the panel behind it by less than the
+   scanline texture, and the transcript read as undifferentiated blocks. Worse,
+   the text sat at `--ink` on a near-identical fill, so the only thing marking
+   where one message ended and the next began was a 1.5rem gap.
+
+   So visitor bubbles now carry a real hairline AND a translucent fill, which is
+   what makes `backdrop-filter` do anything at all. Admin bubbles keep the
+   inversion -- the design system's one emphasis mechanism, and the only thing on
+   this page that says "this one is mine". */
+
+/* ---------- Inbox app root ----------
+   The single "de-zoom" lever for this route.
+
+   Every size in the inbox block below is expressed in `rem`, and this is the
+   route's `font-size`, so setting it to 14px rescales all of that padding,
+   radius and chrome together -- the avatars, the bubble padding, the panel
+   gutters, the segmented controls -- by about 12%, in one declaration. The page
+   read as zoomed-in because those values were tuned against the 16px document
+   root, which is right for the marketing sections (a 1.5rem gutter on a card
+   you scroll past is generous and looks intentional) and wrong for a tool you
+   sit and read all day.
+
+   14px rather than a smaller number, because this shrinks the *chrome* without
+   touching what an operator is actually reading:
+   `.inbox-bubble` declares `font-size: 15px` in px, so message text keeps its
+   legibility while everything around it tightens. Message legibility is the one
+   thing in this interface that should not be economised on.
+
+   `line-height: 1.5` also comes off the 1.6 the body sets. Mono needs less
+   leading than a proportional face at the same size, and 1.6 in a UI of
+   single-line labels is what makes the labels look loose and oversized. */
+.inbox-app {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---------- Inbox shell ----------
+   A two-pane chatbox: a conversation drawer and the thread, with the visitor
+   context in a third column that only exists while it is open.
+
+   The grid is declared here rather than as Tailwind `grid-cols-*` utilities
+   because the column count now depends on a runtime state, not just a
+   breakpoint: closing the info drawer has to REMOVE a column, and a class that
+   is merely absent from the element cannot do that -- a two-column utility
+   always wins over a three-column one by order, never by intent. `[data-info]`
+   makes the state explicit and lets the two declarations be mutually exclusive
+   by construction. The project generates its utilities from the Play CDN at
+   runtime, so plain CSS is also the only form that can be verified from a build.
+
+   Below `lg` there is no placement at all: one column, and the panes take turns
+   via the `hidden`/`flex` pair in the markup, which is standard messenger
+   behaviour on a phone -- list, then thread, then context, never all three. */
+.inbox-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (min-width: 1024px) {
+  .inbox-shell {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+  /* Third column only while the drawer is open. */
+  .inbox-shell[data-info="open"] {
+    grid-template-columns: 280px minmax(0, 1fr) 330px;
+  }
+  /* Explicit placement rather than auto-flow: the three panes are in DOM order
+     drawer, thread, info, but below `lg` only one of them is displayed at a
+     time. Auto-placement would see a hole where the hidden pane was and push
+     the next one into the wrong column. */
+  .inbox-drawer { grid-column: 1; grid-row: 1; }
+  .inbox-chat   { grid-column: 2; grid-row: 1; }
+  .inbox-info   { grid-column: 3; grid-row: 1; }
+
+  /* At `lg`+ the info drawer's visibility is decided HERE and nowhere else.
+     The markup still carries a `flex`/`hidden` pair for the sub-`lg` single-pane
+     case, and a utility that lands out of step with `data-info` would put a
+     visible pane in column 3 of a two-column grid -- which does not overlap
+     anything, it silently grows an implicit third column and squeezes the
+     transcript. These two descendant rules score 0-3-0 against a utility's
+     0-1-0, so whichever way the two disagree, the grid definition wins. */
+  .inbox-shell[data-info="closed"] .inbox-info { display: none; }
+  .inbox-shell[data-info="open"] .inbox-info { display: flex; }
+}
+
+@media (min-width: 1280px) {
+  .inbox-shell[data-info="open"] {
+    grid-template-columns: 300px minmax(0, 1fr) 344px;
+  }
+}
+
+/* Centred measure inside the thread.
+   A chat window stretched across a 1600px cap would run lines out to ~1300px,
+   and a line that long is as hard to track back to the next one as a paragraph
+   of unbroken text. This is the same move Discord and Telegram make: the
+   conversation column has a maximum, and the whitespace around it is the point.
+   The composer lives inside this wrapper too, so replies start at the same left
+   edge as the messages they answer.
+
+   48rem, down from 54. At the 14px root above that is 672px, and since a bubble
+   caps itself at 74% of it the widest bubble is ~500px -- about 65 characters
+   at 15px. The measure itself can stay wider than that without producing long
+   lines, because it only bounds where the bubbles sit. */
+.inbox-thread-inner {
+  width: 100%;
+  max-width: 48rem;
+  margin-inline: auto;
+}
+
+/* Monogram. A messenger drawer is a list of people, and a list of people reads
+   far faster with a face-shaped anchor per row than with a text label alone.
+   Drawn in CSS rather than fetched, because there are no avatars in
+   `chat_conversations` -- only a name, sometimes null.
+
+   Square, not round: the whole page is built from 8-16px radii, and a circle
+   would be the only true curve in the layout. */
+.inbox-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  background-color: var(--gray-100);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--ink);
+  text-transform: uppercase;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.inbox-avatar--sm {
+  width: 1.65rem;
+  height: 1.65rem;
+  font-size: 10px;
+  border-radius: 6px;
+}
+
+.inbox-avatar--lg {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 15px;
+  border-radius: 10px;
+}
+
+/* The open row inverts its monogram, so the selection reads from the corner of
+   the eye as well as from the row's fill and border. */
+.inbox-row[aria-current="true"] .inbox-avatar {
+  background-color: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+/* Square icon-only button for the chat header's actions. Fixed square so the
+   takeover button, the info toggle and the delete button share one optical
+   height regardless of their labels. */
+.inbox-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  color: var(--gray-500);
+  transition: color 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.inbox-icon-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+  background-color: var(--gray-100);
+}
+
+/* The info toggle, when it is the thing that is open. Inverted rather than a
+   filled accent, so it matches the takeover button's "on" state and the two
+   read as the same kind of thing: a mode the chat is currently in. */
+.inbox-icon-btn[aria-expanded="true"] {
+  background-color: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+/* ---------- Visitor panel ---------- */
+
+.inbox-panel {
+
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background-color: var(--gray-50);
+  overflow: hidden;
+}
+
+.inbox-panel-head {
+  flex: none;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--gray-200);
+  background-color: var(--gray-100);
+}
+
+.inbox-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.3;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+/* The scrolling body of a side panel. One rule for both rails, so the list and
+   the context pane cannot end up with different inner padding. */
+.inbox-panel-body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+/* ---------- Visitor rows ----------
+   Was four stacked lines in a `p-3` card: name, email, preview, timestamp. On a
+   260px rail that is ~92px per row, so the list showed four conversations.
+
+   Now two lines -- identity and preview -- with the timestamp moved onto the
+   identity line at the end. Same information, about half the height. */
+.inbox-row {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  text-align: left;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.inbox-row:hover {
+  background-color: var(--gray-100);
+}
+
+/* `aria-current`, not a class: the selected row is a state the markup already
+   declares for assistive tech, and a second signal could disagree with it.
+   Inverted edge + tinted fill, so the active row is unmistakable in a list of
+   grey ones and still reads without relying on the tint alone. */
+.inbox-row[aria-current="true"] {
+  background-color: color-mix(in srgb, var(--ink) 6%, transparent);
+  border-color: var(--ink);
+}
+
+.inbox-row-line {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.inbox-row-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.inbox-row-time {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--gray-400);
+}
+
+.inbox-row-preview {
+  margin-top: 0.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--gray-500);
+}
+
+/* The search field, so it matches the composer's surface rather than being the
+   only bare-input look on the page. 11px matches `.inbox-panel-title` and the
+   visitor rows, so the whole rail is on one optical scale. */
+.inbox-field {
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 7px;
+  background-color: color-mix(in srgb, var(--gray-100) 62%, transparent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.inbox-field::placeholder {
+  color: var(--gray-400);
+  font-style: italic;
+  letter-spacing: 0;
+}
+
+.inbox-field:focus {
+  border-color: var(--ink);
+}
+
+/* ---------- Segmented control ----------
+   Replaces the free-floating rounded pills used for the status filters and the
+   status actions. Those were individually bordered, so four of them in a row
+   read as four unrelated buttons rather than one control with four positions.
+
+   One shared 1px container, one divider between positions, and the active
+   position inverted. `aria-pressed` carries the state, and the rule is written
+   against that so the styling cannot disagree with the accessibility tree.
+
+   `gap: 0` with a border-left on the siblings is what produces the join. */
+.inbox-seg {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--gray-300);
+  border-radius: 999px;
+  overflow: hidden;
+  background-color: var(--gray-50);
+}
+
+.inbox-seg > * + * {
+  border-left: 1px solid var(--gray-200);
+}
+
+.inbox-seg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+  white-space: nowrap;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.inbox-seg-item:hover:not([aria-pressed="true"]):not([disabled]) {
+  background-color: var(--gray-100);
+  color: var(--ink);
+}
+
+.inbox-seg-item[aria-pressed="true"],
+.inbox-seg-item[aria-selected="true"] {
+  background-color: var(--ink);
+  color: var(--bg);
+}
+
+.inbox-seg-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ---------- Thread ----------
+   The transcript is the point of this page, so it is the only element given real
+   breathing room: a max measure, generous padding, and a line-height that suits
+   a paragraph of a visitor's own words rather than a chat log line. */
+/* Padding rather than a tight `space-y`. This is the only scroll region in the
+   chat pane -- the header and the composer are both outside it -- so there is
+   nothing nested to fight the wheel over, and the space belongs here.
+
+   `scrollbar-gutter: stable` reserves the gutter whether or not the transcript
+   is currently scrollable, so messages do not shift sideways the moment a thread
+   grows past the fold. */
+.inbox-transcript {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 1.15rem;
+  scrollbar-gutter: stable;
+}
+
+@media (min-width: 768px) {
+  .inbox-transcript {
+    padding: 1.75rem 1.5rem;
+  }
+}
+
+.inbox-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: min(74%, 40rem);
+}
+
+.inbox-msg--visitor {
+  align-items: flex-start;
+  margin-right: auto;
+}
+
+.inbox-msg--admin {
+  align-items: flex-end;
+  margin-left: auto;
+}
+
+/* 0.8rem between consecutive bubbles. This is the main thing making a long
+   transcript scannable: enough gap that the eye finds the seam between two
+   messages without the thread reading as a wall of separate blocks. The
+   original `space-y-3` was 12px; this is 11px at the 14px root, so it is very
+   slightly tighter than before while the header above it has given back about
+   130px. */
+.inbox-msg + .inbox-msg {
+  margin-top: 0.8rem;
+}
+
+.inbox-bubble {
+  /* `--font-body` (Geist), NOT the mono the page wrapper sets. The whole shell
+     is mono because every label in it is chrome, and a visitor's message is not
+     chrome: it is a sentence they typed, often in Tagalog, and Kode Mono at
+     message length sets a letter width per character that makes a 60-character
+     message measurably harder to scan than a proportional face. The meta line
+     above stays mono, so the register change is exactly "this is their voice,
+     the timestamp is ours". */
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 0.7rem 0.9rem;
+  border-radius: 12px;
+}
+
+.inbox-bubble--visitor {
+  color: var(--ink);
+  background-color: color-mix(in srgb, var(--gray-100) 62%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--gray-300);
+  /* Flat top-left corner: the shape says "incoming" before the label is read,
+     which is the same job the alignment and the inversion are doing. */
+  border-top-left-radius: 3px;
+}
+
+.inbox-bubble--admin {
+  color: var(--bg);
+  background-color: var(--ink);
+  border: 1px solid var(--ink);
+  border-top-right-radius: 3px;
+}
+
+/* A long unbroken token (a pasted URL, a stack trace) must not push the bubble
+   to the full width of the column. `overflow-wrap: anywhere` on the bubble does
+   this, and `min-width: 0` lets the flex parent actually shrink below its
+   content -- without it the min-content width of the longest word wins and the
+   bubble escapes its 78% measure. */
+.inbox-bubble--wrap {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.inbox-system {
+  margin: 0.75rem auto;
+  max-width: 34rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 999px;
+  background-color: var(--gray-100);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--gray-500);
+}
+
+/* ---------- Composer ----------
+   One bordered surface holding the textarea and its actions, rather than a bare
+   textarea with a button floating beside a hint line. Enter sends and
+   Shift+Enter breaks the line, matching the note composer, so the two text
+   inputs in this page do not behave differently from each other. */
+.inbox-composer {
+  flex: none;
+  border: 1px solid var(--gray-300);
+  border-radius: 10px;
+  background-color: color-mix(in srgb, var(--gray-100) 62%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: border-color 0.2s ease;
+}
+
+.inbox-composer:focus-within {
+  border-color: var(--ink);
+}
+
+.inbox-composer textarea {
+  display: block;
+  width: 100%;
+  /* One line to start. The component sets the height from `scrollHeight` on
+     every keystroke, so the box tracks its content up to the cap below rather
+     than growing a scrollbar of its own. `min-height` covers the frame before
+     that effect has run, so there is no visible jump on first paint. */
+  min-height: 2.5rem;
+  max-height: 13rem;
+  overflow-y: auto;
+  padding: 0.6rem 0.85rem 0.2rem;
+  border: 0;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink);
+  resize: none;
+  outline: none;
+}
+
+.inbox-composer textarea::placeholder {
+  color: var(--gray-400);
+  font-style: italic;
+}
+
+.inbox-composer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.5rem 0.5rem 0.85rem;
+}
+
+.inbox-hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  color: var(--gray-400);
+}
+
+/* Buttons that invert on hover rather than filling, so the destructive
+   "delete session" affordance cannot be mistaken for the primary action at a
+   glance. */
+.inbox-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: none;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  color: var(--gray-500);
+  white-space: nowrap;
+  transition: color 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.inbox-btn:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--ink);
+  background-color: var(--gray-100);
+}
+
+.inbox-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.inbox-btn--primary {
+  border-color: var(--ink);
+  background-color: var(--ink);
+  color: var(--bg);
+}
+
+.inbox-btn--primary:hover:not(:disabled) {
+  background-color: var(--ink);
+  color: var(--bg);
+  opacity: 0.82;
+}
+
+.inbox-btn--active {
+  border-color: var(--ink);
+  background-color: var(--ink);
   color: var(--bg);
 }
 

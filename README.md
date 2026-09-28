@@ -263,8 +263,23 @@ persisted in the browser. The signing key is derived from the password,
 so rotating it invalidates every existing session.
 
 Eight login attempts per 15 minutes are allowed, tracked per transport
-address. It is an in-memory brake, so a cold instance resets it -- it
-raises the cost of a naive sweep rather than enforcing a hard limit.
+address. It is an in-memory brake, so it resets when a cold instance
+recycles -- it raises the cost of a naive sweep rather than enforcing a
+hard limit.
+
+On a **local dev server only**, the ceiling is `null`: no lockout, so
+a mistyped password cannot stop you testing. `adminLoginAttemptLimit()`
+returns the real number whenever `VERCEL_ENV`, `VERCEL` or `CI` is set,
+so preview deployments are rate limited exactly like production. The
+loopback bind in `vite.config.ts` (127.0.0.1) is the other half of that:
+"local" means this machine, not this network.
+
+The same gate covers the password. `CHAT_ADMIN_PASSWORD` unset locally
+falls back to `DEV_ADMIN_PASSWORD`, so `npm run dev` works with no env
+setup; unset on any deployment it is a 503 instead, because a committed
+fallback plus a public preview URL is full inbox access for anyone who
+has read this repository.
+
 
 The inbox polls (2s for the open thread, 3s for the list) and also
 subscribes to Supabase Realtime. The realtime path is currently inert:

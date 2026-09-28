@@ -7,6 +7,17 @@ interface VisitorPanelProps {
   /** Set by the parent so "copy email" can share one confirmation timer. */
   copied: boolean;
   onCopyEmail: () => void;
+  /**
+   * False when a parent already owns the scroll region and the section label.
+   *
+   * See `ActivityTimeline`'s prop of the same name. Mounted in the inbox's
+   * context panel, this component's own `overflow-y-auto` and its own "visitor"
+   * heading both duplicate the tab strip above it, so `contained={false}` drops
+   * the heading, the border under it, and the inner scroll, leaving just the
+   * fields. It still renders its own heading when `contained`, so the component
+   * remains usable standalone.
+   */
+  contained?: boolean;
 }
 
 interface FieldProps {
@@ -49,20 +60,25 @@ function Field({ icon: Icon, label, children, mono = false }: FieldProps) {
  * derived from the visitor's Supabase identity across *all* their chats, not
  * just this thread, so a returning visitor is visibly a returning visitor.
  */
-export default function VisitorPanel({ visitor, copied, onCopyEmail }: VisitorPanelProps) {
+export default function VisitorPanel({ visitor, copied, onCopyEmail, contained = true }: VisitorPanelProps) {
   const email = normalizeContact(visitor.email);
   const page = normalizeContact(visitor.currentPage);
 
   return (
-    <div className="flex min-h-0 flex-col">
-      <div className="shrink-0 border-b border-[var(--gray-200)] pb-3">
-        <h2 className="text-sm font-semibold text-[var(--ink)]">visitor</h2>
-        <p className="mt-1 text-[11px] leading-relaxed text-[var(--gray-400)]">
-          Context for the thread on the left.
-        </p>
-      </div>
+    <div className={contained ? "flex min-h-0 flex-col" : undefined}>
+      {contained && (
+        <div className="shrink-0 border-b border-[var(--gray-200)] pb-3">
+          <h2 className="text-sm font-semibold text-[var(--ink)]">visitor</h2>
+          <p className="mt-1 text-[11px] leading-relaxed text-[var(--gray-400)]">
+            Context for the thread on the left.
+          </p>
+        </div>
+      )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto py-1" style={{ borderTop: "1px solid var(--gray-200)" }}>
+      <div
+        className={contained ? "min-h-0 flex-1 overflow-y-auto py-1" : "py-1"}
+        style={contained ? { borderTop: "1px solid var(--gray-200)" } : undefined}
+      >
         <Field icon={User} label="name">
           {normalizeContact(visitor.name) ?? <span className="italic text-[var(--gray-400)]">not given</span>}
         </Field>

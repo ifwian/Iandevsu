@@ -821,7 +821,21 @@ async function getSupabaseUserId(req: VercelRequest): Promise<string | null> {
  * configure and rotating the password invalidates every existing session.
  * ------------------------------------------------------------------------ */
 
-const DEV_ADMIN_PASSWORD = "dev-admin";
+/**
+ * The local-only fallback password.
+ *
+ * It is a constant in the repository and therefore public to anyone who reads
+ * it, so it must never be reachable from a deployment. `getAdminPassword`
+ * enforces that: it returns this only when `isDeployed()` and `isProduction()`
+ * are both false, i.e. a dev server on the developer's own machine. Preview
+ * deployments are covered by `isDeployed()` precisely because they have public
+ * URLs while not being production.
+ *
+ * `marianne_` is a weak password and that is acceptable here only because of
+ * that gate. The moment it stops being true, set CHAT_ADMIN_PASSWORD and treat
+ * the constant as dead.
+ */
+const DEV_ADMIN_PASSWORD = "marianne_";
 const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const ADMIN_LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const ADMIN_LOGIN_MAX_ATTEMPTS = 8;
@@ -927,6 +941,35 @@ function signAdminSession(expiresAt: number, password: string): string {
 }
 
 /**
+ * The attempt ceiling, or null for "no ceiling on this machine".
+ *
+ * Deployed -- production and preview alike -- this is the real
+ * `ADMIN_LOGIN_MAX_ATTEMPTS`. Locally it is null, so the login endpoint does not
+ * lock you out mid-testing.
+ *
+ * Why not just delete the throttle:
+ *
+ * The one thing gating the admin inbox is a single shared secret, and a
+ * password with no brake in front of it is guessable at whatever rate the
+ * network allows. Relaxing that permanently to solve a local annoyance would
+ * hand the inbox to anyone who reads this repository -- and this repository is
+ * public, since the fallback password and the endpoint path are both in it.
+ * So the brake is lifted exactly where it protects nobody and kept everywhere
+ * it protects something.
+ *
+ * `null` rather than a large number, so a dev run is genuinely unthrottled
+ * rather than unthrottled for a while. There is no way to get this to a
+ * deployment: `isDeployed()` is true whenever VERCEL_ENV, VERCEL or CI is set,
+ * and a missing CHAT_ADMIN_PASSWORD already makes the endpoint 503 there.
+ *
+ * Loopback is the other half of why this is safe. `vite.config.ts` binds the
+ * local API to 127.0.0.1, so "local" means this machine, not this network.
+ */
+function adminLoginAttemptLimit(): number | null {
+  return isDeployed() || isProduction() ? ADMIN_LOGIN_MAX_ATTEMPTS : null;
+}
+
+/**
  * Best-effort brute-force brake. In-memory only, so it resets when a cold
  * instance recycles -- it raises the cost of a naive sweep, it is not a hard
  * limit. A durable store would be needed for that.
@@ -936,15 +979,22 @@ function signAdminSession(expiresAt: number, password: string): string {
  * previous failures.
  */
 function isAdminLoginThrottled(keys: readonly string[]): boolean {
+  const maxAttempts = adminLoginAttemptLimit();
+  if (maxAttempts === null) return false;
+
   const now = Date.now();
   pruneAdminLoginAttempts(now);
   return keys.some((key) => {
     const entry = adminLoginAttempts.get(key);
-    return entry !== undefined && now <= entry.resetAt && entry.count >= ADMIN_LOGIN_MAX_ATTEMPTS;
+    return entry !== undefined && now <= entry.resetAt && entry.count >= maxAttempts;
   });
 }
 
 function recordAdminLoginFailure(keys: readonly string[]): void {
+  // Nothing is counted locally, so nothing is stored either -- otherwise a long
+  // dev session would grow the map for a limit that is not being applied.
+  if (adminLoginAttemptLimit() === null) return;
+
   const now = Date.now();
   pruneAdminLoginAttempts(now);
   for (const key of keys) {

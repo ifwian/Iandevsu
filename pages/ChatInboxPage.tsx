@@ -1,5 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, Copy, MessageCircle, RefreshCw, Search, Send, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+/* `Check` and `Copy` were used by the copy-email button in the thread header,
+   which no longer exists -- the address moved to the context drawer, where
+   `VisitorPanel` renders its own copy affordance. `copyEmail` and `copied`
+   stay: the panel still calls them. */
+import {
+  ArrowLeft,
+  Info,
+  MessageCircle,
+  RefreshCw,
+  Search,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/api";
@@ -37,7 +50,19 @@ import {
 } from "@/components/chat/inbox/types";
 
 const SESSION_STORAGE_KEY = "ian-chat-admin-session";
-const PRESENCE_COLOR = "#22c55e";
+
+/**
+ * The "you are answering" banner, and the live dot beside the header status.
+ *
+ * This was a literal `#22c55e`, which is the same value `--status-active` holds
+ * in dark mode -- so it happened to look right there and was wrong everywhere
+ * else: a fixed hex is a fixed hex whether the background is white or near-black,
+ * so in light mode it sat as a mid green on near-white instead of lifting the
+ * way the token does. `--status-active` is the same green the sidebar's live dot
+ * and the hero's "building" stat already use, and it retints with the theme.
+ */
+const PRESENCE_COLOR = "var(--status-active)";
+
 
 const REALTIME_TYPING_EVENT = "typing";
 /**
@@ -124,6 +149,46 @@ function unreadOf(conversation: Conversation): number {
 /** The right-hand column's two scroll regions, as a tab. */
 type PanelTab = "visitor" | "activity";
 
+/**
+ * Which pane is on screen below `lg`.
+ *
+ * The two panes cannot coexist on a phone. They used to be three stacked boxes
+ * inside a `100dvh` page at `0.9fr / 1.5fr / 1.1fr`, which put the transcript --
+ * the one thing this page exists to read -- in 43% of a phone viewport, minus a
+ * header, a composer, and two of its own scroll regions above and below it.
+ * Three independently scrolling boxes in one screen height is not a layout, it
+ * is a fight over the same pixels, and the message history lost every time.
+ *
+ * So below `lg` it is one pane at a time, master-detail style: the conversation
+ * drawer, the thread, or the context drawer. `lg` and up are unaffected -- this
+ * state is only read in the responsive `hidden`/`flex` pairs.
+ */
+type MobilePane = "list" | "thread" | "info";
+
+/**
+ * A visitor's initial, as a CSS-drawn block.
+ *
+ * A messenger drawer is a list of people, and a list of people is scanned far
+ * faster when each row has a fixed anchor than when it is text alone. There are
+ * no avatars in `chat_conversations` -- only a name, sometimes null -- so this
+ * derives one from the same string the row shows rather than inventing a second
+ * identity.
+ *
+ * `aria-hidden` because the name is right beside it: announcing "A" before
+ * "Ada Lovelace" is a stutter, not a label.
+ */
+function Monogram({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  // "md" IS the base `.inbox-avatar` size, so it emits no modifier -- otherwise
+  // the default would carry a class that matches no rule.
+  const modifier = size === "md" ? "" : ` inbox-avatar--${size}`;
+  return (
+    <span className={`inbox-avatar${modifier}`} aria-hidden="true">
+      {initial}
+    </span>
+  );
+}
+
 export default function ChatInboxPage() {
   const [session, setSession] = useState(getStoredSession);
   const [passwordDraft, setPasswordDraft] = useState("");
@@ -144,6 +209,35 @@ export default function ChatInboxPage() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [panelTab, setPanelTab] = useState<PanelTab>("visitor");
+  const [mobilePane, setMobilePane] = useState<MobilePane>("list");
+  /**
+   * Whether the context drawer holds a column. False by default, so the thread
+   * is the whole page until an admin asks for the rest.
+   *
+   * At `lg`+ this adds a grid column (see `.inbox-shell`); below `lg` it is
+   * irrelevant, because there the drawer's visibility is `mobilePane`'s job and
+   * the two are set together at the toggle.
+   */
+  const [infoOpen, setInfoOpen] = useState(false);
+
+  /**
+   * Whether the context drawer is on screen, at ANY width.
+   *
+   * Not the same as `infoOpen`. That flag is the `lg`+ column; below `lg` the
+   * drawer's visibility is `mobilePane`'s job, and the two can disagree:
+   * `selectConversation` moves `mobilePane` to "thread" without clearing
+   * `infoOpen`, so a session that had the column open on a desktop and then
+   * narrowed the window arrives on a phone with the flag set and the drawer
+   * hidden.
+   *
+   * Reading the raw flag in the toggle is what that breaks: `aria-expanded`
+   * would say "open", the button would render in its active state, and tapping
+   * it would compute `next = !true = false` and change nothing the eye could
+   * see. Deriving visibility from both means the one button is always a
+   * truthful reflection of the screen, and one tap always does the obvious
+   * thing.
+   */
+  const infoVisible = infoOpen || mobilePane === "info";
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [takeoverBusy, setTakeoverBusy] = useState(false);
@@ -329,6 +423,10 @@ export default function ChatInboxPage() {
     setReply("");
     setNoteError(null);
     setConfirmDeleteId(null);
+    // Below `lg` only one pane is mounted, so opening a thread from the list has
+    // to bring the thread up. Harmless at `lg`+, where all three columns render
+    // together and this state is not read.
+    setMobilePane("thread");
   };
 
   /**
@@ -764,46 +862,99 @@ export default function ChatInboxPage() {
     }
   };
 
+  /**
+   * The reply box grows with its content instead of scrolling inside itself.
+   *
+   * With a fixed `rows` and a `max-height`, a third line of a reply made the
+   * textarea open a scrollbar of its own -- a second scroller stacked inside the
+   * transcript's, in the one control the admin looks at while reading. The wheel
+   * then went to whichever one the pointer happened to be over, which is the
+   * "nested scrolling" this page kept growing. Every messenger composer grows.
+   *
+   * `height: auto` first, then back to `scrollHeight`: measuring without the
+   * reset only ever grows the element, so a deleted line would leave the box
+   * taller than its content. The clamp in CSS is the real cap; this keeps it in
+   * sync so the two cannot disagree by a pixel.
+   */
+  const replyRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const element = replyRef.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
+  }, [reply]);
+
   return (
-    // Fixed-height shell. `h-[100dvh]` rather than `min-h-screen`: the page
-    // used to grow with the transcript, so a long thread turned into an
-    // unmanageably tall page. Everything below scrolls inside itself.
+    /**
+     * Fixed-height shell. `h-[100dvh]` rather than `min-h-screen`: the page used
+     * to grow with the transcript, so a long thread turned into an
+     * unmanageably tall page. Everything below scrolls inside itself.
+     *
+     * This is already the full height of the viewport, which is worth being
+     * explicit about -- a `min-h-[75vh]` or `h-[80vh]` would give the chat LESS
+     * room, not more. The cramping that made it look like it needed more height
+     * was the ~200px marketing header above it, now one compact bar. So the
+     * height is unchanged and the space the chat gets is up by roughly 200px.
+     *
+     * `inbox-app` rescales the whole surface down ~12% from the 16px document
+     * root, which is the other half of the "zoomed" fix. See the rule in
+     * theme.css.
+     *
+     * `px-3 sm:px-4` rather than `px-5 sm:px-8`: on a laptop this chrome is
+     * competing with the transcript for the same screen, and 32px of side gutter
+     * is a marketing page's worth of it.
+     */
     <div
-      className="flex h-[100dvh] flex-col overflow-hidden px-5 py-6 sm:px-8"
+      className="inbox-app flex h-[100dvh] flex-col overflow-hidden px-3 py-3 sm:px-4 sm:py-4"
       style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col">
-        <header className="mb-6 flex shrink-0 flex-wrap items-end justify-between gap-4 border-b border-[var(--gray-200)] pb-5">
-          <div>
-            <Link to="/" className="mb-4 inline-flex items-center gap-2 text-xs text-[var(--gray-500)] transition-colors hover:text-[var(--ink)]">
+        {/**
+         * One bar, and it is one bar because this is a tool, not a page.
+         *
+         * It was a hero: a "back to portfolio" link on its own line with
+         * `mb-4`, a "live support" eyebrow, a 30px mono h1, and a sentence of
+         * description -- then `mb-6 pb-5` around the whole thing. On a 900px
+         * laptop viewport that is roughly 200px of the screen gone before the
+         * conversation grid draws a single pixel, which is a fifth of the
+         * reading area, spent on a title and a sentence that say nothing an
+         * operator needs while reading a conversation.
+         *
+                  * What survived: the way back, the name, and the way out. The
+         * `section-eyebrow` and the description are gone rather than shrunk,
+         * because at 11px they were not information -- they were decoration that
+         * happened to be small. The unread count also left, because it already
+         * sits beside the drawer's own heading; see the note at its old spot.
+         */
+}
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--gray-200)] pb-2.5">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link
+              to="/"
+              aria-label="Back to portfolio"
+              className="inbox-icon-btn"
+            >
               <ArrowLeft size={14} />
-              back to portfolio
             </Link>
-            <p className="section-eyebrow mb-2">live support</p>
-            <h1 className="text-3xl font-semibold tracking-tight text-[var(--ink)]">chat inbox</h1>
-            <p className="mt-2 text-sm text-[var(--gray-500)]">Review visitor sessions and reply in real time.</p>
+            <h1 className="truncate text-sm font-semibold tracking-tight text-[var(--ink)]">
+              chat inbox
+            </h1>
+            {/* No unread count here. It already sits beside the drawer's own
+                heading, and at `lg`+ both are on screen at once -- two labels
+                for one number. It belongs with the list of conversations it
+                counts, which is where the admin acts on it. */}
           </div>
+
           {token && (
-            <div className="flex items-center gap-3">
-              {/* A single number rather than a per-row count: the point is
-                  "is there anything I have not looked at", and summing it here
-                  answers that without making the admin read 50 rows. */}
-              {totalUnread > 0 && (
-                <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
-                  <span className="chat-unread-badge">{totalUnread > 99 ? "99+" : totalUnread}</span>
-                  unread
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={disconnect}
-                className="rounded-full border border-[var(--gray-300)] px-3 py-2 text-xs text-[var(--gray-500)] transition-colors hover:border-[var(--ink)] hover:text-[var(--ink)]"
-              >
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={disconnect} className="inbox-btn">
                 disconnect
               </button>
             </div>
           )}
         </header>
+
 
         {!authReady ? (
           <section className="card mx-auto my-auto max-w-lg p-6 text-center text-sm text-[var(--gray-500)]">
@@ -849,34 +1000,43 @@ export default function ChatInboxPage() {
             {error && <p className="mt-3 text-xs text-red-500" role="alert">{error}</p>}
           </section>
         ) : (
-          // min-h-0 on the grid and on every panel is what actually stops the
-          // page growing: without it a flex/grid child refuses to shrink below
-          // its content, so the transcript pushed the whole page taller.
+          // A two-pane chatbox: conversation drawer, thread, and a context
+          // drawer that only occupies a column while it is open.
           //
-          // Three explicit rows below lg, where the panels stack: with `auto`
-          // rows a panel sized itself to its content and `flex-1` was inert, so
-          // the page grew again. `minmax(0,1fr)` gives each the leftover height
-          // and lets it shrink. One row from lg, where they are columns instead.
-          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,0.9fr)_minmax(0,1.5fr)_minmax(0,1.1fr)] gap-5 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)_minmax(0,300px)] lg:grid-rows-[minmax(0,1fr)]">
-            <aside className="card flex min-h-0 flex-col p-4">
-              <div className="shrink-0">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold">visitors</h2>
-                  <button
-                    type="button"
-                    onClick={() => void loadConversations()}
-                    aria-label="Refresh conversations"
-                    className="text-[var(--gray-500)] transition-colors hover:text-[var(--ink)]"
-                  >
-                    <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-                  </button>
+          // The grid itself is `.inbox-shell` in theme.css rather than Tailwind
+          // grid utilities, because the column count now depends on runtime
+          // state, not just a breakpoint: closing the info drawer has to REMOVE
+          // a column, and a class that is merely absent from the element cannot
+          // do that -- two competing column utilities resolve by stylesheet
+          // order, never by intent. `[data-info]` makes the state explicit.
+          <div className="inbox-shell" data-info={infoOpen ? "open" : "closed"}>
+            {/* ---------- Conversation drawer ---------- */}
+            <aside
+              className={`inbox-panel inbox-drawer ${mobilePane === "list" ? "flex" : "hidden"} lg:flex`}
+            >
+              <div className="inbox-panel-head">
+                <div className="inbox-panel-title">
+                  inbox
+                  <span className="ml-auto flex items-center gap-2">
+                    {totalUnread > 0 && (
+                      <span className="chat-unread-badge">{totalUnread > 99 ? "99+" : totalUnread}</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void loadConversations()}
+                      aria-label="Refresh conversations"
+                      className="text-[var(--gray-400)] transition-colors hover:text-[var(--ink)]"
+                    >
+                      <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+                    </button>
+                  </span>
                 </div>
 
-                <div className="relative mb-3">
+                <div className="relative mt-2.5">
                   <Search
-                    size={14}
+                    size={13}
                     aria-hidden="true"
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--gray-400)]"
+                    className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--gray-400)]"
                   />
                   <input
                     type="search"
@@ -884,7 +1044,7 @@ export default function ChatInboxPage() {
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Search name or email..."
                     aria-label="Search conversations by visitor name or email"
-                    className="w-full rounded-lg border border-[var(--gray-300)] bg-[var(--gray-50)] py-2 pl-9 pr-8 text-xs outline-none focus:border-[var(--ink)]"
+                    className="inbox-field w-full pl-8 pr-7"
                   />
                   {query && (
                     <button
@@ -893,36 +1053,35 @@ export default function ChatInboxPage() {
                       aria-label="Clear search"
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--gray-400)] transition-colors hover:text-[var(--ink)]"
                     >
-                      <X size={13} />
+                      <X size={12} />
                     </button>
                   )}
                 </div>
 
-                <div className="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter by conversation status">
-                  {STATUS_FILTERS.map((filter) => (
-                    <button
-                      key={filter.value}
-                      type="button"
-                      onClick={() => setStatusFilter(filter.value)}
-                      aria-pressed={statusFilter === filter.value}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.08em] transition-colors ${
-                        statusFilter === filter.value
-                          ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]"
-                          : "border-[var(--gray-300)] text-[var(--gray-500)] hover:border-[var(--ink)] hover:text-[var(--ink)]"
-                      }`}
-                    >
-                      {filter.value !== "all" && (
-                        <StatusPill status={filter.value} variant="dot" hideLabel />
-                      )}
-                      {filter.label}
-                    </button>
-                  ))}
+                {/* One joined control instead of five separately-bordered pills.
+                    See `.inbox-seg`: five adjacent rounded pills read as five
+                    unrelated buttons, not as one filter with five positions. */}
+                <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                  <div className="inbox-seg" role="group" aria-label="Filter by conversation status">
+                    {STATUS_FILTERS.map((filter) => (
+                      <button
+                        key={filter.value}
+                        type="button"
+                        onClick={() => setStatusFilter(filter.value)}
+                        aria-pressed={statusFilter === filter.value}
+                        className="inbox-seg-item"
+                      >
+                        {filter.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               {/* Only the list scrolls; the search field and status chips stay
                   pinned so filtering is always reachable. */}
-              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+              <div className="inbox-panel-body space-y-1">
+
                 {visibleConversations.length === 0 && !loading && (
                   <div className="py-8 text-center">
                     <p className="text-xs text-[var(--gray-500)]">
@@ -950,244 +1109,200 @@ export default function ChatInboxPage() {
                       type="button"
                       onClick={() => selectConversation(conversation.id)}
                       aria-current={isSelected ? "true" : undefined}
-                      className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                        isSelected
-                          ? "border-[var(--ink)] bg-[var(--gray-100)]"
-                          : "border-[var(--gray-200)] hover:border-[var(--gray-400)]"
-                      }`}
+                      className="inbox-row"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <span
-                          className={`min-w-0 flex-1 truncate text-xs ${unread ? "font-semibold" : "font-medium"}`}
-                          style={{ color: "var(--ink)" }}
-                        >
+                      {/* Monogram, identity, then the preview under it. The
+                          email is not on the row at all: `VisitorPanel` renders
+                          it in the context drawer with its own copy button, and
+                          at 280px it was being truncated to nothing anyway. */}
+                      <span className="inbox-row-line">
+                        <Monogram name={visitorLabel(conversation)} size="sm" />
+                        <span className="inbox-row-name" style={{ fontWeight: unread ? 600 : 500 }}>
                           {visitorLabel(conversation)}
                         </span>
-                        <span className="flex flex-shrink-0 items-center gap-1.5">
-                          <StatusPill status={conversation.status} variant="dot" />
-                          {unread > 0 && (
-                            <span className="chat-unread-badge" title={`${unread} unread`}>
-                              {unread > 99 ? "99+" : unread}
-                            </span>
-                          )}
+                        {unread > 0 && (
+                          <span className="chat-unread-badge" title={`${unread} unread`}>
+                            {unread > 99 ? "99+" : unread}
+                          </span>
+                        )}
+                        <span className="inbox-row-time" title={formatFull(conversation.last_message_at)}>
+                          {formatRelative(conversation.last_message_at)}
                         </span>
-                      </div>
-                      {normalizeContact(conversation.visitor_email) && (
-                        <p className="mt-1 truncate text-[11px] text-[var(--gray-500)]">
-                          {normalizeContact(conversation.visitor_email)}
-                        </p>
-                      )}
-                      <p
-                        className="mt-2 truncate text-xs"
+                      </span>
+                      <span
+                        className="inbox-row-preview"
                         style={{ color: unread ? "var(--ink)" : "var(--gray-500)" }}
                       >
                         {conversation.last_message_preview || "No messages yet"}
-                      </p>
-                      <p
-                        className="mt-2 text-[11px]"
-                        style={{ color: "var(--gray-400)" }}
-                        title={formatFull(conversation.last_message_at)}
-                      >
-                        {formatRelative(conversation.last_message_at)}
-                      </p>
+                      </span>
                     </button>
                   );
                 })}
               </div>
               {filtersActive && visibleConversations.length > 0 && (
-                <p className="mt-3 shrink-0 text-[11px] text-[var(--gray-400)]">
+                <p className="shrink-0 border-t border-[var(--gray-200)] px-3 py-2 text-[10px] text-[var(--gray-400)]">
                   showing {visibleConversations.length} of {conversations.length} loaded
                 </p>
               )}
             </aside>
 
-            <section className="card flex min-h-0 min-w-0 flex-col p-5">
+            {/* ---------- Chat pane ---------- */}
+            <section
+              className={`inbox-panel inbox-chat ${mobilePane === "thread" ? "flex" : "hidden"} lg:flex`}
+            >
               {!selectedConversation ? (
-                <div className="flex flex-1 items-center justify-center text-sm text-[var(--gray-500)]">Select a visitor to read the conversation.</div>
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+                  <MessageCircle size={26} strokeWidth={1.5} className="text-[var(--gray-400)]" />
+                  <p className="text-sm text-[var(--gray-500)]">Select a conversation to start reading.</p>
+                </div>
               ) : (
                 <>
-                  <div className="shrink-0 border-b border-[var(--gray-200)] pb-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h2 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                  {/* Identity and actions on one row. Status, visitor details,
+                      activity and notes all moved to the context drawer, so the
+                      transcript starts immediately below this -- which is the
+                      whole point of the layout. */}
+                  <div className="flex-none border-b border-[var(--gray-200)] px-3 py-2.5 sm:px-4">
+                    <div className="flex items-center gap-2.5">
+                      {/* Below `lg` this pane replaced the drawer, so it needs a
+                          way back. */}
+                      <button
+                        type="button"
+                        onClick={() => setMobilePane("list")}
+                        aria-label="Back to conversations"
+                        className="inbox-icon-btn lg:hidden"
+                      >
+                        <ArrowLeft size={14} />
+                      </button>
+
+                      <Monogram
+                        name={normalizeContact(selectedConversation.visitor_name) || "anonymous"}
+                        size="lg"
+                      />
+
+                      <div className="min-w-0 flex-1">
+                        <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--ink)]">
                           <span className="truncate">
                             {normalizeContact(selectedConversation.visitor_name) || "anonymous visitor"}
                           </span>
+                          {/* Read-only indicator. The control that actually
+                              changes the state is in the context drawer; this
+                              is only so it is legible without opening
+                              anything. */}
                           <StatusPill status={selectedStatus} />
                         </h2>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--gray-500)]">
-                          <span title={selectedConversation.session_started_at}>
-                            started {formatRelative(selectedConversation.session_started_at)}
-                          </span>
-                          {selectedConversation.visitor_email ? (
-                            <span className="inline-flex items-center gap-1.5">
-                              <a
-                                href={`mailto:${selectedConversation.visitor_email}`}
-                                className="underline decoration-dotted underline-offset-2 transition-colors hover:text-[var(--ink)]"
-                              >
-                                {selectedConversation.visitor_email}
-                              </a>
-                              <button
-                                type="button"
-                                onClick={() => void copyEmail()}
-                                aria-label={`Copy ${selectedEmail} to clipboard`}
-                                title={copied ? "Copied" : "Copy email address"}
-                                className="inline-flex items-center gap-1 rounded border border-[var(--gray-300)] px-1.5 py-0.5 text-[11px] uppercase tracking-[0.08em] transition-colors hover:border-[var(--ink)] hover:text-[var(--ink)]"
-                              >
-                                {copied ? <Check size={10} /> : <Copy size={10} />}
-                                {copied ? "copied" : "copy"}
-                              </button>
-                            </span>
-                          ) : (
-                            <span className="italic opacity-70">no email given</span>
-                          )}
-                        </div>
+                        <p className="truncate text-[10px] uppercase tracking-[0.08em] text-[var(--gray-400)]">
+                          started {formatRelative(selectedConversation.session_started_at)}
+                        </p>
                       </div>
 
-                      <div className="flex flex-col items-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void toggleTakeover()}
-                          disabled={takeoverBusy}
-                          className="rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] transition-colors disabled:opacity-50"
-                          style={
-                            takeoverActive
-                              ? { backgroundColor: "var(--ink)", color: "var(--bg)" }
-                              : { border: "1px solid var(--gray-300)", color: "var(--gray-500)" }
-                          }
-                        >
-                          {takeoverBusy
-                            ? "working..."
-                            : takeoverActive
-                              ? "release to ai"
-                              : "take over chat"}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Status as a row of one-click pills rather than a
-                        <select>: these are triage actions, and a menu that
-                        hides the four states behind a click is what made the
-                        old two-state toggle easy to forget existed. */}
-                    <div
-                      className="mt-4 flex flex-wrap items-center gap-1.5"
-                      role="group"
-                      aria-label="Set conversation status"
-                    >
-                      <span className="micro-label mr-1" style={{ color: "var(--gray-400)" }}>
-                        status
-                      </span>
-                      {CONVERSATION_STATUSES.map((status) => {
-                        const active = selectedStatus === status;
-                        return (
-                          <button
-                            key={status}
-                            type="button"
-                            onClick={() => void setStatus(status)}
-                            disabled={statusBusy !== null || active}
-                            aria-pressed={active}
-                            className="rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.08em] transition-colors disabled:opacity-50"
-                            style={
-                              active
-                                ? { borderColor: "var(--ink)", backgroundColor: "var(--ink)", color: "var(--bg)" }
-                                : { borderColor: "var(--gray-300)", color: "var(--gray-500)" }
-                            }
-                          >
-                            {status === selectedStatus && statusBusy === status ? "saving..." : status}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {takeoverActive && (
-                      <p
-                        className="mt-3 text-[11px] uppercase tracking-[0.08em]"
-                        style={{ color: PRESENCE_COLOR }}
+                      {/* Takeover stays in the header rather than moving to the
+                          drawer: it is the switch you flip mid-conversation, and
+                          burying it a click away would make it the one control
+                          that genuinely must not move. */}
+                      <button
+                        type="button"
+                        onClick={() => void toggleTakeover()}
+                        disabled={takeoverBusy}
+                        aria-pressed={takeoverActive}
+                        className={`inbox-btn ${takeoverActive ? "inbox-btn--active" : ""}`}
                       >
-                        you are answering this chat -- the assistant is paused
-                      </p>
-                    )}
+                        {takeoverBusy ? "..." : takeoverActive ? "release to ai" : "take over"}
+                      </button>
 
-                    {/* Destructive action, kept in its own bordered row beneath
-                        the resolve / takeover controls so it can never overlap
-                        them or the visitor details above. Still two-step: the
-                        first click arms it, the second confirms. */}
-                    <div className="mt-4 flex justify-end border-t border-[var(--gray-200)] pt-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Derived from what is actually on screen, not from
+                          // `infoOpen` alone -- see `infoVisible`. Setting both
+                          // states is what makes one button work as a column
+                          // toggle on a laptop and as a page swap on a phone.
+                          const next = !infoVisible;
+                          setInfoOpen(next);
+                          setMobilePane(next ? "info" : "thread");
+                        }}
+                        aria-expanded={infoVisible}
+                        aria-label="Toggle conversation details"
+                        className="inbox-icon-btn"
+                      >
+                        <Info size={14} />
+                      </button>
+
+                      {/* Destructive, last, and outline-only so it can never be
+                          read as a primary action. Two-step. */}
                       {confirmDeleteId === selectedConversation.id ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)]">
-                            delete this thread and its messages?
-                          </span>
+                        <span className="flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => void deleteConversation(selectedConversation.id)}
                             disabled={deletingId === selectedConversation.id}
-                            className="rounded-full border border-[var(--ink)] bg-[var(--ink)] px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] text-[var(--bg)] transition-opacity disabled:opacity-50"
+                            className="inbox-btn inbox-btn--primary"
                           >
-                            {deletingId === selectedConversation.id ? "deleting..." : "delete"}
+                            {deletingId === selectedConversation.id ? "..." : "delete"}
                           </button>
                           <button
                             type="button"
                             onClick={() => setConfirmDeleteId(null)}
-                            className="rounded-full border border-[var(--gray-300)] px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)] transition-colors hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                            aria-label="Cancel delete"
+                            className="inbox-icon-btn"
                           >
-                            cancel
+                            <X size={14} />
                           </button>
-                        </div>
+                        </span>
                       ) : (
                         <button
                           type="button"
                           onClick={() => setConfirmDeleteId(selectedConversation.id)}
                           disabled={deletingId === selectedConversation.id}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--gray-300)] px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] text-[var(--gray-500)] transition-colors hover:border-[var(--ink)] hover:text-[var(--ink)] disabled:opacity-50"
+                          aria-label="Delete session"
+                          className="inbox-icon-btn"
                         >
-                          <Trash2 size={13} strokeWidth={1.7} />
-                          delete session
+                          <Trash2 size={14} strokeWidth={1.7} />
                         </button>
                       )}
                     </div>
                   </div>
 
-                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto py-5" aria-live="polite">
-                    {messages.length === 0 && <p className="text-xs text-[var(--gray-500)]">No messages in this conversation.</p>}
-                    {messages.map((message) => {
-                      if (message.role === "system") {
-                        return (
-                          <div key={message.id} className="flex justify-center">
-                            <p
-                              role="status"
-                              className="max-w-[85%] break-words rounded-lg border border-[var(--gray-200)] bg-[var(--gray-50)] px-3 py-2 text-center text-[11px] leading-relaxed text-[var(--gray-500)]"
-                            >
+                  {/* The transcript, on a centred measure. A chat window
+                      stretched to the 1600px cap would run lines out to
+                      ~1300px, which is as hard to track back to the next one as
+                      a paragraph of unbroken text. This is the move Discord and
+                      Telegram both make. */}
+                  <div className="inbox-transcript" aria-live="polite">
+                    <div className="inbox-thread-inner">
+                      {messages.length === 0 && (
+                        <p className="text-xs text-[var(--gray-500)]">No messages in this conversation.</p>
+                      )}
+                      {messages.map((message) => {
+                        if (message.role === "system") {
+                          return (
+                            <p key={message.id} role="status" className="inbox-system">
                               {message.body}
                             </p>
-                          </div>
-                        );
-                      }
+                          );
+                        }
 
-                      const isOwn = message.role === "admin";
-                      return (
-                        <div
-                          key={message.id}
-                          className={`chat-reaction-row flex flex-col ${isOwn ? "items-end" : "items-start"}`}
-                        >
-                          <div className="chat-meta" style={{ justifyContent: isOwn ? "flex-end" : "flex-start" }}>
-                            <span style={{ color: "var(--ink)" }}>{roleLabel(message.role)}</span>
-                            <span aria-hidden="true">·</span>
-                            <time
-                              dateTime={message.created_at}
-                              title={formatFull(message.created_at)}
-                              className="text-[var(--gray-400)]"
+                        const isOwn = message.role === "admin";
+                        return (
+                          <div
+                            key={message.id}
+                            className={`chat-reaction-row inbox-msg ${isOwn ? "inbox-msg--admin" : "inbox-msg--visitor"}`}
+                          >
+                            <div
+                              className="chat-meta"
+                              style={{ justifyContent: isOwn ? "flex-end" : "flex-start" }}
                             >
-                              {formatClock(message.created_at)}
-                            </time>
-                          </div>
-                          <div className={`max-w-[85%] ${isOwn ? "self-end" : "self-start"}`}>
+                              <span style={{ color: "var(--ink)" }}>{roleLabel(message.role)}</span>
+                              <span aria-hidden="true">·</span>
+                              <time
+                                dateTime={message.created_at}
+                                title={formatFull(message.created_at)}
+                                className="text-[var(--gray-400)]"
+                              >
+                                {formatClock(message.created_at)}
+                              </time>
+                            </div>
                             <p
-                              className="whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-relaxed"
-                              style={{
-                                backgroundColor: isOwn ? "var(--ink)" : "var(--gray-100)",
-                                color: isOwn ? "var(--bg)" : "var(--ink)",
-                              }}
+                              className={`inbox-bubble inbox-bubble--wrap ${isOwn ? "inbox-bubble--admin" : "inbox-bubble--visitor"}`}
                             >
                               {message.body}
                             </p>
@@ -1200,56 +1315,139 @@ export default function ChatInboxPage() {
                               align={isOwn ? "end" : "start"}
                             />
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
 
-                    {visitorTyping && (
-                      <TypingIndicator
-                        name={normalizeContact(selectedConversation.visitor_name) || "visitor"}
-                        announce
-                      />
-                    )}
+                      {visitorTyping && (
+                        <div className="inbox-msg inbox-msg--visitor">
+                          <TypingIndicator
+                            name={normalizeContact(selectedConversation.visitor_name) || "visitor"}
+                            announce
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="shrink-0 border-t border-[var(--gray-200)] pt-4">
-                    <textarea
-                      value={reply}
-                      onChange={(event) => setReply(event.target.value)}
-                      maxLength={600}
-                      rows={2}
-                      placeholder="Reply to this visitor..."
-                      aria-label="Reply to this visitor"
-                      className="min-h-16 w-full resize-y rounded-lg border border-[var(--gray-300)] bg-[var(--gray-50)] px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
-                    />
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      <span className="text-[11px] text-[var(--gray-500)]">
-                        {selectedResolved
-                          ? "Resolved -- replying does not reopen it, but a new visitor message will."
-                          : "Replies appear in the visitor's chat window."}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => void sendReply()}
-                        disabled={!reply.trim() || sending}
-                        className="inline-flex items-center gap-2 rounded-lg bg-[var(--ink)] px-4 py-2 text-xs text-[var(--bg)] transition-opacity hover:opacity-80 disabled:opacity-40"
-                      >
-                        <Send size={14} />
-                        {sending ? "sending..." : "send reply"}
-                      </button>
+                  <div className="flex-none p-3 sm:p-4">
+                    <div className="inbox-thread-inner">
+                      {/* Above the composer, not below it. The error rendered
+                          after the send button, so a failed send reported itself
+                          underneath the control you had just pressed. */}
+                      {error && (
+                        <p className="mb-2 text-xs text-red-500" role="alert">
+                          {error}
+                        </p>
+                      )}
+
+                      <div className="inbox-composer">
+                        <textarea
+                          ref={replyRef}
+                          value={reply}
+                          onChange={(event) => setReply(event.target.value)}
+                          onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => {
+                            // Enter sends, Shift+Enter breaks the line. Same
+                            // contract as the note composer, so the two text
+                            // inputs on this page behave identically.
+                            if (event.key === "Enter" && !event.shiftKey) {
+                              event.preventDefault();
+                              void sendReply();
+                            }
+                          }}
+                          maxLength={600}
+                          rows={1}
+                          placeholder="Reply to this visitor..."
+                          aria-label="Reply to this visitor"
+                        />
+                        <div className="inbox-composer-bar">
+                          <span className="inbox-hint">
+                            {selectedResolved
+                              ? "Resolved — replying does not reopen it"
+                              : "Enter sends · Shift+Enter for a new line"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void sendReply()}
+                            disabled={!reply.trim() || sending}
+                            className="inbox-btn inbox-btn--primary"
+                          >
+                            <Send size={12} />
+                            {sending ? "sending..." : "send"}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </>
               )}
-              {error && <p className="mt-3 shrink-0 text-xs text-red-500" role="alert">{error}</p>}
             </section>
 
-            <aside className="card flex min-h-0 flex-col p-4">
-              {/* Notes are pinned to the bottom rather than sitting in the tab
-                  strip: they are the one thing an admin opens this panel to
-                  write, and a third tab would hide the composer. */}
-              <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 gap-1.5" role="tablist" aria-label="Visitor context">
+
+            {/* ---------- Context drawer ----------
+                Status, visitor details, activity, notes.
+
+                Closed by default: the transcript is the point of the page, and a
+                permanently visible rail beside it is the thing this layout
+                replaced. At `lg`+ it takes a real third column and the chat pane
+                narrows, so it never covers a message. Below `lg` it replaces the
+                chat pane outright, which is the only way to give it room on a
+                phone -- and there the `mobilePane` pair below decides. At `lg`+
+                the visibility comes from `data-info` in CSS rather than from
+                that class, so the grid and the pane cannot disagree. */}
+            <aside
+              className={`inbox-panel inbox-info ${mobilePane === "info" ? "flex" : "hidden"}`}
+            >
+              <div className="inbox-panel-head">
+                <div className="inbox-panel-title">
+                  conversation
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInfoOpen(false);
+                      setMobilePane("thread");
+                    }}
+                    aria-label="Close conversation details"
+                    className="ml-auto text-[var(--gray-400)] transition-colors hover:text-[var(--ink)]"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+
+                {/* Status lives here rather than in the chat header. It is a
+                    triage action, not part of the conversation, and four
+                    positions plus a takeover plus a delete is most of a header
+                    row for something an admin changes rarely. */}
+                <div className="mt-2.5">
+                  <p className="micro-label mb-1.5">status</p>
+                  <div className="inbox-seg flex-wrap" role="group" aria-label="Set conversation status">
+                    {CONVERSATION_STATUSES.map((status) => {
+                      const active = selectedStatus === status;
+                      return (
+                        <button
+                          key={status}
+                          type="button"
+                          onClick={() => void setStatus(status)}
+                          disabled={statusBusy !== null || active}
+                          aria-pressed={active}
+                          className="inbox-seg-item"
+                        >
+                          {status === selectedStatus && statusBusy === status ? "saving..." : status}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {takeoverActive && (
+                  <p
+                    className="mt-2.5 text-[10px] uppercase tracking-[0.08em]"
+                    style={{ color: PRESENCE_COLOR }}
+                  >
+                    you are answering — assistant paused
+                  </p>
+                )}
+
+                <div className="inbox-seg mt-2.5" role="tablist" aria-label="Visitor context">
                   {(
                     [
                       { value: "visitor", label: "visitor" },
@@ -1262,35 +1460,53 @@ export default function ChatInboxPage() {
                       role="tab"
                       aria-selected={panelTab === tab.value}
                       onClick={() => setPanelTab(tab.value)}
-                      className={`rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] transition-colors ${
-                        panelTab === tab.value
-                          ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]"
-                          : "border-[var(--gray-300)] text-[var(--gray-500)] hover:border-[var(--ink)] hover:text-[var(--ink)]"
-                      }`}
+                      className="inbox-seg-item"
                     >
                       {tab.label}
                     </button>
                   ))}
                 </div>
-
-                <div className="mt-3 flex min-h-0 flex-1 flex-col">
-                  {panelTab === "visitor" ? (
-                    visitor ? (
-                      <VisitorPanel visitor={visitor} copied={copied} onCopyEmail={() => void copyEmail()} />
-                    ) : (
-                      <p className="py-3 text-[11px] italic leading-relaxed text-[var(--gray-400)]">
-                        No visitor details loaded yet.
-                      </p>
-                    )
-                  ) : (
-                    <ActivityTimeline activity={activity} currentPage={selectedConversation?.current_page ?? null} />
-                  )}
-                </div>
               </div>
 
-              <div
-                className="mt-4 flex min-h-0 shrink-0 flex-col border-t border-[var(--gray-200)] pt-4 lg:max-h-[45%]"
-              >
+              {/* ONE scroll region for both tabs. `VisitorPanel` and
+                  `ActivityTimeline` each carried their own `overflow-y-auto` and
+                  their own heading; nested inside a scrolling parent the wheel
+                  grabs whichever one the pointer happens to be over, which is how
+                  a narrow rail ends up with two scrollbars fighting over the
+                  same content. `contained={false}` drops both. */}
+              <div className="inbox-panel-body">
+                {!selectedConversation ? (
+                  <p className="px-1 py-3 text-[11px] italic leading-relaxed text-[var(--gray-400)]">
+                    No conversation selected.
+                  </p>
+                ) : panelTab === "visitor" ? (
+                  visitor ? (
+                    <VisitorPanel
+                      visitor={visitor}
+                      copied={copied}
+                      onCopyEmail={() => void copyEmail()}
+                      contained={false}
+                    />
+                  ) : (
+                    <p className="px-1 py-3 text-[11px] italic leading-relaxed text-[var(--gray-400)]">
+                      No visitor details loaded yet.
+                    </p>
+                  )
+                ) : (
+                  <ActivityTimeline
+                    activity={activity}
+                    currentPage={selectedConversation?.current_page ?? null}
+                    contained={false}
+                  />
+                )}
+              </div>
+
+              {/* Notes keep their own scroll and stay pinned below the tabs
+                  rather than becoming a third tab: they are the one thing an
+                  admin opens this drawer to write, and a tab would hide the
+                  composer behind a click. The drawer is full height now, so
+                  there is room for both halves. */}
+              <div className="flex max-h-[38%] flex-none flex-col border-t border-[var(--gray-200)]">
                 <InternalNotes
                   // Keyed so the draft is discarded per thread: the component
                   // keeps it in local state, and without a key React reuses one
@@ -1304,6 +1520,8 @@ export default function ChatInboxPage() {
                 />
               </div>
             </aside>
+
+
           </div>
         )}
       </div>

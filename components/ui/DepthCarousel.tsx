@@ -287,11 +287,6 @@ export default function DepthCarousel({
     "--card-height": `${cardHeight}px`,
   } as React.CSSProperties;
 
-  const nudge = (delta: number) => (event: React.MouseEvent) => {
-    event.stopPropagation();
-    step(delta);
-  };
-
   return (
     <div
       className={`depth-carousel ${className}`}
@@ -337,26 +332,18 @@ export default function DepthCarousel({
           ))}
         </div>
 
-        {count > 1 ? (
-          <>
-            <button
-              type="button"
-              className="depth-carousel__arrow depth-carousel__arrow--left"
-              onClick={nudge(-1)}
-              aria-label="Previous photo"
-            >
-              <span aria-hidden="true">&larr;</span>
-            </button>
-            <button
-              type="button"
-              className="depth-carousel__arrow depth-carousel__arrow--right"
-              onClick={nudge(1)}
-              aria-label="Next photo"
-            >
-              <span aria-hidden="true">&rarr;</span>
-            </button>
-          </>
-        ) : null}
+        {/* No arrow buttons.
+            They were removed rather than hidden behind a `showControls` flag,
+            because the component has exactly one call site (section 06) and a
+            prop nobody passes -- plus a stylesheet nobody can reach -- is two
+            more things to keep honest than simply not having the buttons.
+
+            Nothing is lost for a keyboard or pointer user: the stage is
+            `tabIndex={0}` and handles ArrowLeft / ArrowRight directly, the
+            dots below are real buttons with `aria-current`, and the stage
+            still takes a drag and a wheel. The arrows were a third way of
+            asking for something two other affordances already ask for, in a
+            place where they sat on top of the photos. */}
       </div>
 
       {count > 1 ? (

@@ -75,11 +75,23 @@
   margin-top: calc(var(--card-height, 0px) * -0.5);
   margin-left: calc(var(--card-width, 0px) * -0.5);
 
+  /* The only thing this box still does for the image is clip it to the corner
+     radius, which `overflow: hidden` does on its own.
+
+     It used to also carry `border: 1px solid var(--gray-300)` and
+     `background-color: var(--gray-200)`, and both have gone. The border drew a
+     rectangle inside a rectangle -- the card is already sitting inside the
+     stage's own rounded, bordered frame, and the image inside it filled the box
+     edge to edge, so the hairline never touched the picture; it just added a
+     second outline a few pixels outside the first. The fill existed as a
+     placeholder behind a not-yet-decoded image, and the stage's own `tint`
+     already serves that purpose, since it is what shows through a transparent
+     card either way.
+
+     So the photo now stands on the stage directly, with nothing behind it but
+     the backdrop it is meant to melt into. */
   overflow: hidden;
-  /* A hairline, not a shadow: the cards sit on a near-black stage where a
-     soft drop shadow is invisible, while a border still reads. */
-  border: 1px solid var(--gray-300);
-  background-color: var(--gray-200);
+
   /* The compositor animates transform and opacity, so the 3D work stays off
      the main thread. */
   will-change: transform, opacity;
@@ -97,48 +109,10 @@
   filter: saturate(0.85) contrast(1.02);
 }
 
-/* ---------- Arrows ---------- */
-
-.depth-carousel__arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  border: 1px solid var(--gray-300);
-  background-color: var(--gray-100);
-  color: var(--gray-500);
-  font-family: var(--font-mono);
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  transition:
-    color 0.2s ease,
-    border-color 0.2s ease,
-    background-color 0.2s ease;
-}
-
-.depth-carousel__arrow:hover,
-.depth-carousel__arrow:focus-visible {
-  color: var(--ink);
-  border-color: var(--ink);
-  background-color: var(--gray-50);
-}
-
-.depth-carousel__arrow--left {
-  left: 10px;
-}
-
-.depth-carousel__arrow--right {
-  right: 10px;
-}
-
-/* ---------- Dots ---------- */
+/* ---------- Dots ----------
+   The only visible control. These carry the "where am I in this set" job on
+   their own now that the arrows are gone, which is why the active dot is wider
+   as well as filled rather than colour-only. */
 
 .depth-carousel__dots {
   position: absolute;
@@ -180,7 +154,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .depth-carousel__arrow,
   .depth-carousel__dot {
     transition: none;
   }

@@ -18,17 +18,23 @@ export default function Projects() {
           <div className="section-shell-body">
       <h2 className="section-title">projects</h2>
 
-        {/* Section description -- prose, so Source Serif 4. */}
+        {/* Section description -- prose, so Source Serif 4.
+
+            `--gray-400`, not the `--gray-500` this carried: it is the same
+            sentence /projects renders above its grid, and at two different
+            greys the identical line would be a slightly different colour
+            depending on which route you read it from. Every other section's
+            prose is `--gray-400`. */}
         <p
-          className="mb-8 max-w-xl text-[15px] leading-[1.7]"
-          style={{ fontFamily: "var(--font-serif)", color: "var(--gray-500)" }}
+          className="mb-8 max-w-xl text-[15px] leading-[1.75] sm:text-[17px]"
+          style={{ fontFamily: "var(--font-serif)", color: "var(--gray-400)" }}
         >
           I&rsquo;m just getting started &mdash; here&rsquo;s what I&rsquo;m planning to build first.
         </p>
 
         <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
-          {preview.map((project) => (
-            <ProjectCard key={project.title} project={project} />
+          {preview.map((project, index) => (
+            <ProjectCard key={project.title} project={project} index={index} />
           ))}
         </div>
 

@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import Hero from "@/components/sections/Hero";
 import AboutMe from "@/components/sections/AboutMe";
@@ -10,6 +11,46 @@ import GithubActivity from "@/components/sections/GithubActivity";
 import Blog from "@/components/sections/Blog";
 import ProjectsPage from "@/pages/ProjectsPage";
 import ChatInboxPage from "@/pages/ChatInboxPage";
+
+/**
+ * Sends the window back to the top on every route change.
+ *
+ * React Router does not touch scroll position itself, so the scroll offset
+ * simply carries across a navigation. That is what made "view all projects"
+ * land the visitor in the middle of the index: the link sits at the bottom of
+ * the 03 PROJECTS section, and /projects is roughly the same height, so the
+ * browser kept the offset and dropped them near the bottom of a page they had
+ * not seen the top of yet.
+ *
+ * It lives here, keyed on `pathname`, rather than as an `onClick` on that one
+ * link, because the same bug runs the other way: "back to home" from the foot
+ * of a long /projects page would otherwise restore the home page's scroll
+ * offset from before, which is a position that no longer exists. One rule at
+ * the router covers every route it has and every route added later.
+ *
+ * `behavior: "auto"` under reduced motion is not a hardcoded instant jump --
+ * per CSSOM-View `auto` defers to the `scroll-behavior` property, and
+ * theme.css's reduced-motion block already sets `scroll-behavior: auto` on
+ * `html`. Passing a literal `"smooth"` instead would override a media query the
+ * visitor has no way to reach past, which is the same trap `MainLayout`'s
+ * `jumpTo` deliberately steps around.
+ *
+ * The `hash` guard: an in-page anchor jump (the sidebar links, the command
+ * palette) is a navigation too, and scrolling to 0 would yank the visitor back
+ * off the section they just asked for. `MainLayout.jumpTo` scrolls the target
+ * into view itself, so skipping here is what leaves that working.
+ */
+function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+
+  useEffect(() => {
+    if (hash) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, left: 0, behavior: reduced ? "auto" : "smooth" });
+  }, [pathname, hash]);
+
+  return null;
+}
 
 function Home() {
   return (
@@ -41,6 +82,9 @@ function Home() {
 export default function App() {
   return (
     <BrowserRouter>
+      {/* Inside the router: it reads the location, so it has to be a descendant
+          of whichever router is in play. */}
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/projects" element={<ProjectsPage />} />
