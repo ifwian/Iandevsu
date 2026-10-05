@@ -93,9 +93,8 @@ export default function AboutMe() {
 
             The cursor is a decorative block rather than an underscore glyph,
             because `_` is not in every mono face loaded here. */}
-        <h2 className="section-title title-row">
+<h2 className="section-title title-row">
           <span>about me</span>
-          <span className="title-cursor" aria-hidden="true" />
         </h2>
 
         {/* Two columns at `lg` and up, one below.

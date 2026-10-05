@@ -88,7 +88,7 @@
   --font-body: "Geist", system-ui, sans-serif;
   --font-mono: "Kode Mono", ui-monospace, monospace;
   --font-display: "Kode Mono", ui-monospace, monospace;
-  --font-serif: "Source Serif 4", Georgia, serif;
+  --font-serif: "Source Serif 4", serif;
 
   color-scheme: light;
 }
@@ -882,38 +882,8 @@ h1, h2, h3, h4, h5, h6 {
    `steps(1, end)` makes it a hard on/off, which is what a terminal cursor is;
    an eased fade would read as a soft glow rather than a cursor blinking.
 
-   `aria-hidden` at every call site: it is decoration implying "editable", and
-   these are static reads -- announcing a cursor would be a false claim. */
-.title-cursor {
-  display: inline-block;
-  flex: none;
-  width: 0.5em;
-  height: 1.02em;
-  background-color: var(--ink);
-  animation: title-cursor-blink 1.15s steps(1, end) infinite;
-}
-
-@keyframes title-cursor-blink {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-/* The blink is the one thing here that moves, so it is the one thing a
-   reduced-motion visitor should not get. Held at full opacity, which is the
-   cursor's resting state, rather than hidden -- a heading with a gap where its
-   last letter should be reads as broken. */
-@media (prefers-reduced-motion: reduce) {
-  .title-cursor {
-    animation: none;
-  }
-}
+`aria-hidden` at every call site: it is decoration implying "editable", and
+   these are static reads -- announcing a cursor would be a false claim.
 
 /* Narrative column. `line-height: 1.75` at 15px and 1.8 at 17px: serif at this
    size needs more leading than the 1.6 the body sets, or the ascenders and

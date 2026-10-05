@@ -282,9 +282,16 @@ export default function Sidebar({ className = "", onOpenPalette }: SidebarProps)
   }, []);
 
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+    // Only set overflow hidden on the drawer container, not the entire body,
+    // to prevent chat modal and other elements from becoming un-interactable.
+    const drawer = document.querySelector('aside');
+    if (drawer) {
+      drawer.style.overflow = open ? "auto" : "";
+    }
     return () => {
-      document.body.style.overflow = "";
+      if (drawer) {
+        drawer.style.overflow = "";
+      }
     };
   }, [open]);
 

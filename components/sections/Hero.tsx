@@ -252,34 +252,15 @@ export default function Hero() {
                 Still a real `<ul>`; the brackets are `aria-hidden` because a
                 screen reader gets the order from the list markup. `relative` so
                 the panel paints above the scanlines. */}
-            <div className="build-panel relative mt-6 w-full">
-              <div className="build-panel-bar">
-                <span className="flex shrink-0 items-center gap-1" aria-hidden="true">
-                  <span
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{ backgroundColor: "var(--gray-300)" }}
-                  />
-                  <span
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{ backgroundColor: "var(--gray-300)" }}
-                  />
-                  <span
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{ backgroundColor: "var(--gray-300)" }}
-                  />
-                </span>
-                <span className="min-w-0 truncate">i like to build</span>
-              </div>
-              <ul className="build-panel-body">
-                {BUILDS.map((build, index) => (
-                  <li key={build} className="terminal-pill">
-                    <span className="build-pill-index" aria-hidden="true">
-                      [{String(index + 1).padStart(2, "0")}]
-                    </span>
-                    <span className="min-w-0">{build}</span>
-                  </li>
-                ))}
-              </ul>
+            <div className="flex gap-2">
+              {BUILDS.map((build, index) => (
+                <li key={build} className="terminal-pill">
+                  <span className="build-pill-index" aria-hidden="true">
+                    {['[', String(index + 1).padStart(2, '0'), ']'].join('')}
+                  </span>
+                  <span className="min-w-0">{build}</span>
+                </li>
+              ))}
             </div>
 
             {/* The email now lives in the sidebar footer, so it is not repeated
