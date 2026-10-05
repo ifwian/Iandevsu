@@ -160,19 +160,6 @@ export default function Hero() {
                 the row at its content width and shoves the "online" state off
                 the right edge on a narrow phone. */}
             <span className="min-w-0 truncate">~/portfolio &mdash; index.tsx</span>
-            <span className="ml-auto flex shrink-0 items-center gap-1.5">
-              <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
-                <span
-                  className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-                  style={{ backgroundColor: "var(--status-active)" }}
-                />
-                <span
-                  className="relative inline-flex h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: "var(--status-active)" }}
-                />
-              </span>
-              online
-            </span>
           </div>
 
           {/* Texture, under the content. `aria-hidden` and `pointer-events-none`
@@ -207,7 +194,7 @@ export default function Hero() {
               <PixelTransition
                 firstContent={
                   <img
-                    src="/images/anime.jfif"
+                    src="/images/anime.jpg"
                     alt="Photo of Marianne"
                     className="block h-full w-full object-cover"
                   />

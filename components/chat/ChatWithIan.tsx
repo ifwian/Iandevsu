@@ -1260,7 +1260,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
         </button>
       )}
 
-      {open && (
+{open && (
         <div
           className={
             isSidebar
@@ -1275,7 +1275,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
             className="flex items-center justify-between gap-2 px-4 py-3"
             style={{ borderBottom: "1px solid var(--gray-200)" }}
           >
-            <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex items-center gap-3">
               <span
                 className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full"
                 style={{ border: "1px solid var(--gray-200)", backgroundColor: "var(--gray-100)" }}
@@ -1286,15 +1286,10 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                   aria-hidden="true"
                   className="h-full w-full object-cover"
                 />
-                <span
-                  aria-hidden="true"
-                  className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: PRESENCE_COLOR, border: "2px solid var(--bg)" }}
-                />
               </span>
-              <div className="min-w-0">
+              <div>
                 <p className="micro-label truncate" style={{ color: "var(--ink)" }}>
-                  chat with {PROFILE.goesBy.toLowerCase()}
+                  CHAT WITH IAN
                 </p>
                 <p
                   className="flex items-center gap-1 text-[11px] uppercase leading-tight tracking-[0.12em]"
@@ -1305,11 +1300,11 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                     className="inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full"
                     style={{ backgroundColor: PRESENCE_COLOR }}
                   />
-                  online · ai assistant
+                  ONLINE · AI ASSISTANT
                 </p>
               </div>
             </div>
-            <div className="flex flex-shrink-0 items-center gap-1">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={startFreshThread}
@@ -1324,12 +1319,13 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close chat"
+                title="Close chat"
                 className="flex h-6 w-6 items-center justify-center"
                 style={{ color: "var(--gray-400)" }}
               >
-                <X size={15} />
+                <X size={14} />
               </button>
-            </div>
+</div>
           </div>
 
           {contact ? (
