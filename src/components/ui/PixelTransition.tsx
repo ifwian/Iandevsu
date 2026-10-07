@@ -71,6 +71,14 @@ export default function PixelTransition({
     }
   }, [gridSize, pixelColor]);
 
+  useEffect(() => {
+    const pixelGridEl = pixelGridRef.current;
+    return () => {
+      delayedCallRef.current?.kill();
+      if (pixelGridEl) gsap.killTweensOf(pixelGridEl.children);
+    };
+  }, []);
+
   const animatePixels = (activate: boolean) => {
     setIsActive(activate);
 
@@ -83,6 +91,13 @@ export default function PixelTransition({
 
     gsap.killTweensOf(pixels);
     delayedCallRef.current?.kill();
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      gsap.set(pixels, { display: "none" });
+      activeEl.style.display = activate ? "block" : "none";
+      activeEl.style.pointerEvents = activate ? "none" : "";
+      return;
+    }
 
     gsap.set(pixels, { display: "none" });
 

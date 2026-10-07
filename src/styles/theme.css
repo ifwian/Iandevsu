@@ -2207,6 +2207,23 @@ select:focus-visible,
   transform: translate(2px, -2px);
 }
 
+/* Looping Tailwind utilities are injected by the CDN after this sheet, so the
+   reduced-motion override needs !important to win. Indicators stay visible,
+   they just stop moving. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-ping,
+  .animate-pulse,
+  .animate-spin,
+  .animate-bounce {
+    animation: none !important;
+  }
+  .link-arrow .arrow-glyph,
+  .link-arrow:hover .arrow-glyph {
+    transition: none;
+    transform: none;
+  }
+}
+
 /* ---------- Status dot ---------- */
 .status-dot {
   width: 6px;

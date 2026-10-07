@@ -17,7 +17,7 @@ export default function ScrollTopButton() {
     <button
       type="button"
       aria-label="Scroll to top"
-      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      onClick={() => window.scrollTo({ top: 0, behavior: "auto" })}
       className="fixed bottom-[25px] right-[25px] z-40 flex h-11 w-11 items-center justify-center rounded-full text-lg shadow-lg transition-opacity hover:opacity-80"
       style={{ backgroundColor: "var(--ink)", color: "var(--bg)" }}
     >

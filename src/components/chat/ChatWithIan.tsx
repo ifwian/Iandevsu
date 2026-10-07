@@ -771,7 +771,11 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
   }, [historyLoaded, messages, session]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: reduced ? "auto" : "smooth",
+    });
   }, [messages, loading, adminTyping]);
 
   /**
