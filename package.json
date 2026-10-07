@@ -1,12 +1,12 @@
 {
   "name": "iandevs",
   "version": "1.0.0",
-  "description": "These files assume the Next.js App Router with the `@/*` path alias pointing at your project root (the default `create-next-app` config already has this in `tsconfig.json`).",
-  "main": "script.js",
+  "description": "Personal portfolio of Marianne Napaño, built with Vite, React and TypeScript.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -21,6 +21,7 @@
     "@vercel/node": "^13.0.1",
     "@vitejs/plugin-react": "^6.1.1",
     "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
     "vite": "^8.3.0"
   },
   "dependencies": {
