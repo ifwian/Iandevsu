@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import Hero from "@/components/sections/Hero";
@@ -9,8 +9,9 @@ import Education from "@/components/sections/Education";
 import LifeOutsideIDE from "@/components/sections/LifeOutsideIDE";
 import GithubActivity from "@/components/sections/GithubActivity";
 import Blog from "@/components/sections/Blog";
-import ProjectsPage from "@/pages/ProjectsPage";
-import ChatInboxPage from "@/pages/ChatInboxPage";
+
+const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
+const ChatInboxPage = lazy(() => import("@/pages/ChatInboxPage"));
 
 /**
  * Sends the window back to the top on every route change.
@@ -85,11 +86,13 @@ export default function App() {
       {/* Inside the router: it reads the location, so it has to be a descendant
           of whichever router is in play. */}
       <ScrollToTop />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/projects" element={<ProjectsPage />} />
-        <Route path="/chat-inbox" element={<ChatInboxPage />} />
-      </Routes>
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/chat-inbox" element={<ChatInboxPage />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
