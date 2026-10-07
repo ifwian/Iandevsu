@@ -2,7 +2,7 @@
 
 Personal portfolio of Marianne Napaño ("Ian"), a Computer Science student and aspiring web developer. A single-page site in a monochrome, terminal-inspired design ("bryl-minimal"), with a Gemini-powered "Chat with Ian" assistant and a password-protected admin inbox.
 
-**Live:** `<add live URL here>`
+**Live:** <https://iandevs.vercel.app/>
 
 ## Screenshots
 
@@ -95,6 +95,8 @@ Set these in `.env.local` for local development and in the Vercel project settin
 | `npm run dev` | Start the dev server (site + local chat API) |
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Serve the production build locally |
+| `npm run typecheck` | Type-check the whole project (`tsc --noEmit`) |
+| `npm run images:resize` | Generate the sized WebP/PNG image copies in `public/images/` |
 
 ## Deployment
 
@@ -102,7 +104,7 @@ Deployed on Vercel. `vercel.json` configures the `api/chat.ts` function and the 
 
 ## Known limitations
 
-- Only admin login is rate limited. The limit is in memory per function instance, so it is best-effort rather than a hard limit.
+- Admin login and visitor chat messages are each rate limited. The limits live in memory per function instance, so they are best-effort rather than hard.
 - Chat attachments are sent as file names only. The assistant reads text, and no files are uploaded.
 - The admin inbox updates by polling. Its Supabase Realtime subscriptions currently receive nothing.
 - Google's free tier may use prompts and outputs to improve its models.
