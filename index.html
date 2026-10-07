@@ -28,6 +28,35 @@
        typography come from the bryl-minimal tokens in src/styles/theme.css,
        loaded via main.tsx). -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    /* Font lock.
+       Tailwind's Play CDN ships the platform's own stacks, and its default
+       `font-serif` is `ui-serif, Georgia, Cambria, "Times New Roman", Times,
+       serif` -- so a `font-serif` class anywhere would put a system serif on
+       the page. The three font-family utilities are pointed at the tokens in
+       src/styles/theme.css instead, which makes a `font-sans`, `font-mono` or
+       `font-serif` class resolve only to Geist, Kode Mono or Source Serif 4.
+
+       The tokens stay the single source of truth: this names them rather than
+       restating the stacks, so a stack is still edited in exactly one place.
+       `extend` rather than a bare `fontFamily` so the rest of the default
+       theme (spacing, breakpoints, the grid and flex utilities the layout
+       depends on) is left alone.
+
+       Must stay after the CDN script, which is what defines `tailwind.config`
+       in the first place. */
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ["var(--font-mono)"],
+            sans: ["var(--font-body)"],
+            serif: ["var(--font-serif)"],
+          },
+        },
+      },
+    };
+  </script>
 
   <!-- Devicon: technology icons used in the tech-stack section. -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@2.17.0/devicon.min.css" media="print" onload="this.media='all'" />
