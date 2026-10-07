@@ -2661,7 +2661,7 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
    * with its own authorization: the admin proves it with a session, a visitor
    * proves it by matching the conversation's own visitor_auth_id. */
   if (event === "reaction") {
-    if (!hasSupabaseConfig()) return res.status(503).json(supabaseNotConfiguredBody());
+    if (!hasSupabaseConfig()) return res.status(503).json({ error: "Reactions are unavailable right now." });
 
     const conversationId = typeof body.conversationId === "string" ? body.conversationId.trim() : "";
     const kind = body.kind;
@@ -2851,7 +2851,7 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
         source: process.env.VERCEL_ENV ? "vercel-project-env" : "local-dotenv-or-process",
       })
     );
-    return res.status(500).json({ error: "Server is missing GEMINI_API_KEY" });
+    return res.status(500).json({ error: "Chat is not available right now. Please try again later." });
   }
   let geminiResponse: Response | null = null;
   let lastStatus = 0;
@@ -2967,7 +2967,7 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
         stack: error instanceof Error ? error.stack : undefined,
       })
     );
-    writeServerEvent(res, { type: "error", error: message });
+    writeServerEvent(res, { type: "error", error: "The reply was interrupted. Please try again." });
     return res.end();
   }
 }
