@@ -1654,8 +1654,8 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                   // inherits -- so the sample name rendered as dark as real
                   // typed text and read like a filled-in value. Dimming the
                   // placeholder marks it as a hint.
-                  className="chat-input w-full rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
-                  style={{ backgroundColor: "var(--gray-100)", color: "var(--ink)", border: "1px solid var(--gray-200)" }}
+                  className="chat-input w-full rounded-lg border border-[var(--gray-200)] px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
+                  style={{ backgroundColor: "var(--gray-100)", color: "var(--ink)" }}
                 />
               </div>
 
@@ -1674,8 +1674,8 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                   maxLength={MAX_EMAIL_LENGTH}
                   autoComplete="email"
                   placeholder="you@example.com"
-                  className="chat-input w-full rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
-                  style={{ backgroundColor: "var(--gray-100)", color: "var(--ink)", border: "1px solid var(--gray-200)" }}
+                  className="chat-input w-full rounded-lg border border-[var(--gray-200)] px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
+                  style={{ backgroundColor: "var(--gray-100)", color: "var(--ink)" }}
                 />
               </div>
 

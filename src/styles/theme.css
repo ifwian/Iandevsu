@@ -2159,6 +2159,19 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--bg);
 }
 
+/* ---------- Keyboard focus ----------
+   One ink ring for every interactive element, shown only for keyboard focus.
+   Element-qualified selectors outrank Tailwind's single-class `outline-none`. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
 /* ---------- Buttons & arrow links ---------- */
 .btn-primary {
   display: inline-flex;
