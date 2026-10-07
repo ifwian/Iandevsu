@@ -12,10 +12,38 @@ type StatItem =
   | { label: string; value: string; href: string; external: boolean; tag?: false }
   | { label: string; value: string; tag: true };
 
-const BUILDS: string[] = [
-  "websites",
-  "little programs",
-  "things I probably didn't need to make",
+/**
+ * The hero's metadata blocks: a file name and the fields under it.
+ *
+ * Data rather than markup, because the branch connectors are decided by
+ * position -- the last row of a block gets `└──` and the rest `├──` -- and
+ * hand-writing that per row is how the two end up disagreeing about which line
+ * is the last one.
+ *
+ * Written lowercase; `.hero-tree-file` and `.hero-tree-key` both uppercase, so
+ * `about.sys` renders as `ABOUT.SYS` and `role` as `ROLE` from one casing
+ * decision in the stylesheet rather than two in the markup.
+ *
+ * Held here rather than in `content/profile.ts` on purpose: that file is what
+ * the chat persona is fed, and these are two captions for the hero, not facts
+ * about her. Changing what the assistant knows is a separate decision from
+ * changing what the hero says.
+ */
+const HERO_BLOCKS: { file: string; rows: { key: string; value: string }[] }[] = [
+  {
+    file: "about.sys",
+    rows: [
+      { key: "role", value: "computer science student & aspiring web developer" },
+      { key: "loc", value: "calamba, laguna, ph" },
+    ],
+  },
+  {
+    file: "mission.log",
+    rows: [
+      { key: "focus", value: "building modern, high-performance web applications" },
+      { key: "status", value: "open to new opportunities & collaborations" },
+    ],
+  },
 ];
 
 export default function Hero() {
@@ -168,38 +196,61 @@ export default function Hero() {
                   Computer Science Student &middot; Aspiring Web Developer
                 </p>
 
-                <div
-                  className="mt-6 max-w-[48ch] text-xs leading-relaxed text-[var(--gray-500)] sm:text-sm"
-                  style={{ lineHeight: 1.65 }}
-                >
-                  <p className="italic">“Too curious to stick to one thing.”</p>
+                {/* The information block: two named "files", each a small tree.
+                    This replaces a standalone italic quote paragraph and a row
+                    of loose numbered pills. The old arrangement asked the eye to
+                    read four things that all said the same kind of thing --
+                    who she is, what she is building, how she works, where to
+                    find her -- as four unrelated shapes. A tree states that they
+                    are the same kind of thing, and states it without adding a
+                    box: it is the page's own language, spelled out.
+
+                    Two files rather than one, because the two groups answer
+                    different questions and merging them flattened that. STACK.TXT
+                    is the inventory and it changes; NOW.TXT is the moment and it
+                    changes constantly.
+
+                    `<dl>` rather than a `<ul>` of styled divs: every row really
+                    is a term and its description, so a screen reader gets that
+                    pairing for free instead of hearing four adjacent strings.
+                    The branch glyphs are `aria-hidden` -- the structure is in the
+                    markup, the glyphs are the decoration on top of it.
+
+                    Keys are mono and values are the body's sans, which is the
+                    same register the rest of the sidebar and hero use: mono for
+                    chrome, sans for anything a person wrote. */}
+                <div className="hero-tree mt-9">
+                  {HERO_BLOCKS.map((block) => (
+                    <div key={block.file} className="hero-tree-block">
+                      <p className="hero-tree-file">{block.file}</p>
+                      <dl className="hero-tree-list">
+                        {block.rows.map((row, index) => {
+                          const last = index === block.rows.length - 1;
+                          return (
+                            <div
+                              key={row.key}
+                              className={last ? "hero-tree-row hero-tree-row--last" : "hero-tree-row"}
+                            >
+                              <span className="hero-tree-branch" aria-hidden="true">
+                                {last ? "└──" : "├──"}
+                              </span>
+                              <dt className="hero-tree-key">{row.key}</dt>
+                              <dd className="hero-tree-value">{row.value}</dd>
+                            </div>
+                          );
+                        })}
+                      </dl>
+                    </div>
+                  ))}
+
+                  {/* The pull quote sits below the blocks rather than inside one.
+                      It is a line she wrote, not a field in a listing, and it was
+                      in the arrangement before these blocks existed -- so it is
+                      kept rather than deleted. The sans italic is the project's
+                      gesture for someone's own words; it was Source Serif 4
+                      until the type system was adopted from the reference. */}
+                  <p className="hero-tree-quote">Too curious to stick to one thing.</p>
                 </div>
-
-            {/* "I like to build" as one cohesive terminal panel: a title bar
-                with the tracked label, then the three items as a horizontal
-                badge row. This replaced a loose label with free-floating pills,
-                which read as three unrelated chips -- nothing said they belonged
-                together, because there was no shared edge.
-
-                Reuses the hero window's own vocabulary (same hairline, same
-                `--gray-100` bar, same trio of chrome dots) so the two title rows
-                read as the same component at two depths. The chips keep
-                `.terminal-pill`, shared with the social buttons, so the panel is
-                cohesive with the rest of the hero without becoming uniform to
-                the point of losing the distinction between a link and a label.
-
-                Still a real `<ul>`; the brackets are `aria-hidden` because a
-                screen reader gets the order from the list markup. */}
-            <div className="flex w-fit max-w-full flex-wrap items-start justify-center gap-2 text-left md:justify-start">
-              {BUILDS.map((build, index) => (
-                <li key={build} className="terminal-pill">
-                  <span className="build-pill-index" aria-hidden="true">
-                    {['[', String(index + 1).padStart(2, '0'), ']'].join('')}
-                  </span>
-                  <span className="build-pill-label">{build}</span>
-                </li>
-              ))}
-            </div>
 
             {/* The email now lives in the sidebar footer, so it is not repeated
                 here. The social links stay, since the sidebar no longer has
@@ -207,8 +258,10 @@ export default function Hero() {
             {/* `justify-center` below md so a wrapped row of links centres too;
                 `w-fit` means the block itself is only as wide as its content,
                 which is what lets the `items-center` on the parent column centre
-                the whole group as one unit. */}
-            <div className="mt-6 flex w-fit max-w-full flex-wrap items-start justify-center gap-2 text-left md:justify-start">
+                the whole group as one unit. `mt-8` rather than the `mt-6` it
+                carried beside the old pill row: the tree above is taller, and
+                24px of air under it read as crowding rather than as a seam. */}
+            <div className="mt-8 flex w-fit max-w-full flex-wrap items-start justify-center gap-2 text-left md:justify-start">
               {SOCIAL_ITEMS.map(({ label, href, Icon }) => (
                 <a
                   key={label}
@@ -251,12 +304,17 @@ export default function Hero() {
               index >= 2 ? "border-t border-[var(--gray-200)] sm:border-t-0" : ""
             }`;
 
-            // The status cell: a pulsing light with a soft halo sitting
-            // immediately left of the word. `--status-active` rather than the
-            // literal `#22c55e` this used to hardcode: `.clinerules` forbids
-            // hardcoding a colour, and a fixed hex renders the same in both
-            // themes, so it clashed with the dark palette instead of lifting
-            // from the token the way every other live indicator on the site does.
+            // The status cell: a pulsing dot immediately left of the word.
+            //
+            // `--ink`, not `--status-active`. That green was the sanctioned
+            // exception to the monochrome rule, but the exception exists for
+            // the chat inbox, where four triage states have to be told apart at
+            // a glance down a column of fifty rows. This cell is one fixed,
+            // permanently-pulsing dot next to the fixed word "Building" -- there
+            // is no state to disambiguate and no scan to speed up, so a hue here
+            // was decoration spending the one accent the palette has. The pulse
+            // still carries "this is live"; it no longer costs a colour to say
+            // it, and the ping is kept rather than dropped for the same reason.
             if (stat.tag) {
               return (
                 <div key={stat.label} className={cellClass} style={{ fontFamily: "var(--font-mono)" }}>
@@ -264,11 +322,11 @@ export default function Hero() {
                     <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
                       <span
                         className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-                        style={{ backgroundColor: "var(--status-active)" }}
+                        style={{ backgroundColor: "var(--ink)" }}
                       />
                       <span
                         className="relative inline-flex h-2 w-2 rounded-full"
-                        style={{ backgroundColor: "var(--status-active)" }}
+                        style={{ backgroundColor: "var(--ink)" }}
                       />
                     </span>
                     <span className="text-base font-semibold tracking-tight text-[var(--ink)] sm:text-lg">
