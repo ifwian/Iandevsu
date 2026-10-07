@@ -258,13 +258,13 @@ export default function Hero() {
                 Still a real `<ul>`; the brackets are `aria-hidden` because a
                 screen reader gets the order from the list markup. `relative` so
                 the panel paints above the scanlines. */}
-            <div className="flex gap-2">
+            <div className="flex w-fit max-w-full flex-wrap items-start justify-center gap-2 text-left md:justify-start">
               {BUILDS.map((build, index) => (
                 <li key={build} className="terminal-pill">
                   <span className="build-pill-index" aria-hidden="true">
                     {['[', String(index + 1).padStart(2, '0'), ']'].join('')}
                   </span>
-                  <span className="min-w-0">{build}</span>
+                  <span>{build}</span>
                 </li>
               ))}
             </div>
