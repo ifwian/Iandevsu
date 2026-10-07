@@ -106,6 +106,31 @@ function isUnauthorizedError(error: unknown): boolean {
   return error instanceof Error && (error as Error & { status?: number }).status === 401;
 }
 
+/**
+ * Runs `task` every `intervalMs`, skipping ticks while the tab is hidden or the
+ * previous run is still in flight, and refreshing as soon as the tab returns.
+ * Returns the cleanup function.
+ */
+function pollWhileVisible(task: () => Promise<unknown>, intervalMs: number): () => void {
+  let inFlight = false;
+  const run = () => {
+    if (inFlight || document.hidden) return;
+    inFlight = true;
+    void task().finally(() => {
+      inFlight = false;
+    });
+  };
+  const onVisibilityChange = () => {
+    if (!document.hidden) run();
+  };
+  const interval = window.setInterval(run, intervalMs);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  return () => {
+    window.clearInterval(interval);
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+  };
+}
+
 function formatFull(value: string | null | undefined): string {
   if (!value) return "";
   const date = new Date(value);
@@ -486,14 +511,12 @@ export default function ChatInboxPage() {
 
   useEffect(() => {
     if (!authReady || !token) return;
-    const interval = window.setInterval(() => void loadConversations(), 3000);
-    return () => window.clearInterval(interval);
+    return pollWhileVisible(() => loadConversations(), 3000);
   }, [loadConversations, token]);
 
   useEffect(() => {
     if (!authReady || !token || !selectedId) return;
-    const interval = window.setInterval(() => void loadMessages(selectedId), 2000);
-    return () => window.clearInterval(interval);
+    return pollWhileVisible(() => loadMessages(selectedId), 2000);
   }, [loadMessages, selectedId, token]);
 
   /**

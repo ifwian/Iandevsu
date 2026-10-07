@@ -655,8 +655,11 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
     const visitorId = session?.visitorId;
     if (!open || !visitorId) return;
     let active = true;
+    let inFlight = false;
 
     const poll = async () => {
+      if (inFlight || document.hidden) return;
+      inFlight = true;
       try {
         const remote = await fetchAdminReplies(visitorId, session?.accessToken);
         if (!active) return;
@@ -672,15 +675,23 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
         }
       } catch {
         return;
+      } finally {
+        inFlight = false;
       }
+    };
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) void poll();
     };
 
     pollRef.current = () => void poll();
     void poll();
     const interval = window.setInterval(() => void poll(), 2500);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       active = false;
       window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       pollRef.current = () => undefined;
     };
   }, [open, session?.accessToken, session?.visitorId]);
