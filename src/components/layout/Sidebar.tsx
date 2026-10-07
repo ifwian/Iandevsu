@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Mail, MapPin, Search } from "lucide-react";
 import { PROFILE } from "@/content/profile";
 import { NAV_ITEMS } from "@/lib/navigation";
@@ -260,6 +260,18 @@ interface SidebarProps {
 export default function Sidebar({ className = "", onOpenPalette }: SidebarProps) {
   const [active, setActive] = useState<string>("#home");
   const [open, setOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      menuButtonRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   useEffect(() => {
     const sections = NAV_ITEMS.map((item) => document.querySelector(item.href)).filter(
@@ -349,10 +361,12 @@ export default function Sidebar({ className = "", onOpenPalette }: SidebarProps)
             <ThemeToggle compact />
             <div className="relative">
               <button
+                ref={menuButtonRef}
                 type="button"
                 onClick={() => setOpen(!open)}
                 aria-label="Toggle navigation menu"
                 aria-expanded={open}
+                aria-controls="mobile-nav-menu"
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--gray-200)]"
               >
                 <span className="flex flex-col items-center justify-center gap-[5px]">
@@ -384,8 +398,10 @@ export default function Sidebar({ className = "", onOpenPalette }: SidebarProps)
                     : "pointer-events-none origin-top-right scale-95 opacity-0"
                 }`}
                 style={{ backgroundColor: "var(--bg)" }}
+                id="mobile-nav-menu"
                 role="dialog"
                 aria-label="Navigation menu"
+                inert={!open}
               >
                 <SidebarIdentity />
                 <SidebarNav
