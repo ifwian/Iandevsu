@@ -196,6 +196,9 @@ export default function Hero() {
                   <img
                     src="/images/anime.jpg"
                     alt="Photo of Marianne"
+                    width={720}
+                    height={720}
+                    fetchPriority="high"
                     className="block h-full w-full object-cover"
                   />
                 }
@@ -203,6 +206,9 @@ export default function Hero() {
                   <img
                     src="/images/ianface.png"
                     alt="Photo of Marianne Hover"
+                    width={500}
+                    height={500}
+                    decoding="async"
                     className="block h-full w-full object-cover"
                   />
                 }
