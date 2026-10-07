@@ -21,7 +21,7 @@ type StatItem =
  * is the last one.
  *
  * Written lowercase; `.hero-tree-file` and `.hero-tree-key` both uppercase, so
- * `about.sys` renders as `ABOUT.SYS` and `role` as `ROLE` from one casing
+ * `builds.sys` renders as `BUILDS.SYS` and `focus` as `FOCUS` from one casing
  * decision in the stylesheet rather than two in the markup.
  *
  * Held here rather than in `content/profile.ts` on purpose: that file is what
@@ -29,20 +29,18 @@ type StatItem =
  * her. Changing what the assistant knows is a separate decision from changing
  * what the hero says.
  *
- * Order is the reading order: where she is, what she makes, what she is doing
- * about it. `about.sys` carries only the location because the role is already
- * spelled out in the strapline under her name, and saying it twice on one
- * screen is the kind of redundancy that reads as filler.
+ * There is deliberately no role row and no location row. The role is already in
+ * the strapline under her name, so a `role` field said the same sentence twice
+ * on one screen; and the location is already in the sidebar, one click away on
+ * every viewport, so repeating it here was a third statement of a fact the page
+ * already had two of. What survives is the two things neither of those says:
+ * what she makes, and what she is doing about it.
  *
  * `builds.sys` is numbered rather than keyed because it is a list of three, not
  * a set of fields -- `01`/`02`/`03` also match the numbered nav in the sidebar,
  * so the two read as the same numbering.
  */
 const HERO_BLOCKS: { file: string; rows: { key: string; value: string }[] }[] = [
-  {
-    file: "about.sys",
-    rows: [{ key: "loc", value: "calamba, laguna, ph" }],
-  },
   {
     file: "builds.sys",
     rows: [
