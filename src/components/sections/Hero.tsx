@@ -225,7 +225,7 @@ export default function Hero() {
                   line. `md:items-start md:text-left` restores the flush-left
                   column at tablet and up, where it sits beside the portrait. */}
               <div className="flex min-w-0 w-full flex-col items-center text-center md:max-w-md md:items-start md:text-left">
-                {/* Name takes the display role (Geist Pixel), like every other
+                {/* Name takes the display role (Kode Mono), like every other
                     heading on the site. Sentence case, as written -- unlike
                     .section-eyebrow, an h1 has no text-transform, so the casing
                     here is literally the casing that renders. */}
