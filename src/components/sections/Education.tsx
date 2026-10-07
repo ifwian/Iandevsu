@@ -80,11 +80,10 @@ export default function Education() {
         education &amp; certifications
       </h2>
 
-        {/* Section description -- prose, so Source Serif 4. */}
-        <p
-          className="mb-8 max-w-xl text-[15px] leading-[1.7] text-[var(--gray-400)]"
-          style={{ fontFamily: "var(--font-serif)" }}
-        >
+        {/* Section description -- prose, so Source Serif 4. The family comes
+            from `.font-source-serif` rather than an inline style, which is the
+            same binding every serif line below uses. */}
+        <p className="font-source-serif mb-8 max-w-xl text-[15px] leading-[1.7] text-[var(--gray-400)]">
           Where I&rsquo;ve studied, what I&rsquo;ve learned, and what I&rsquo;m currently building along
           the way.
         </p>
@@ -94,8 +93,11 @@ export default function Education() {
             {/* The dates are a label, not prose, so they take the micro-label
                 register. "Expected" lives in the line below rather than
                 inline here, which is what keeps this scannable against a
-                certification's single year. */}
-            <p className="micro-label mb-2 text-[11px] tracking-wider text-[var(--gray-500)]">
+                certification's single year.
+
+                `.font-source-serif` sets only the family, so the micro-label
+                register is untouched: same 11px, same tracking, same gray. */}
+            <p className="font-source-serif micro-label mb-2 text-[11px] tracking-wider text-[var(--gray-500)]">
               2025 &mdash; 2029
             </p>
             <p
@@ -104,22 +106,24 @@ export default function Education() {
             >
               BS Computer Science
             </p>
-            <p className="mt-1.5 text-sm text-[var(--gray-400)]" style={{ fontFamily: "var(--font-body)" }}>
+            {/* Institution and status are the descriptive layer of the card, so
+                they take the serif. `italic` on the status line is a real Source
+                Serif 4 italic -- the italic cut is requested in index.html, and
+                `.font-source-serif` sets `font-synthesis: none` so the browser
+                cannot fake it by shearing the upright. */}
+            <p className="font-source-serif mt-1.5 text-sm text-[var(--gray-400)]">
               City College of Calamba
             </p>
-            <p className="mt-3 text-sm text-[var(--gray-500)]" style={{ fontFamily: "var(--font-body)" }}>
+            <p className="font-source-serif mt-3 text-sm italic text-[var(--gray-500)]">
               Currently studying
             </p>
           </PanelCard>
 
           <PanelCard heading="certifications">
-            <p
-              className="text-sm font-semibold tracking-tight text-[var(--ink)] sm:text-base"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
+            <p className="font-source-serif text-sm font-semibold tracking-tight text-[var(--ink)] sm:text-base">
               HackerRank
             </p>
-            <p className="micro-label mt-1 text-[11px] tracking-wider text-[var(--gray-500)]">
+            <p className="font-source-serif micro-label mt-1 text-[11px] tracking-wider text-[var(--gray-500)]">
               2026
             </p>
             {/* An inline SVG tick rather than a "✓" character: the check glyph

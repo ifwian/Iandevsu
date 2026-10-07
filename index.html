@@ -36,12 +36,17 @@
   <!-- Typography: the roles of the bryl-minimal stack.
        Display + Mono -- Kode Mono      (headings, labels, nav, UI chrome)
        Body           -- Geist          (UI copy, buttons, subheadings)
-       Serif          -- Source Serif 4 (long-form prose, upright only)
-       Loaded here, once, rather than injected per-component at runtime. -->
+       Serif          -- Source Serif 4 (prose, institutions, dates)
+       Loaded here, once, rather than injected per-component at runtime.
+       Source Serif 4 is requested in both upright and italic (`ital,opsz,wght`)
+       because the Education section sets its "Currently studying" subtitle in
+       italic. Requesting only the upright cut would leave that line rendered as
+       a synthetic oblique -- a sheared upright, which reads as broken rather
+       than italic at small sizes. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Kode+Mono:wght@400..700&family=Source+Serif+4:opsz,wght@8..60,300..700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Kode+Mono:wght@400..700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..700;1,8..60,300..700&display=swap"
     rel="stylesheet"
   />
 

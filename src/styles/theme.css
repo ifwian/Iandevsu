@@ -88,7 +88,15 @@
   --font-body: "Geist", system-ui, sans-serif;
   --font-mono: "Kode Mono", ui-monospace, monospace;
   --font-display: "Kode Mono", ui-monospace, monospace;
-  --font-serif: "Source Serif 4", serif;
+  /* Source Serif 4, and on failure the site's own body face -- deliberately not
+     a generic `serif`. A bare `serif` keyword resolves to Times New Roman on
+     Windows, Georgia on older macOS and Noto Serif on Linux, so a blocked or
+     slow Google Fonts request would silently re-render every serif line in a
+     different face from the one the design was drawn in. Falling back to Geist
+     keeps the fallback inside the palette: a sans in the site's own family
+     rather than a stranger's serif. `font-synthesis` below then guarantees an
+     italic subtitle never becomes a sheared upright. */
+  --font-serif: "Source Serif 4", var(--font-body);
 
   color-scheme: light;
 }
@@ -900,6 +908,40 @@ h1, h2, h3, h4, h5, h6 {
 
 `aria-hidden` at every call site: it is decoration implying "editable", and
    these are static reads -- announcing a cursor would be a false claim.
+
+/* ---------- Serif role ----------
+   The one class that binds an element to Source Serif 4, so "prose set in the
+   serif" is a named role in the stylesheet rather than an inline
+   `style={{ fontFamily: "var(--font-serif)" }}` repeated per call site.
+
+   It exists as a class rather than Tailwind's own `font-serif` utility on
+   purpose. Tailwind's `font-serif` resolves to `ui-serif, Georgia, Cambria,
+   "Times New Roman", Times, serif` -- that default stack is where a Georgia
+   rendering comes from, and this project never wires the font tokens into
+   `@theme`, so the utility would keep emitting it. Binding the face here means
+   the serif role is Source Serif 4 by construction and there is no utility
+   left that can quietly reintroduce a system serif.
+
+   Sized and coloured by the caller: this sets the family and nothing else, so
+   an 11px tracked date and a 15px paragraph can share it.
+
+   `-webkit-font-smoothing: antialiased` is applied to the serif only, not to
+   the document. Source Serif 4 has open counters and hairline serifs; on the
+   dark theme, default subpixel rendering thickens those strokes enough to fill
+   in at 11-15px, and antialiasing keeps the glyph edges sharp against the card
+   ground. The mono and sans text is left on the document's own smoothing, which
+   is what it was already drawn against.
+
+   `font-synthesis: none` forbids the faux italic and faux bold a browser will
+   otherwise invent for any weight or style it thinks is missing. The real
+   italic cut is requested from Google Fonts, so `italic` below renders a true
+   Source Serif 4 italic rather than a sheared upright. */
+.font-source-serif {
+  font-family: var(--font-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
+}
 
 /* Narrative column. `line-height: 1.75` at 15px and 1.8 at 17px: serif at this
    size needs more leading than the 1.6 the body sets, or the ascenders and
