@@ -747,6 +747,71 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* ---------- Portrait indicator ----------
+   The "hover me / click me !" line and the arrow above the portrait.
+
+   Grey tokens rather than the `text-white/60` and `border-white/20` this was
+   asked for with, because those are light-theme literals: on the dark theme
+   `--bg` is #0c0c0f, so `text-white/60` lands near-white on a near-black card
+   and stops being muted at all -- it becomes the brightest thing on the
+   portrait. `--gray-400` is #404040 in light and #8a8a92 in dark, which is the
+   same "muted, same relative weight" intent in both themes, and it is the
+   palette's own value rather than a colour invented at a call site.
+
+   `nowrap` is load-bearing. The wrapper is exactly as wide as the portrait, so
+   a hint allowed to wrap would break onto two lines and push the arrow down
+   instead of sitting over the photograph. */
+
+.hero-portrait-hint {
+  margin-bottom: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.1em;
+  color: var(--gray-400);
+  white-space: nowrap;
+  transition: color 0.35s var(--ease-out);
+}
+
+/* 14px clears the portrait's own ring: `.hero-portrait` draws a 5px spread plus
+   a 26px blur outside its edge on hover, and an arrow sitting inside that reads
+   as part of the glow rather than as an arrow.
+
+   `--gray-400`, the same value as the label above it and not `--gray-300`: on
+   the dark theme `--gray-300` is #3a3a42 against a #18181b card, which measured
+   out at a contrast so low the arrow was effectively invisible rather than
+   subtle. Same muted intent, one step up, and it now reads as a drawn mark. */
+.hero-portrait-arrow {
+  margin-bottom: 0.875rem;
+  color: var(--gray-400);
+  transition: color 0.35s var(--ease-out), transform 0.35s var(--ease-out);
+}
+
+/* Warm with the portrait. Both are `color` transitions so they land in the same
+   350ms as `.hero-portrait`'s own border and glow -- the indicator and the thing
+   it points at have to arrive together or the page looks broken for a moment. */
+.hero-portrait-wrap:hover .hero-portrait-hint,
+.hero-portrait-wrap:hover .hero-portrait-arrow {
+  color: var(--ink);
+}
+
+/* The arrow takes one step toward the photograph it is pointing at. A single
+   2px nudge: more would be a loop, and this is a hint rather than an invitation
+   to wait. Guarded, because it is a transform and this file guards those. */
+.hero-portrait-wrap:hover .hero-portrait-arrow {
+  transform: translateY(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-portrait-arrow {
+    transition: color 0.35s var(--ease-out);
+  }
+
+  .hero-portrait-wrap:hover .hero-portrait-arrow {
+    transform: none;
+  }
+}
+
 /* Portrait treatment. The doubled ring is a `box-shadow` spread rather than a
    second border so it draws outside the element's own 1px edge and does not
    change its box size -- a real border here would push the 5:6 frame out of
