@@ -99,7 +99,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <div className="flex min-h-screen flex-col lg:flex-row">
         {/* Sidebar wrapper */}
         <div className="w-0 shrink-0">
-          <Sidebar onOpenPalette={() => setPaletteOpen(true)} />
+          {/* No `onOpenPalette`: the rail has no palette button, and the palette is
+          opened by the document-level ⌘K handler above. */}
+      <Sidebar />
         </div>
 
         {/* Main content wrapper. `sidebar-offset` replaces the old `lg:pl-80`;

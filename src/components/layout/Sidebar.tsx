@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, FileText, Mail, MapPin, Search } from "lucide-react";
+import { ArrowUpRight, FileText, Mail, MapPin } from "lucide-react";
 import { PROFILE } from "@/content/profile";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { SOCIAL_ITEMS } from "@/lib/socials";
@@ -11,83 +11,6 @@ interface SidebarNavProps {
   active: string;
   mobile?: boolean;
   onNavigate?: () => void;
-}
-
-/**
- * The platform's modifier glyph, resolved once on mount.
- *
- * Rendered as ⌘ on Apple platforms and "ctrl" elsewhere, because showing "⌘K" to
- * someone on Windows or Linux describes a chord their keyboard does not have.
- * Starts as the neutral "K" so the first paint -- and any render before the
- * effect runs -- shows something true rather than the wrong modifier.
- */
-function useModifierLabel(): string {
-  const [label, setLabel] = useState("K");
-  useEffect(() => {
-    const isApple = /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
-    setLabel(isApple ? "⌘K" : "ctrl k");
-  }, []);
-  return label;
-}
-
-/**
- * The single navigation affordance that replaced the long section list on the
- * desktop rail.
- *
- * Terminal-styled on purpose -- monospace, small, quiet -- to match the rest of
- * the sidebar's register rather than looking like a web button dropped into it.
- *
- * An inline text item, not a boxed button: no fill, no border, no radius. The
- * rail is hairline rules and 13px mono, and a bordered box here competed with
- * the one real chrome surface in the column (the chat panel's own edge). Icon
- * plus label sits in the same row shape as the numbered nav links -- same
- * `py-[0.45rem]`, same `text-[13px]`, same `leading-normal` -- so the three read
- * as one list of places rather than a link above two widgets.
- *
- * The hover is a colour change on the icon and label, and nothing else: no
- * border to move, no fill to appear. `.clinerules` is explicit that emphasis
- * here comes from inversion or typography and never from a new colour, so a
- * highlighted surface would be the wrong gesture at this size.
- */
-function SidebarCommandButton({ onOpen }: { onOpen: () => void }) {
-  const modifier = useModifierLabel();
-
-  return (
-    <div className="border-b border-[var(--gray-200)] py-5">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="group flex w-full items-center gap-2 py-[0.45rem] text-left text-[13px] leading-normal transition-colors"
-        style={{ color: "var(--gray-500)", fontFamily: "var(--font-mono)" }}
-      >
-        <Search
-          size={13}
-          strokeWidth={1.8}
-          aria-hidden="true"
-          className="shrink-0 transition-colors group-hover:text-[var(--ink)]"
-        />
-        <span className="min-w-0 flex-1 truncate transition-colors group-hover:text-[var(--ink)]">
-          jump to section
-        </span>
-        {/**
-         * The shortcut is shown on the control, not only in a tooltip: it is the
-         * only way a visitor learns the palette has a keyboard shortcut.
-         *
-         * `py-px` rather than `py-0.5` on purpose, unchanged from when the row
-         * had a box: the tag is the tallest thing here, so at `py-0.5` it reached
-         * 20px and dragged the row's line box out of step with the 13px label
-         * beside it. At `py-px` it is 10px line + 2px padding + 2px border =
-         * 14px, and `items-center` puts it level with the icon.
-         */}
-        <kbd
-          className="shrink-0 rounded border border-[var(--gray-300)] px-1 py-px text-[10px] leading-none text-[var(--gray-400)] transition-colors duration-200 group-hover:border-[var(--gray-400)] group-hover:text-[var(--gray-500)]"
-          style={{ fontFamily: "var(--font-mono)" }}
-        >
-          {modifier}
-        </kbd>
-      </button>
-    </div>
-  );
 }
 
 function SidebarNav({ active, mobile = false, onNavigate }: SidebarNavProps) {
@@ -333,11 +256,9 @@ function SidebarMobileFooter() {
 
 interface SidebarProps {
   className?: string;
-  /** Opens the ⌘K palette. Owned by MainLayout, which renders the modal. */
-  onOpenPalette?: () => void;
 }
 
-export default function Sidebar({ className = "", onOpenPalette }: SidebarProps) {
+export default function Sidebar({ className = "" }: SidebarProps) {
   const [active, setActive] = useState<string>("#home");
   const [open, setOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -400,17 +321,21 @@ export default function Sidebar({ className = "", onOpenPalette }: SidebarProps)
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           <SidebarIdentity />
           {/*
-            The numbered list is the rail's primary navigation. It was removed
-            earlier as a duplicate of the command palette, which is a fair
-            argument on a rail that already has to hold a contact block and a
-            social row -- but it left a desktop visitor with one button that
-            opens a modal, and no way to see where they can go.
+            The numbered list is the rail's only navigation. The "jump to
+            section" button that used to sit below it is gone: it opened the
+            command palette, which is reachable from anywhere on ⌘K / ctrl K
+            because `MainLayout` binds that chord on the document rather than on
+            this control. Two affordances for eight sections was one too many,
+            and the button was the redundant one -- the list shows every section
+            without a modal, and it marks where you already are.
 
-            So both are here, and they are not duplicates in practice: the list
-            shows the eight sections and marks the active one, while the palette
-            is a search across them for someone who knows what they want. The
-            list scrolls with the page rather than jumping, so it is the way
-            someone browses; the palette is the way someone who already knows.
+            The cost is discoverability: nothing on the page now advertises the
+            palette, so it is a shortcut for people who already know it exists.
+
+            The list's own `border-b` is the divider to the footer, and the
+            footer's `pt-5` below is the gap under it, so the rail still breaks
+            into three groups -- identity, navigation, contact -- with nothing
+            stranded between them.
 
             `min-h-0` on the wrapper above is what keeps this honest: the rail is
             a flex column, and a flex item's default `min-height: auto` would
@@ -418,7 +343,6 @@ export default function Sidebar({ className = "", onOpenPalette }: SidebarProps)
             bottom of a short viewport instead of letting this area scroll.
           */}
           <SidebarNav active={active} />
-          <SidebarCommandButton onOpen={() => onOpenPalette?.()} />
         </div>
         {/* `mt-auto` pins the contact block to the bottom of the flex column,
             mirroring the reference's `.sidebar__foot`. */}
