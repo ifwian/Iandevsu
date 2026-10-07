@@ -1,22 +1,8 @@
 ﻿"use client";
 
-import { type ComponentType } from "react";
 import { ArrowUpRight } from "lucide-react";
-import GithubIcon from "@/components/icons/GithubIcon";
+import { SOCIAL_ITEMS } from "@/lib/socials";
 import PixelTransition from "@/components/ui/PixelTransition";
-
-interface SocialIconProps {
-  size?: number;
-  className?: string;
-}
-
-type SocialIcon = ComponentType<SocialIconProps>;
-
-interface SocialItem {
-  label: string;
-  href: string;
-  Icon: SocialIcon;
-}
 
 /**
  * A metric cell is a link; a status cell is a tag. Modelled as a union so a
@@ -25,55 +11,6 @@ interface SocialItem {
 type StatItem =
   | { label: string; value: string; href: string; external: boolean; tag?: false }
   | { label: string; value: string; tag: true };
-
-const SOCIAL_ITEMS: SocialItem[] = [
-  { label: "github", href: "https://github.com/ifwian", Icon: GithubIcon },
-  { label: "linkedin", href: "https://www.linkedin.com/in/ifwiannn/", Icon: LinkedinIcon },
-  { label: "instagram", href: "https://www.instagram.com/ifwiannn/", Icon: InstagramIcon },
-];
-
-function LinkedinIcon({ size = 15, className }: SocialIconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M6 8.5V18" />
-      <path d="M6 5.5v.01" />
-      <path d="M10 18v-5.25a3.25 3.25 0 0 1 6.5 0V18" />
-      <path d="M10 12.5V18" />
-    </svg>
-  );
-}
-
-function InstagramIcon({ size = 15, className }: SocialIconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect x="3" y="3" width="18" height="18" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.4" cy="6.6" r=".8" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
 
 const BUILDS: string[] = [
   "websites",
