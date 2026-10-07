@@ -487,9 +487,47 @@ function isChatMessage(value: unknown): value is ChatMessage {
   );
 }
 
+const LEGACY_VISITOR_ID = "legacy-visitor";
+
 function getVisitorId(value: unknown): string {
   if (typeof value === "string" && /^[a-zA-Z0-9_-]{8,128}$/.test(value)) return value;
-  return "legacy-visitor";
+  return LEGACY_VISITOR_ID;
+}
+
+const VISITOR_SESSION_MESSAGE =
+  "I couldn't start a secure chat session, so I can't send messages right now. Please refresh the page and try again.";
+
+/**
+ * Why this visitor may not write to the thread for `visitorId`, or null if they
+ * may. Threads already owned by an anonymous session require that same session;
+ * older threads created before sessions existed (owner null) stay writable.
+ */
+async function visitorWriteProblem(
+  visitorId: string,
+  visitorAuthId: string | null
+): Promise<{ reason: string; message: string } | null> {
+  if (visitorId === LEGACY_VISITOR_ID) {
+    return { reason: "missing-or-invalid-visitor-id", message: VISITOR_SESSION_MESSAGE };
+  }
+  // Sessions cannot be verified without an anon/publishable key on the server,
+  // so the ownership check is skipped rather than locking every visitor out.
+  if (!getSupabaseAuthKey()) {
+    console.warn(
+      JSON.stringify({
+        scope: "ian-chat-visitor-auth",
+        note: "no SUPABASE_ANON_KEY / SUPABASE_PUBLISHABLE_KEY on the server -- thread ownership is not enforced",
+      })
+    );
+    return null;
+  }
+  if (!visitorAuthId) {
+    return { reason: "no-anonymous-session", message: VISITOR_SESSION_MESSAGE };
+  }
+  const existing = await findConversationByVisitor(visitorId);
+  if (existing?.visitor_auth_id && existing.visitor_auth_id !== visitorAuthId) {
+    return { reason: "session-does-not-own-thread", message: VISITOR_SESSION_MESSAGE };
+  }
+  return null;
 }
 
 const MAX_NAME_LENGTH = 80;
@@ -1037,6 +1075,52 @@ function pruneAdminLoginAttempts(now: number): void {
 function storeAdminLoginAttempt(key: string, entry: { count: number; resetAt: number }): void {
   if (adminLoginAttempts.size >= ADMIN_LOGIN_MAX_TRACKED_KEYS) adminLoginAttempts.clear();
   adminLoginAttempts.set(key, entry);
+}
+
+/* ---------------------------------------------------------------------------
+ * Visitor message rate limit.
+ *
+ * Every visitor message can cost a Gemini call and a notification email, so a
+ * script must not be able to send them unbounded. Same caveat as the login
+ * brake: in-memory, per instance, best-effort.
+ * ------------------------------------------------------------------------ */
+
+const VISITOR_RATE_WINDOW_MS = 60 * 1000;
+const VISITOR_RATE_MAX_EVENTS = 20;
+const VISITOR_RATE_MAX_TRACKED_KEYS = 10000;
+
+const visitorRateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+/**
+ * One key per client address. On Vercel the platform sets
+ * `x-vercel-forwarded-for` / `x-real-ip` itself, so unlike `x-forwarded-for`
+ * they cannot be chosen by the client. Locally the socket address is real.
+ */
+function getVisitorRateKey(req: VercelRequest): string {
+  if (isDeployed()) {
+    const platform = readHeader(req, "x-vercel-forwarded-for") || readHeader(req, "x-real-ip");
+    if (platform) return `ip:${platform.split(",")[0].trim()}`;
+  }
+  return `ip:${req.socket?.remoteAddress ?? "unknown"}`;
+}
+
+/** Counts this request; returns seconds to wait when over the limit, else 0. */
+function takeVisitorRateToken(key: string): number {
+  const now = Date.now();
+  const entry = visitorRateBuckets.get(key);
+  if (!entry || now > entry.resetAt) {
+    if (visitorRateBuckets.size >= VISITOR_RATE_MAX_TRACKED_KEYS) {
+      for (const [k, v] of visitorRateBuckets) if (now > v.resetAt) visitorRateBuckets.delete(k);
+      if (visitorRateBuckets.size >= VISITOR_RATE_MAX_TRACKED_KEYS) visitorRateBuckets.clear();
+    }
+    visitorRateBuckets.set(key, { count: 1, resetAt: now + VISITOR_RATE_WINDOW_MS });
+    return 0;
+  }
+  if (entry.count >= VISITOR_RATE_MAX_EVENTS) {
+    return Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
+  }
+  entry.count += 1;
+  return 0;
 }
 
 function issueAdminSession(password: string): string {
@@ -1897,6 +1981,44 @@ async function resolveConversation(
   return findConversationByVisitor(visitorId);
 }
 
+/**
+ * The last MAX_TURNS turns of a conversation as stored server-side. Used as the
+ * Gemini history instead of the client's copy, so a visitor cannot put words
+ * in the assistant's mouth by sending forged `model` turns. System notices are
+ * skipped; admin replies count as the assistant's side of the conversation.
+ */
+async function loadStoredHistory(conversationId: string): Promise<ChatMessage[] | null> {
+  const result = await supabaseRequest(
+    `chat_messages?conversation_id=eq.${encodeURIComponent(conversationId)}&select=id,conversation_id,role,body,created_at&role=in.(visitor,assistant,admin)&order=created_at.desc&limit=${MAX_TURNS}`
+  );
+  if (!Array.isArray(result)) return null;
+
+  const turns: ChatMessage[] = result
+    .filter(isStoredMessage)
+    .reverse()
+    .filter((row) => row.body.trim().length > 0)
+    .map((row) => ({ role: row.role === "visitor" ? "user" : "model", text: row.body }));
+
+  const firstUserIndex = turns.findIndex((turn) => turn.role === "user");
+  return firstUserIndex < 0 ? null : turns.slice(firstUserIndex);
+}
+
+/**
+ * Prefers the stored transcript. Falls back to the client's user turns only
+ * (never its `model` turns) when storage is unavailable or the current message
+ * did not make it into the database.
+ */
+async function getGeminiHistory(
+  conversationId: string | null,
+  clientMessages: ChatMessage[]
+): Promise<ChatMessage[]> {
+  if (conversationId) {
+    const stored = await loadStoredHistory(conversationId);
+    if (stored && stored.length > 0 && stored[stored.length - 1].role === "user") return stored;
+  }
+  return clientMessages.filter((message) => message.role === "user");
+}
+
 function getLastUserMessage(messages: ChatMessage[]): string {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (messages[index].role === "user") return messages[index].text;
@@ -2661,7 +2783,7 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
    * with its own authorization: the admin proves it with a session, a visitor
    * proves it by matching the conversation's own visitor_auth_id. */
   if (event === "reaction") {
-    if (!hasSupabaseConfig()) return res.status(503).json(supabaseNotConfiguredBody());
+    if (!hasSupabaseConfig()) return res.status(503).json({ error: "Reactions are unavailable right now." });
 
     const conversationId = typeof body.conversationId === "string" ? body.conversationId.trim() : "";
     const kind = body.kind;
@@ -2730,6 +2852,27 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
     const entry = await insertActivity(conversation.id, kind, page, label);
 
     return res.status(200).json({ ok: true, recorded: Boolean(entry) });
+  }
+
+  const retryAfter = takeVisitorRateToken(getVisitorRateKey(req));
+  if (retryAfter > 0) {
+    console.warn(JSON.stringify({ scope: "ian-chat-rate-limit", event, visitorId, retryAfter }));
+    res.setHeader("Retry-After", String(retryAfter));
+    return res.status(429).json({
+      error: "You're sending messages a little fast. Please wait a moment and try again.",
+    });
+  }
+
+  // A visitor may only write to their own thread. The thread is keyed by the
+  // client-chosen visitorId, so ownership is proven by the Supabase anonymous
+  // session that created it. Only enforced when persistence is on: without a
+  // database there is no thread to write into.
+  if (hasSupabaseConfig()) {
+    const problem = await visitorWriteProblem(visitorId, visitorAuthId);
+    if (problem) {
+      console.warn(JSON.stringify({ scope: "ian-chat-visitor-auth", event, visitorId, problem: problem.reason }));
+      return res.status(403).json({ error: problem.message });
+    }
   }
 
   if (event === "chat_started") {
@@ -2851,7 +2994,7 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
         source: process.env.VERCEL_ENV ? "vercel-project-env" : "local-dotenv-or-process",
       })
     );
-    return res.status(500).json({ error: "Server is missing GEMINI_API_KEY" });
+    return res.status(500).json({ error: "Chat is not available right now. Please try again later." });
   }
   let geminiResponse: Response | null = null;
   let lastStatus = 0;
@@ -2864,10 +3007,11 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
   // Per-model outcome, so a chain that dies on candidate three says which two
   // worked -- the single most useful fact when GEMINI_MODEL is stale.
   const attempts: Array<Record<string, unknown>> = [];
+  const geminiMessages = await getGeminiHistory(conversationId, modelMessages);
 
   for (const model of getModelCandidates()) {
     try {
-      const response = await requestGemini(apiKey, model, modelMessages);
+      const response = await requestGemini(apiKey, model, geminiMessages);
       if (response.ok) {
         geminiResponse = response;
         attempts.push({ model, outcome: "ok", status: response.status });
@@ -2967,7 +3111,7 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
         stack: error instanceof Error ? error.stack : undefined,
       })
     );
-    writeServerEvent(res, { type: "error", error: message });
+    writeServerEvent(res, { type: "error", error: "The reply was interrupted. Please try again." });
     return res.end();
   }
 }

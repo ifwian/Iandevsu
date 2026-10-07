@@ -3,7 +3,7 @@ import { createServer as createNetServer } from "node:net";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import chatHandler from "./api/chat";
+import chatHandler from "./api/chat.ts";
 
 const DEFAULT_CHAT_API_PORT = 8787;
 const SERVER_ENV_KEYS = [

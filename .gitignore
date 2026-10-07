@@ -1,6 +1,12 @@
 node_modules
 .vercel
 .env*
+.env
+.env.*
+api keys.txt
+*keys*.txt
+*.key
+*.pem
 # The template is the one .env file that is meant to be committed -- it holds
 # no secrets, and README's setup step starts from `cp .env.example .env.local`,
 # which cannot work on a fresh clone while this stays ignored. The negation has

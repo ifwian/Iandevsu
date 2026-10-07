@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import Hero from "@/components/sections/Hero";
@@ -9,8 +9,10 @@ import Education from "@/components/sections/Education";
 import LifeOutsideIDE from "@/components/sections/LifeOutsideIDE";
 import GithubActivity from "@/components/sections/GithubActivity";
 import Blog from "@/components/sections/Blog";
-import ProjectsPage from "@/pages/ProjectsPage";
-import ChatInboxPage from "@/pages/ChatInboxPage";
+import ChatWithIan from "@/components/chat/ChatWithIan";
+
+const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
+const ChatInboxPage = lazy(() => import("@/pages/ChatInboxPage"));
 
 /**
  * Sends the window back to the top on every route change.
@@ -85,11 +87,22 @@ export default function App() {
       {/* Inside the router: it reads the location, so it has to be a descendant
           of whichever router is in play. */}
       <ScrollToTop />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/projects" element={<ProjectsPage />} />
-        <Route path="/chat-inbox" element={<ChatInboxPage />} />
-      </Routes>
+      <a href="#main-content" className="skip-link">
+        Skip to content
+      </a>
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/chat-inbox" element={<ChatInboxPage />} />
+        </Routes>
+      </Suspense>
+      {/* The chat trigger and its panel are both `fixed`, so this is mounted
+          beside the routes rather than inside one: it stays reachable from every
+          page instead of only the ones whose layout happens to include it, and it
+          cannot inherit a route's `overflow` or stacking context and be clipped
+          by it. */}
+      <ChatWithIan />
     </BrowserRouter>
   );
 }

@@ -9,30 +9,111 @@
   <meta name="color-scheme" content="light dark" />
 
   <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://iandevs.vercel.app/" />
   <meta property="og:title" content="MRN | Computer Science Student &amp; Aspiring Web Developer" />
   <meta property="og:description" content="Portfolio of Marianne Napaño, a Computer Science student and aspiring web developer building projects with HTML, CSS, and JavaScript." />
-  <meta property="og:image" content="/images/mypfp.jpg" />
+  <meta property="og:site_name" content="Marianne Napaño" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:image" content="https://iandevs.vercel.app/images/anime-480w.webp" />
 
-  <link rel="icon" type="image/jpeg" href="/images/anime.jpg" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="MRN | Computer Science Student &amp; Aspiring Web Developer" />
+  <meta name="twitter:description" content="Portfolio of Marianne Napaño, a Computer Science student and aspiring web developer building projects with HTML, CSS, and JavaScript." />
+  <meta name="twitter:image" content="https://iandevs.vercel.app/images/anime-480w.webp" />
+
+  <link rel="canonical" href="https://iandevs.vercel.app/" />
+  <link rel="icon" type="image/png" href="/images/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/images/apple-touch-icon-180.png" />
   <!-- Tailwind CSS (utility classes for layout only -- colors and
        typography come from the bryl-minimal tokens in src/styles/theme.css,
        loaded via main.tsx). -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    /* Font lock.
+       Tailwind's Play CDN ships the platform's own stacks, and its default
+       `font-serif` is `ui-serif, Georgia, Cambria, "Times New Roman", Times,
+       serif` -- so a `font-serif` class anywhere would put a system serif on
+       the page. The three roles of this project's type system are pointed at
+       the tokens in src/styles/theme.css instead.
+
+       `body` is the extra key: it emits the `font-body` utility, which is how
+       an element inside a mono-set section (the section wrappers all set
+       --font-mono) opts back into the sans without an inline style.
+
+       `serif` stays mapped even though this project has no serif any more,
+       and deliberately points at the sans. Leaving it out would hand the
+       utility back to Tailwind's Georgia default -- the one thing the previous
+       serif work existed to prevent -- so a future `font-serif` resolves to
+       Geist instead of to a stranger's face.
+
+       The tokens stay the single source of truth: this names them rather than
+       restating the stacks, so a stack is still edited in exactly one place.
+       `extend` rather than a bare `fontFamily` so the rest of the default
+       theme (spacing, breakpoints, the grid and flex utilities the layout
+       depends on) is left alone.
+
+       Must stay after the CDN script, which is what defines `tailwind.config`
+       in the first place. */
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            body: ["var(--font-body)"],
+            mono: ["var(--font-mono)"],
+            display: ["var(--font-display)"],
+            sans: ["var(--font-body)"],
+            serif: ["var(--font-body)"],
+          },
+        },
+      },
+    };
+  </script>
 
   <!-- Devicon: technology icons used in the tech-stack section. -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@2.17.0/devicon.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@2.17.0/devicon.min.css" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@2.17.0/devicon.min.css" /></noscript>
 
-  <!-- Typography: the four roles of the bryl-minimal stack.
-       Display  -- Kode Mono     (headings, section numbers, stat values)
-       Mono     -- Geist Mono     (labels, nav, code, UI chrome)
-       Body     -- Geist          (UI copy, buttons, subheadings)
-       Serif    -- Source Serif 4 (long-form prose)
-       Loaded here, once, rather than injected per-component at runtime. -->
+  <!-- Typography: the three roles of the bryl-minimal stack, as adopted from
+       Vurios/portfolio (github.com/Vurios/portfolio) -- the same design language
+       this site was built on, with its type system rather than one invented here.
+
+         Sans    -- Geist          (headings, body copy, prose, values)
+         Mono    -- Geist Mono     (labels, nav, badges, dates, pills, code)
+         Display -- Geist Pixel    (brand, section titles, index numbers)
+
+       Geist and Geist Mono come from Google Fonts, requested once here rather
+       than injected per component. Weights are discrete rather than the 300-700
+       variable ranges this site used before: 600 is loaded on both because the
+       design sets `font-semibold` on headings and mono labels, and without a
+       real 600 cut the browser fakes one by smearing the 500 -- which is the
+       thing this project moved away from when it dropped synthetic italics.
+
+       Geist Pixel is NOT on Google Fonts (the CSS2 API returns 400 for it),
+       which is why Vurios self-hosts it too. The face and its OFL licence are
+       in public/fonts/; the @font-face that binds it is in src/styles/theme.css,
+       and the preload below gets it fetching in parallel with the CSS rather
+       than after it. It is 27KB for the whole set and paints the brand name and
+       the section titles, so it is on the critical path for first paint.
+
+       Source Serif 4 is a fourth face and is here on purpose, for one element:
+       the hero's pull quote. The type system itself is the reference's three
+       (Geist / Geist Mono / Geist Pixel); this is the single exception, and it
+       is requested italic-only at weight 400 so the browser downloads one cut
+       rather than the upright family. A serif pull quote set against a mono
+       field is the whole reason -- it is the one line on the page that is
+       prose someone wrote rather than a label. */
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@100..900&family=Kode+Mono:wght@400..700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..700;1,8..60,300..700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@1,8..60,400&display=swap"
     rel="stylesheet"
+  />
+  <link
+    rel="preload"
+    href="/fonts/GeistPixel-Square.woff2"
+    as="font"
+    type="font/woff2"
+    crossorigin
   />
 
   <!-- No-flash theme init: read the stored/system preference before
