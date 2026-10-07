@@ -97,7 +97,7 @@ const QUICK_ACTIONS: readonly QuickAction[] = [
 
 /** Same asset the favicon uses (see index.html), so the browser reuses the
  *  cached copy instead of pulling a separate image for a 32px avatar. */
-const ASSISTANT_AVATAR = "/images/anime.jpg";
+const ASSISTANT_AVATAR = "/images/anime-avatar-64.webp";
 const PRESENCE_COLOR = "#22c55e";
 
 const VISITOR_STORAGE_KEY = "ian-chat-visitor-id";

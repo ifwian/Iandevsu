@@ -194,20 +194,20 @@ export default function Hero() {
               <PixelTransition
                 firstContent={
                   <img
-                    src="/images/anime.jpg"
+                    src="/images/anime-480w.webp"
                     alt="Photo of Marianne"
-                    width={720}
-                    height={720}
+                    width={480}
+                    height={480}
                     fetchPriority="high"
                     className="block h-full w-full object-cover"
                   />
                 }
                 secondContent={
                   <img
-                    src="/images/ianface.png"
+                    src="/images/ianface-480w.webp"
                     alt="Photo of Marianne Hover"
-                    width={500}
-                    height={500}
+                    width={480}
+                    height={480}
                     decoding="async"
                     className="block h-full w-full object-cover"
                   />

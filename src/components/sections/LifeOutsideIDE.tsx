@@ -16,12 +16,12 @@ const INTERESTS = ["Photography", "Reading", "Gaming", "Hiking", "Music", "Natur
  * down and rebuild the carousel each time.
  */
 const GALLERY_ITEMS = [
-  { image: "/images/photography.jpg", alt: "Photography" },
-  { image: "/images/reading.jpg", alt: "Reading" },
-  { image: "/images/gaming.jpg", alt: "Gaming" },
-  { image: "/images/hiking.jpg", alt: "Hiking" },
-  { image: "/images/music.jpg", alt: "Music" },
-  { image: "/images/nature1.jpg", alt: "Nature" },
+  { image: "/images/photography-600w.webp", alt: "Photography" },
+  { image: "/images/reading-600w.webp", alt: "Reading" },
+  { image: "/images/gaming-600w.webp", alt: "Gaming" },
+  { image: "/images/hiking-600w.webp", alt: "Hiking" },
+  { image: "/images/music-600w.webp", alt: "Music" },
+  { image: "/images/nature1-600w.webp", alt: "Nature" },
 ];
 
 export default function LifeOutsideIDE() {
