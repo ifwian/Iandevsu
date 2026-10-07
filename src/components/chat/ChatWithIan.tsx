@@ -1551,6 +1551,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Ask about my projects, stack..."
+                  aria-label="Message"
                   maxLength={600}
                   disabled={loading || !session}
                   className="h-9 min-w-0 flex-1 rounded-lg border border-[var(--gray-300)] px-3 text-sm outline-none transition-colors chat-input focus:border-[var(--ink)] disabled:opacity-50"

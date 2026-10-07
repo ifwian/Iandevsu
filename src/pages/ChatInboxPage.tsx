@@ -981,6 +981,7 @@ export default function ChatInboxPage() {
                 value={passwordDraft}
                 onChange={(event) => setPasswordDraft(event.target.value)}
                 placeholder="admin password"
+                aria-label="Admin password"
                 autoComplete="current-password"
                 autoFocus
                 className="min-w-0 flex-1 rounded-lg border border-[var(--gray-300)] bg-[var(--gray-50)] px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
