@@ -2172,6 +2172,27 @@ select:focus-visible,
   outline-offset: 2px;
 }
 
+#main-content:focus {
+  outline: none;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  padding: 0.5rem 0.9rem;
+  border-radius: 7px;
+  background-color: var(--ink);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  transform: translateY(-200%);
+}
+.skip-link:focus-visible {
+  transform: none;
+}
+
 /* ---------- Buttons & arrow links ---------- */
 .btn-primary {
   display: inline-flex;

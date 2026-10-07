@@ -86,6 +86,9 @@ export default function App() {
       {/* Inside the router: it reads the location, so it has to be a descendant
           of whichever router is in play. */}
       <ScrollToTop />
+      <a href="#main-content" className="skip-link">
+        Skip to content
+      </a>
       <Suspense fallback={null}>
         <Routes>
           <Route path="/" element={<Home />} />

@@ -21,7 +21,12 @@ export default function ProjectsPage() {
      * 64px of top padding under a 68px bar put this page's own title bar against
      * the navigation. `pb-16` keeps the bottom edge where it was.
      */
-    <div className="sidebar-offset min-h-screen px-5 pb-16 pt-24 lg:px-6 lg:py-16" style={{ fontFamily: "var(--font-mono)" }}>
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="sidebar-offset min-h-screen px-5 pb-16 pt-24 lg:px-6 lg:py-16"
+      style={{ fontFamily: "var(--font-mono)" }}
+    >
       <div className="w-full max-w-4xl mx-auto">
         <Link
           to="/"
@@ -87,6 +92,6 @@ export default function ProjectsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

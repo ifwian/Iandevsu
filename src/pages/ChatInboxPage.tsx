@@ -905,7 +905,9 @@ export default function ChatInboxPage() {
      * competing with the transcript for the same screen, and 32px of side gutter
      * is a marketing page's worth of it.
      */
-    <div
+    <main
+      id="main-content"
+      tabIndex={-1}
       className="inbox-app flex h-[100dvh] flex-col overflow-hidden px-3 py-3 sm:px-4 sm:py-4"
       style={{ fontFamily: "var(--font-mono)" }}
     >
@@ -1526,6 +1528,6 @@ export default function ChatInboxPage() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }
