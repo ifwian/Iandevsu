@@ -25,16 +25,30 @@ type StatItem =
  * decision in the stylesheet rather than two in the markup.
  *
  * Held here rather than in `content/profile.ts` on purpose: that file is what
- * the chat persona is fed, and these are two captions for the hero, not facts
- * about her. Changing what the assistant knows is a separate decision from
- * changing what the hero says.
+ * the chat persona is fed, and these are captions for the hero, not facts about
+ * her. Changing what the assistant knows is a separate decision from changing
+ * what the hero says.
+ *
+ * Order is the reading order: where she is, what she makes, what she is doing
+ * about it. `about.sys` carries only the location because the role is already
+ * spelled out in the strapline under her name, and saying it twice on one
+ * screen is the kind of redundancy that reads as filler.
+ *
+ * `builds.sys` is numbered rather than keyed because it is a list of three, not
+ * a set of fields -- `01`/`02`/`03` also match the numbered nav in the sidebar,
+ * so the two read as the same numbering.
  */
 const HERO_BLOCKS: { file: string; rows: { key: string; value: string }[] }[] = [
   {
     file: "about.sys",
+    rows: [{ key: "loc", value: "calamba, laguna, ph" }],
+  },
+  {
+    file: "builds.sys",
     rows: [
-      { key: "role", value: "computer science student & aspiring web developer" },
-      { key: "loc", value: "calamba, laguna, ph" },
+      { key: "01", value: "websites" },
+      { key: "02", value: "little programs" },
+      { key: "03", value: "things I probably didn't need to make" },
     ],
   },
   {
