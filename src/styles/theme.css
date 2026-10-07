@@ -943,6 +943,26 @@ h1, h2, h3, h4, h5, h6 {
   font-synthesis: none;
 }
 
+/* Locks the family for the elements that combine the serif role with a class
+   that declares a family of its own -- the Education dates carry `.micro-label`,
+   which sets `font-family: var(--font-mono)` for the chrome register.
+
+   Both selectors are one class, so between `.micro-label` and
+   `.font-source-serif` the cascade is decided purely by which rule is written
+   last, and today that is `.font-source-serif` only by virtue of it living
+   lower in this file. Insert a rule between the two, or move one, and the
+   dates silently fall back to Kode Mono -- a regression invisible in review and
+   invisible in a build, because nothing is wrong, the order merely is.
+
+   Two classes here beats one, so the serif family wins by specificity and the
+   outcome no longer depends on where either rule sits. Scoped to the one
+   pairing that exists rather than applied to `.font-source-serif` generally: an
+   element wanting the chrome register should say so with the chrome class, not
+   be overruled by a blanket rule. */
+.micro-label.font-source-serif {
+  font-family: var(--font-serif);
+}
+
 /* Narrative column. `line-height: 1.75` at 15px and 1.8 at 17px: serif at this
    size needs more leading than the 1.6 the body sets, or the ascenders and
    descenders of adjacent lines crowd on a dark background. The measure is
