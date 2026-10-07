@@ -114,6 +114,18 @@
   --font-body: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   --font-display: "Geist Pixel", "Geist Mono", ui-monospace, monospace;
+  /* Quote-only. Not a general prose role -- prose is the sans, and there was a
+     time when this token was the body face for every paragraph on the site,
+     which is not what it is for now. It exists because the hero's pull quote is
+     set in a serif on purpose, and one element is a different decision from a
+     type system.
+
+     The fallback is the sans, deliberately, and not a generic `serif`: a bare
+     `serif` keyword resolves to Times New Roman on Windows and Georgia on older
+     macOS, so a blocked font request would silently re-render the quote in a
+     stranger's face. Landing on Geist instead means the worst case is the same
+     page one weight lighter. */
+  --font-quote: "Source Serif 4", var(--font-body);
 
   color-scheme: light;
 }
@@ -616,16 +628,29 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--gray-500);
 }
 
-/* The quote, set below the blocks rather than as a row inside one. Italic sans:
-   the project's gesture for a line of someone's own words. It was Source Serif 4
-   until the type system was adopted from the reference, which has no serif --
-   so this is the closest thing to that old setting still available. */
+/* The pull quote, which is what this block is for now that MISSION.LOG is gone.
+   Featured rather than captioned: at 17px it is the largest prose on the page
+   and the only serif, which is what makes one line of it carry the weight of a
+   statement.
+
+   The serif is doing real work here, so it gets the two things it needs and the
+   sans does not. `antialiased`, because Source Serif 4 has open counters and
+   hairline serifs that fill in at this size on the dark ground under default
+   subpixel rendering. And `font-synthesis: none`, because the fallback is the
+   sans and a browser handed an italic it has no italic cut for will shear the
+   upright to fake one -- the real italic is requested from Google Fonts, so
+   nothing should ever be synthesised here. */
 .hero-tree-quote {
-  margin-top: 1.5rem;
-  font-family: var(--font-body);
-  font-size: 13px;
+  margin-top: 2rem;
+  max-width: 34ch;
+  font-family: var(--font-quote);
+  font-size: 17px;
   font-style: italic;
-  color: var(--gray-400);
+  line-height: 1.5;
+  color: var(--gray-500);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
 }
 
 /* The branch connector. A real character in the markup, `aria-hidden` there, so

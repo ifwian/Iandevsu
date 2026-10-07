@@ -93,11 +93,19 @@
        in public/fonts/; the @font-face that binds it is in src/styles/theme.css,
        and the preload below gets it fetching in parallel with the CSS rather
        than after it. It is 27KB for the whole set and paints the brand name and
-       the section titles, so it is on the critical path for first paint. -->
+       the section titles, so it is on the critical path for first paint.
+
+       Source Serif 4 is a fourth face and is here on purpose, for one element:
+       the hero's pull quote. The type system itself is the reference's three
+       (Geist / Geist Mono / Geist Pixel); this is the single exception, and it
+       is requested italic-only at weight 400 so the browser downloads one cut
+       rather than the upright family. A serif pull quote set against a mono
+       field is the whole reason -- it is the one line on the page that is
+       prose someone wrote rather than a label. */
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@1,8..60,400&display=swap"
     rel="stylesheet"
   />
   <link

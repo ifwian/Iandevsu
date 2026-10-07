@@ -21,20 +21,19 @@ type StatItem =
  * is the last one.
  *
  * Written lowercase; `.hero-tree-file` and `.hero-tree-key` both uppercase, so
- * `builds.sys` renders as `BUILDS.SYS` and `focus` as `FOCUS` from one casing
- * decision in the stylesheet rather than two in the markup.
+ * `builds.sys` renders as `BUILDS.SYS` and a key like `focus` as `FOCUS` from
+ * one casing decision in the stylesheet rather than two in the markup.
  *
  * Held here rather than in `content/profile.ts` on purpose: that file is what
  * the chat persona is fed, and these are captions for the hero, not facts about
  * her. Changing what the assistant knows is a separate decision from changing
  * what the hero says.
  *
- * There is deliberately no role row and no location row. The role is already in
- * the strapline under her name, so a `role` field said the same sentence twice
- * on one screen; and the location is already in the sidebar, one click away on
- * every viewport, so repeating it here was a third statement of a fact the page
- * already had two of. What survives is the two things neither of those says:
- * what she makes, and what she is doing about it.
+ * There is deliberately no role row and no location row, and no `mission.log`
+ * block either. The role is already in the strapline under her name; the
+ * location is already in the sidebar; and what she is currently working on is
+ * the one thing the stat strip's "Building" cell already says. What survives is
+ * the line of copy none of those state: what she makes, and then the quote.
  *
  * `builds.sys` is numbered rather than keyed because it is a list of three, not
  * a set of fields -- `01`/`02`/`03` also match the numbered nav in the sidebar,
@@ -47,13 +46,6 @@ const HERO_BLOCKS: { file: string; rows: { key: string; value: string }[] }[] = 
       { key: "01", value: "websites" },
       { key: "02", value: "little programs" },
       { key: "03", value: "things I probably didn't need to make" },
-    ],
-  },
-  {
-    file: "mission.log",
-    rows: [
-      { key: "focus", value: "building modern, high-performance web applications" },
-      { key: "status", value: "open to new opportunities & collaborations" },
     ],
   },
 ];
