@@ -661,17 +661,33 @@ h1, h2, h3, h4, h5, h6 {
 /* Bracketed index inside a build pill: a gutter marker, not content. Muted so it
    sits behind the label, lifting to ink with the rest of the chip on hover.
    A fixed min-width keeps `[01]` and `[10]` from shifting their labels, and
-   tabular numerals stop the digits jittering. */
-.terminal-pill .build-pill-index {
+   tabular numerals stop the digits jittering.
+
+   Scoped to the `<span>`, deliberately, and never to `.terminal-pill` itself:
+   that rule is shared verbatim with the social chips, so anything written there
+   is applied to both by definition. `nowrap` keeps a pill's own text on one line
+   so `[03]` stays beside its label and the capsule can only wrap as a whole
+   unit -- matching the social chips, whose labels likewise never break. */
+.build-pill-index {
   flex-shrink: 0;
   min-width: 2.4ch;
+  white-space: nowrap;
   color: var(--gray-400);
   font-variant-numeric: tabular-nums;
   transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.terminal-pill:hover .build-pill-index {
+.build-pill-index:hover {
   color: var(--ink);
+}
+
+/* The build pill's own label. Carries no box of its own -- padding, radius,
+   border and gap stay entirely in `.terminal-pill`, shared with the social
+   chips -- only the wrap behaviour, so a long capsule breaks between words
+   rather than mid-word and never widens beyond the space available. */
+.build-pill-label {
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 /* ---------- Build panel ("i like to build") ----------

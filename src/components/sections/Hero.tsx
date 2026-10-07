@@ -264,7 +264,7 @@ export default function Hero() {
                   <span className="build-pill-index" aria-hidden="true">
                     {['[', String(index + 1).padStart(2, '0'), ']'].join('')}
                   </span>
-                  <span>{build}</span>
+                  <span className="build-pill-label">{build}</span>
                 </li>
               ))}
             </div>
