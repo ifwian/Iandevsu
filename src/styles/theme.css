@@ -629,37 +629,38 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* The pull quote, now the body of `quote.txt` rather than a paragraph floating
-   under the blocks. It sits in the value column so its left edge lines up with
-   the values above it, and the block gap above it comes from
-   `.hero-tree-block + .hero-tree-block` like every other block.
+    under the blocks. It sits in the value column so its left edge lines up with
+    the values above it, and the block gap above it comes from
+    `.hero-tree-block + .hero-tree-block` like every other block.
 
-   `grid-column: 3` and `margin: 0` are declared here rather than by also
-   applying `.hero-tree-value`: both that rule and this one are a single class, so
-   sharing them would leave the winner decided by which happens to be written
-   later in the file. This is a value-shaped element with a different face, and
-   the two properties that make it value-shaped are its own.
+    `grid-column: 3` and `margin: 0` are declared here rather than by also
+    applying `.hero-tree-value`: both that rule and this one are a single class, so
+    sharing them would leave the winner decided by which happens to be written
+    later in the file. This is a value-shaped element with a different face, and
+    the two properties that make it value-shaped are its own.
 
-   The serif is doing real work here, so it gets the two things it needs and the
-   sans does not. `antialiased`, because Source Serif 4 has open counters and
-   hairline serifs that fill in at this size on the dark ground under default
-   subpixel rendering. And `font-synthesis: none`, because the fallback is the
-   sans and a browser handed an italic it has no italic cut for will shear the
-   upright to fake one -- the real italic is requested from Google Fonts, so
-   nothing here should ever be synthesised. */
+    The quote shares the body's sans face, the same register the rest of the
+    hero and sidebar use: mono for chrome, sans for anything a person wrote.
+    Removing the serif and italic lets it read as prose rather than as a terminal
+    annotation, matching the builds values directly. `antialiased`, because
+    Geist has open counters and renders crisply at this size. And
+    `font-synthesis: none`, because the fallback is the sans and a browser
+    handed an italic it has no italic cut for will shear the upright to fake
+    one -- the real italic is requested from Google Fonts, so nothing here should
+    ever be synthesised. */
 .hero-tree-quote {
   grid-column: 3;
   margin: 0;
-  font-family: var(--font-quote);
-  font-size: 17px;
-  font-style: italic;
-  line-height: 1.5;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.6;
   color: var(--gray-500);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-synthesis: none;
 }
 
-/* Below `sm` the value column is already the narrow one, and a 17px serif on two
+/* Below `sm` the value column is already the narrow one, and a 13px sans on two
    lines wants the full width it can get. Letting it start at the key column
    instead gives it ~4.25rem more and stops "Too curious to stick to one thing."
    breaking mid-phrase. */
@@ -1162,7 +1163,19 @@ h1, h2, h3, h4, h5, h6 {
    than the 1.6 the body sets, or adjacent lines crowd on a dark background. The
    measure is capped so the column does not stretch to the full max-w-4xl and
    break lines at awkward points. */
+/* Prose is set in the body's sans, and that has to be stated here even though it
+   looks like the default. It is not: `.section-frame` sets `--font-mono` on the
+   section element, so anything inside it that does not name a family inherits
+   the monospace. This rule used to name the serif and, when the serif role was
+   retired, the family was dropped rather than repointed -- which left the About
+   paragraphs rendering in mono, and reading like a terminal rather than like
+   prose. Naming `--font-body` is what puts it back.
+
+   Everything else in this section keeps its mono on purpose: the spec panel's
+   keys and values, its `profile.spec` bar, the technical pills and the widget
+   labels are all metadata, and metadata is the monospace register on this site. */
 .about-prose {
+  font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.75;
   color: var(--gray-400);
