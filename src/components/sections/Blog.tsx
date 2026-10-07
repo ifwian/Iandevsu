@@ -54,7 +54,6 @@ export default function BlogSection() {
             <p className="section-eyebrow">08 &mdash; blog</p>
           </div>
 
-          <div className="scanlines" aria-hidden="true" />
 
           <div className="section-shell-body">
         {/* Section Heading. This one was `text-2xl sm:text-3xl` -- larger than

@@ -177,6 +177,90 @@ html {
   scroll-behavior: smooth;
 }
 
+/* ---------- Background grid ----------
+   The page's ground texture: a hairline lattice in both axes, faded out toward
+   the edges by a radial mask. It replaces the horizontal scanline texture this
+   project used to carry, which was drawn once per section inside every bordered
+   shell. Two problems with that, both structural rather than taste:
+
+   - Repeating it per shell meant nine copies of the same animated gradient on
+     the page at once, each drifting on its own 7s cycle.
+   - A horizontal-only texture reads as a CRT scan, which fights the flat
+     monochrome surfaces it sits on. A two-axis hairline grid reads as a drawing
+     surface, and it is what the palette can actually carry without introducing
+     a hue.
+
+   One layer for the whole document, on `body::before`, rather than a `.grid-*`
+   class repeated in every section. That is what makes the fade coherent: the
+   mask is a single ellipse over the viewport, so the grid dissolves evenly
+   toward the edges and the bottom instead of each card fading at its own border
+   and leaving a visible seam where two of them meet.
+
+   `z-index: -1` puts it above the body's own background and below every
+   descendant, so nothing has to opt in and no component can be painted over it
+   by accident. Fixed rather than absolute so it does not scroll away and does
+   not repeat per section; `pointer-events: none` so it can never intercept a
+   click, and `aria` does not apply because a pseudo-element is not in the
+   accessibility tree at all.
+
+   The lines are `--ink` at 7%, mixed rather than hardcoded: the palette has no
+   separate grid token, and deriving from ink means the lattice retints itself
+   between light and dark, where a fixed rgba would read as a grey smudge on
+   near-black instead of a line. 7% is a hairline that survives on both grounds;
+   the old scanlines were 3% of a repeating 1px-in-4px stripe, which at that
+   density read as a texture rather than a line.
+
+   `repeating-linear-gradient` twice, not a single one with two stops: one axis
+   per gradient, because `background-image` takes a list and each layer paints
+   independently.
+
+   The mask is `black` in the middle and `transparent` at the rim, which is the
+   direction that fades *out* toward the edges. (`-webkit-mask-image` is
+   repeated because Safari still needs the prefixed property; `mask-repeat:
+   no-repeat` stops the gradient tiling across the box.) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--ink) 7%, transparent) 0 1px,
+      transparent 1px 44px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--ink) 7%, transparent) 0 1px,
+      transparent 1px 44px
+    );
+  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, black 0%, transparent 78%);
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, black 0%, transparent 78%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* A 44px cell is 3rem of lattice, which is about the smallest gap the eye still
+   reads as a grid rather than as hatching. Below `sm` that density turns to
+   hatching on a phone held at arm's length, so the cell halves and the lines
+   drop to 5% -- present as texture, not as a pattern competing with the text. */
+@media (max-width: 639px) {
+  body::before {
+    background-image:
+      repeating-linear-gradient(
+        to right,
+        color-mix(in srgb, var(--ink) 5%, transparent) 0 1px,
+        transparent 1px 24px
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--ink) 5%, transparent) 0 1px,
+        transparent 1px 24px
+      );
+  }
+}
+
 /* ---------- Section framing / anchor navigation ----------
    The sidebar and top bar both link to bare `#id` anchors, so the target has
    to be offset by whatever fixed chrome floats above it. Below lg the top bar
@@ -416,10 +500,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ---------- Hero frame ----------
-   The hero is the one block that gets terminal chrome: a window title bar, an
-   inner glow, and a scanline texture. Every other section stays a plain column,
-   which is what makes the hero reading as the "screen" the rest of the page is
-   displayed on.
+   The hero is the one block that gets terminal chrome: a window title bar and an
+   inner glow. Every other section stays a plain column, which is what makes the
+   hero reading as the "screen" the rest of the page is displayed on.
 
    The glows are built from `--ink` with `color-mix` rather than a literal
    `rgba(0,0,0,.3)`, for two reasons. `.clinerules` forbids hardcoding a colour;
@@ -498,58 +581,6 @@ h1, h2, h3, h4, h5, h6 {
 @media (min-width: 1024px) {
   .hero-titlebar {
     padding: 0.5rem 2rem;
-  }
-}
-
-/* Sits above the frame's background but below the content, so the text is never
-   read through the lines. `aria-hidden` because a texture is not content.
-
-   3% ink. At 7% the lines crossed the hero's 11px uppercase header and the quote
-   on a 4px period -- uncomfortably close to their x-height, so the smallest text
-   on the page started to look striped rather than solid. 3% keeps the CRT read as
-   a texture and leaves the text clean.
-
-   `z-index: 0` plus `pointer-events: none` are load-bearing rather than
-   decorative: the content layers are `position: relative` with no z-index, so
-   they paint above this, and a texture that swallowed clicks would make every
-   link and button inside a section unclickable over the lines.
-
-   One class for the whole site, used by the hero frame and every section shell,
-   so the texture cannot be tuned one place and left stale in another.
-
-   `border-radius: inherit` rather than a fixed value, so the texture follows
-   whichever container it is in -- 16px inside `.hero-frame`, 14px inside
-   `.section-shell`. That is what lets the section shell skip `overflow: hidden`
-   and still have square-free corners. */
-.scanlines {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background-image: repeating-linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--ink) 3%, transparent) 0 1px,
-    transparent 1px 4px
-  );
-  animation: scan-drift 7s linear infinite;
-}
-
-@keyframes scan-drift {
-  from {
-    background-position-y: 0;
-  }
-  to {
-    background-position-y: 4px;
-  }
-}
-
-/* The drift is the only thing here that moves, so it is the only thing a
-   reduced-motion visitor should not get. The static lines stay: they are a
-   texture, not an animation. */
-@media (prefers-reduced-motion: reduce) {
-  .scanlines {
-    animation: none;
   }
 }
 
@@ -763,9 +794,9 @@ h1, h2, h3, h4, h5, h6 {
    No `overflow: hidden`, which the hero frame does carry. The Life section's
    photo `Stack` rotates its cards up to about 21 degrees around a 90%/90% origin,
    which throws a card corner roughly 70px outside its own 280px box; a clipping
-   shell would slice those corners off. Rounding is achieved instead by rounding
-   the bar and letting `.scanlines` inherit the radius, so nothing needs to be
-   clipped and nothing is. */
+   shell would slice those corners off. Nothing needs clipping: a `border-radius`
+   already clips its own element's background, and the page-level grid sits
+   behind every shell rather than inside it. */
 .section-shell {
   position: relative;
   border: 1px solid var(--gray-200);
@@ -1092,9 +1123,9 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 12px;
   /* Translucent, which is what makes the `backdrop-filter` below do anything
      at all: a blur behind an opaque fill is invisible. At this alpha the fill
-     is still solidly legible as a surface, and the shell's scanlines show
-     faintly through it, so the widget reads as frosted glass over the CRT
-     texture the whole page already sits on. */
+     is still solidly legible as a surface, and the page grid shows faintly
+     through it, so the widget reads as frosted glass over the ground the whole
+     page already sits on. */
   background-color: color-mix(in srgb, var(--gray-50) 74%, transparent);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);

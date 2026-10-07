@@ -109,7 +109,6 @@ export default function GithubActivity() {
             </a>
           </div>
 
-          <div className="scanlines" aria-hidden="true" />
 
           <div className="section-shell-body">
         {/* Section Heading */}

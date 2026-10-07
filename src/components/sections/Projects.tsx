@@ -13,7 +13,6 @@ export default function Projects() {
             <p className="section-eyebrow">03 &mdash; projects</p>
           </div>
 
-          <div className="scanlines" aria-hidden="true" />
 
           <div className="section-shell-body">
       <h2 className="section-title">projects</h2>

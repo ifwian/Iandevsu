@@ -84,7 +84,6 @@ export default function AboutMe() {
             <p className="section-eyebrow">02 &mdash; about</p>
           </div>
 
-          <div className="scanlines" aria-hidden="true" />
 
           <div className="section-shell-body">
         {/* Still `.section-title`, so this heading stays on the same scale as

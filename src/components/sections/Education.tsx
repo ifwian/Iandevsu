@@ -71,7 +71,6 @@ export default function Education() {
             <p className="section-eyebrow">05 &mdash; education</p>
           </div>
 
-          <div className="scanlines" aria-hidden="true" />
 
           <div className="section-shell-body">
       <h2 className="section-title">

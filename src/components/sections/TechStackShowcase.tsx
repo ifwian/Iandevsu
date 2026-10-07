@@ -83,7 +83,6 @@ export default function TechStackShowcase() {
             </button>
           </div>
 
-          <div className="scanlines" aria-hidden="true" />
 
           <div className="section-shell-body">
         <h2 className="section-title">

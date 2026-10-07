@@ -99,12 +99,8 @@ export default function Hero() {
             <span className="min-w-0 truncate">~/portfolio &mdash; index.tsx</span>
           </div>
 
-          {/* Texture, under the content. `aria-hidden` and `pointer-events-none`
-              so it is neither announced nor clickable. */}
-          <div className="scanlines" aria-hidden="true" />
-
-          {/* `relative` so the body and the stats paint above the scanlines,
-              which are absolutely positioned against this same frame.
+          {/* `relative` so the body and the stats paint above the frame's own
+              background.
 
               `p-5 sm:p-6 lg:p-8` -- was `p-5 sm:p-7 lg:p-9`. The vertical step
               at `lg` was 36px (2.25rem), which pushed the card's top and bottom
@@ -193,8 +189,7 @@ export default function Hero() {
                 the point of losing the distinction between a link and a label.
 
                 Still a real `<ul>`; the brackets are `aria-hidden` because a
-                screen reader gets the order from the list markup. `relative` so
-                the panel paints above the scanlines. */}
+                screen reader gets the order from the list markup. */}
             <div className="flex w-fit max-w-full flex-wrap items-start justify-center gap-2 text-left md:justify-start">
               {BUILDS.map((build, index) => (
                 <li key={build} className="terminal-pill">
@@ -243,8 +238,7 @@ export default function Hero() {
 
         {/* The stat strip is part of the terminal window, so it sits inside the
             frame against its bottom edge with no `mt-12` -- as a footer of the
-            same card rather than a separate band below it. `relative` to clear
-            the scanlines, which cover the whole frame. */}
+            same card rather than a separate band below it. */}
         <div className="relative grid grid-cols-2 border-t border-[var(--gray-200)] sm:grid-cols-4">
           {stats.map((stat, index) => {
             // Border logic is shared so the tag cell keeps the same grid rhythm

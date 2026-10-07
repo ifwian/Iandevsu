@@ -45,7 +45,7 @@ export default function ProjectsPage() {
         {/* The same window every home section sits in, for the same reason: the
             route was the one place on the site showing bare content on a bare
             page, so it read as unfinished next to a home page made of windows.
-            Same `.section-shell` + bar + scanlines + body trio, so there is now
+            Same `.section-shell` + bar + body trio, so there is now
             nothing on this page that the home page does not also use. */}
         <div className="section-shell">
           <div className="section-shell-bar">
@@ -60,7 +60,6 @@ export default function ProjectsPage() {
             </span>
           </div>
 
-          <div className="scanlines" aria-hidden="true" />
 
           <div className="section-shell-body">
             {/* `section-title` even though this is an `<h1>`. The class is a type

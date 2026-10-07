@@ -44,7 +44,6 @@ export default function LifeOutsideIDE() {
             <p className="section-eyebrow">06 &mdash; life</p>
           </div>
 
-          <div className="scanlines" aria-hidden="true" />
 
           <div className="section-shell-body">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 lg:gap-16 items-center">
