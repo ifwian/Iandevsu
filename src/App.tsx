@@ -9,6 +9,7 @@ import Education from "@/components/sections/Education";
 import LifeOutsideIDE from "@/components/sections/LifeOutsideIDE";
 import GithubActivity from "@/components/sections/GithubActivity";
 import Blog from "@/components/sections/Blog";
+import ChatWithIan from "@/components/chat/ChatWithIan";
 
 const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
 const ChatInboxPage = lazy(() => import("@/pages/ChatInboxPage"));
@@ -96,6 +97,12 @@ export default function App() {
           <Route path="/chat-inbox" element={<ChatInboxPage />} />
         </Routes>
       </Suspense>
+      {/* The chat trigger and its panel are both `fixed`, so this is mounted
+          beside the routes rather than inside one: it stays reachable from every
+          page instead of only the ones whose layout happens to include it, and it
+          cannot inherit a route's `overflow` or stacking context and be clipped
+          by it. */}
+      <ChatWithIan />
     </BrowserRouter>
   );
 }

@@ -1417,13 +1417,13 @@ h1, h2, h3, h4, h5, h6 {
 /* ---------- Chat panel ----------
    Height lives here rather than inline so the `vh` -> `svh` fallback can be
    expressed as two declarations. `100vh` on mobile includes the strip behind
-   the browser URL bar, which pushed the message input below the fold. */
-.chat-panel {
-  height: min(520px, calc(100vh - 2rem));
-  height: min(520px, calc(100svh - 2rem));
-}
+   the browser URL bar, which pushed the message input below the fold.
 
-.chat-panel-floating {
+   The 120px subtracted from the viewport is the room the trigger and the gap
+   below the panel need, so an open panel never runs its input under the
+   browser chrome. One panel now that the widget is a single floating instance,
+   so there is no second height variant to keep in step with this one. */
+.chat-panel {
   height: min(520px, calc(100vh - 120px));
   height: min(520px, calc(100svh - 120px));
 }
@@ -2410,17 +2410,5 @@ select:focus-visible,
 @media (min-width: 1024px) {
   html .sidebar-offset {
     padding-left: var(--sidebar-w);
-  }
-
-  /*
-   * Anchors the expanded chat panel just clear of the sidebar. This replaces a
-   * hardcoded `lg:left-[21rem]`, which only lined up while the sidebar was
-   * 320px (21rem - 16px gap). Deriving it keeps the 16px gap whatever the
-   * sidebar width is. The collapsed trigger stays in normal flow in the
-   * footer, so it needs no offset; below lg the sidebar is hidden and the
-   * panel falls back to its own `left-4`.
-   */
-  html .sidebar-chat-panel {
-    left: calc(var(--sidebar-w) + 1rem);
   }
 }

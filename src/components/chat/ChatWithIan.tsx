@@ -58,10 +58,6 @@ interface StreamEvent {
   assistantMessageId?: string | number | null;
 }
 
-interface ChatWithIanProps {
-  variant?: "floating" | "sidebar";
-}
-
 interface ChatSession {
   visitorId: string;
   sessionStartedAt: number;
@@ -500,8 +496,7 @@ async function reportActivity(
   }
 }
 
-export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) {
-  const isSidebar = variant === "sidebar";
+export default function ChatWithIan() {
   const [open, setOpen] = useState(false);
   // `at` is set on the opener too: without it the first paint would render a
   // meta line reading "Ian - " with no time, which looks like a bug.
@@ -1267,37 +1262,41 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
           type="button"
           onClick={handleOpen}
           aria-label="Chat with Ian"
-          className={
-            isSidebar
-              ? /* Inline text item, matching the "jump to section" row above it
-                   and the numbered nav links: no fill, no border, no radius, the
-                   same `py-[0.45rem]` / `text-[13px]` row shape. Hover is the
-                   label and icon warming to ink and nothing else -- the icon
-                   inherits the button's colour, so one `hover:text-*` covers
-                   both without a `group`. The floating trigger below is
-                   untouched: it is a fixed overlay on the page, where an
-                   unboxed control would have nothing to sit on. */
-                "flex w-full items-center gap-2 py-[0.45rem] text-left text-[13px] leading-normal transition-colors hover:text-[var(--ink)]"
-              : "fixed bottom-[25px] left-[25px] z-40 flex h-11 items-center gap-2 rounded-full px-4 text-sm shadow-lg transition-opacity hover:opacity-85"
-          }
+          /* Fixed to the bottom-right, clear of the sidebar rail on the left and
+             of the browser chrome at the bottom.
+
+             `env(safe-area-inset-*)` in the offsets, not just a fixed rem: on a
+             notched phone in landscape, or with a home indicator, a plain
+             `bottom-6` puts the trigger under the system UI, and a fixed
+             position is exactly the case where the browser will not move it for
+             you. The `sm:` step takes over from 640px, where there is no inset
+             to speak of and the extra breathing room is worth having.
+
+             `z-50` rather than the trigger's `z-40` so an open panel is never
+             clipped by the sticky section headers it overlaps. The trigger is
+             unmounted while the panel is open, so the two never compete.
+
+             The surface is `--bg` on `--ink` text: a solid, high-contrast panel
+             that is white-on-dark in light mode and near-black-on-light in dark
+             mode, so it reads as a raised surface in both without hardcoding a
+             colour that would be wrong in one of them. `border-[var(--gray-300)]`
+             is what separates it from the page, which is the same `--bg` value --
+             the border is doing the work the background cannot. */
+          className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] right-[calc(env(safe-area-inset-right,0px)+1rem)] z-40 flex h-12 items-center gap-2 rounded-full border border-[var(--gray-300)] px-5 text-sm shadow-lg transition-colors duration-200 hover:border-[var(--ink)] sm:bottom-6 sm:right-6"
           style={{
-            backgroundColor: isSidebar ? "transparent" : "var(--ink)",
-            color: isSidebar ? "var(--gray-500)" : "var(--bg)",
+            backgroundColor: "var(--bg)",
+            color: "var(--ink)",
             fontFamily: "var(--font-mono)",
           }}
         >
-          <MessageCircle size={isSidebar ? 13 : 16} strokeWidth={1.8} />
+          <MessageCircle size={16} strokeWidth={1.8} />
           chat with {PROFILE.goesBy.toLowerCase()}
         </button>
       )}
 
 {open && (
         <div
-          className={
-            isSidebar
-              ? "card sidebar-chat-panel chat-panel fixed bottom-4 left-4 z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden"
-              : "card chat-panel-floating fixed bottom-[25px] left-[25px] z-40 flex w-[min(360px,calc(100vw-50px))] flex-col overflow-hidden"
-          }
+          className="card chat-panel fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] right-[calc(env(safe-area-inset-right,0px)+1rem)] z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden sm:bottom-6 sm:right-6"
           role="dialog"
           aria-label={`Chat with ${PROFILE.goesBy}`}
           aria-busy={loading}

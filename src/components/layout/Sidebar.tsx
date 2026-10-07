@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { Mail, MapPin, Search } from "lucide-react";
 import { PROFILE } from "@/content/profile";
 import { NAV_ITEMS } from "@/lib/navigation";
-import ChatWithIan from "@/components/chat/ChatWithIan";
 import ThemeToggle from "./ThemeToggle";
 
 interface SidebarNavProps {
@@ -220,22 +219,13 @@ function SidebarContact() {
   );
 }
 
-/** The chat trigger, grouped like every other section. */
-function SidebarActions({ className = "" }: { className?: string }) {
-  return (
-    <div className={`border-b border-[var(--gray-200)] py-5 ${className}`.trim()}>
-      <ChatWithIan variant="sidebar" />
-    </div>
-  );
-}
-
 function SidebarMobileFooter() {
   return (
-    <div className="mt-6">
-      <SidebarActions className="border-b-0 pb-0" />
-      <div className="pt-5">
-        <SidebarContact />
-      </div>
+    /* `pt-5` only: the drawer previously separated this block from the nav with
+       a chat group above it, so the wrapper's own `mt-6` and the extra group
+       padding were both spacing against something that is now gone. */
+    <div className="pt-5">
+      <SidebarContact />
     </div>
   );
 }
@@ -317,7 +307,6 @@ export default function Sidebar({ className = "", onOpenPalette }: SidebarProps)
             modal would be strictly worse than not having a drawer.
           */}
           <SidebarCommandButton onOpen={() => onOpenPalette?.()} />
-          <SidebarActions />
         </div>
         {/* `mt-auto` pins the contact block to the bottom of the flex column,
             mirroring the reference's `.sidebar__foot`. */}
