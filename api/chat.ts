@@ -487,9 +487,47 @@ function isChatMessage(value: unknown): value is ChatMessage {
   );
 }
 
+const LEGACY_VISITOR_ID = "legacy-visitor";
+
 function getVisitorId(value: unknown): string {
   if (typeof value === "string" && /^[a-zA-Z0-9_-]{8,128}$/.test(value)) return value;
-  return "legacy-visitor";
+  return LEGACY_VISITOR_ID;
+}
+
+const VISITOR_SESSION_MESSAGE =
+  "I couldn't start a secure chat session, so I can't send messages right now. Please refresh the page and try again.";
+
+/**
+ * Why this visitor may not write to the thread for `visitorId`, or null if they
+ * may. Threads already owned by an anonymous session require that same session;
+ * older threads created before sessions existed (owner null) stay writable.
+ */
+async function visitorWriteProblem(
+  visitorId: string,
+  visitorAuthId: string | null
+): Promise<{ reason: string; message: string } | null> {
+  if (visitorId === LEGACY_VISITOR_ID) {
+    return { reason: "missing-or-invalid-visitor-id", message: VISITOR_SESSION_MESSAGE };
+  }
+  // Sessions cannot be verified without an anon/publishable key on the server,
+  // so the ownership check is skipped rather than locking every visitor out.
+  if (!getSupabaseAuthKey()) {
+    console.warn(
+      JSON.stringify({
+        scope: "ian-chat-visitor-auth",
+        note: "no SUPABASE_ANON_KEY / SUPABASE_PUBLISHABLE_KEY on the server -- thread ownership is not enforced",
+      })
+    );
+    return null;
+  }
+  if (!visitorAuthId) {
+    return { reason: "no-anonymous-session", message: VISITOR_SESSION_MESSAGE };
+  }
+  const existing = await findConversationByVisitor(visitorId);
+  if (existing?.visitor_auth_id && existing.visitor_auth_id !== visitorAuthId) {
+    return { reason: "session-does-not-own-thread", message: VISITOR_SESSION_MESSAGE };
+  }
+  return null;
 }
 
 const MAX_NAME_LENGTH = 80;
@@ -2768,6 +2806,18 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
     const entry = await insertActivity(conversation.id, kind, page, label);
 
     return res.status(200).json({ ok: true, recorded: Boolean(entry) });
+  }
+
+  // A visitor may only write to their own thread. The thread is keyed by the
+  // client-chosen visitorId, so ownership is proven by the Supabase anonymous
+  // session that created it. Only enforced when persistence is on: without a
+  // database there is no thread to write into.
+  if (hasSupabaseConfig()) {
+    const problem = await visitorWriteProblem(visitorId, visitorAuthId);
+    if (problem) {
+      console.warn(JSON.stringify({ scope: "ian-chat-visitor-auth", event, visitorId, problem: problem.reason }));
+      return res.status(403).json({ error: problem.message });
+    }
   }
 
   if (event === "chat_started") {
