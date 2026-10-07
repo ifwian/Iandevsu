@@ -5,7 +5,6 @@ import { Mail, MapPin, Search } from "lucide-react";
 import { PROFILE } from "@/content/profile";
 import { NAV_ITEMS } from "@/lib/navigation";
 import ChatWithIan from "@/components/chat/ChatWithIan";
-import LiveStatus from "./LiveStatus";
 import ThemeToggle from "./ThemeToggle";
 
 interface SidebarNavProps {
@@ -239,11 +238,6 @@ function SidebarMobileFooter() {
   return (
     <div className="mt-6">
       <SidebarActions className="border-b-0 pb-0" />
-      {/* Same clock and status line as the desktop rail, so the drawer is not a
-          stripped-down version of the sidebar it stands in for. */}
-      <div className="pt-5">
-        <LiveStatus status="building v2 portfolio" />
-      </div>
       <div className="pt-5">
         <SidebarContact />
       </div>
@@ -328,13 +322,6 @@ export default function Sidebar({ className = "", onOpenPalette }: SidebarProps)
             modal would be strictly worse than not having a drawer.
           */}
           <SidebarCommandButton onOpen={() => onOpenPalette?.()} />
-          {/* The status readout is a group like every other block in the rail --
-              same divider, same `py-5` -- rather than three loose lines sitting
-              in the gap between two bordered sections. Without its own border
-              and padding it read as overflow from the button above it. */}
-          <div className="border-b border-[var(--gray-200)] py-5">
-            <LiveStatus status="building v2 portfolio" />
-          </div>
           <SidebarActions />
         </div>
         {/* `mt-auto` pins the contact block to the bottom of the flex column,
