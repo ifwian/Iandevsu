@@ -1460,7 +1460,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
                                     )}
                                     <span className="text-[10px] leading-tight" style={{ fontFamily: "var(--font-mono)" }}>
                                       {file.name}
-                                      <span className="opacity-60"> · {formatBytes(file.size)}</span>
+                                      <span style={{ color: "var(--gray-400)" }}> · {formatBytes(file.size)}</span>
                                     </span>
                                   </span>
                                 </li>
@@ -1680,7 +1680,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
 
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="ian-chat-email" className="micro-label" style={{ color: "var(--gray-500)" }}>
-                  email <span style={{ opacity: 0.6 }}>· optional</span>
+                  email <span style={{ color: "var(--gray-400)" }}>· optional</span>
                 </label>
                 <input
                   id="ian-chat-email"
