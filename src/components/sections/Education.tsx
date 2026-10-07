@@ -14,8 +14,6 @@ const CERTIFICATIONS: Credential[] = [
   { label: "JavaScript", detail: "Inter." },
 ];
 
-const FOUNDATION: string[] = ["C++", "Java", "Python", "C#", "HTML", "CSS", "JavaScript", "SQL"];
-
 const LEARNING: { title: string; detail: string }[] = [
   {
     title: "Web Development",
@@ -147,7 +145,12 @@ export default function Education() {
                     aria-hidden="true"
                     className="shrink-0 text-[var(--accent-positive)]"
                   />
-                  <span className="text-[var(--gray-400)]" style={{ fontFamily: "var(--font-body)" }}>
+                  {/* Serif, like the institution and date above: the
+                      certification name and its level are descriptive list
+                      detail, not chrome. The em-dash span inherits the family
+                      and only overrides the colour, so the pair reads as one
+                      line set in one face. */}
+                  <span className="font-source-serif text-[var(--gray-400)]">
                     {cert.label}
                     <span className="text-[var(--gray-500)]"> &mdash; {cert.detail}</span>
                   </span>
@@ -155,37 +158,6 @@ export default function Education() {
               ))}
             </ul>
           </PanelCard>
-        </div>
-
-        {/* Technical Foundation. A flat wrap of .pill rather than cards: these
-            are labels, not interactive things, and .pill is the project's
-            existing tag primitive.
-
-            The hover is `transition-colors` on the border and text only, which
-            is the treatment the other .pill call sites already use (the chat
-            quick-replies and the LifeOutsideIDE tags). Deliberately not a
-            transform or a background fill: these are not clickable, and a lift
-            on hover would imply an action that does not exist. Border goes
-            gray-300 -> ink so it reads as a quiet emphasis. */}
-        <div className="mt-12">
-          <p
-            className="micro-label mb-3 text-[11px] font-medium uppercase tracking-wider text-[var(--gray-500)]"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            technical foundation
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {FOUNDATION.map((item) => (
-              /* Bare `.pill` -- its hover and transition now live in the class.
-                 The `transition-colors duration-200 hover:*` that used to sit
-                 here was redundant, and `transition-colors` sets the whole
-                 `transition` property, so it would have overridden the class's
-                 timing depending on stylesheet order. */
-              <span key={item} className="pill">
-                {item}
-              </span>
-            ))}
-          </div>
         </div>
 
         {/* Currently Learning. The `01 / 02 / 03` counter is the same register
