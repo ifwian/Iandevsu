@@ -38,8 +38,18 @@ type StatItem =
  * `builds.sys` is numbered rather than keyed because it is a list of three, not
  * a set of fields -- `01`/`02`/`03` also match the numbered nav in the sidebar,
  * so the two read as the same numbering.
+ *
+ * `quote.txt` is the other shape: one line of prose with no key beside it, which
+ * is a different thing from a field with a value. Modelled as a union so the two
+ * cannot be confused -- a `quote` block has no `rows` and a `rows` block has no
+ * `quote`, and adding a row to one of them is a compile error rather than a
+ * block that renders half as a tree and half as a sentence.
  */
-const HERO_BLOCKS: { file: string; rows: { key: string; value: string }[] }[] = [
+type HeroBlock =
+  | { file: string; rows: { key: string; value: string }[] }
+  | { file: string; quote: string };
+
+const HERO_BLOCKS: HeroBlock[] = [
   {
     file: "builds.sys",
     rows: [
@@ -48,6 +58,7 @@ const HERO_BLOCKS: { file: string; rows: { key: string; value: string }[] }[] = 
       { key: "03", value: "things I probably didn't need to make" },
     ],
   },
+  { file: "quote.txt", quote: "Too curious to stick to one thing." },
 ];
 
 export default function Hero() {
@@ -255,32 +266,38 @@ export default function Hero() {
                     <div key={block.file} className="hero-tree-block">
                       <p className="hero-tree-file">{block.file}</p>
                       <dl className="hero-tree-list">
-                        {block.rows.map((row, index) => {
-                          const last = index === block.rows.length - 1;
-                          return (
-                            <div
-                              key={row.key}
-                              className={last ? "hero-tree-row hero-tree-row--last" : "hero-tree-row"}
-                            >
-                              <span className="hero-tree-branch" aria-hidden="true">
-                                {last ? "└──" : "├──"}
-                              </span>
-                              <dt className="hero-tree-key">{row.key}</dt>
-                              <dd className="hero-tree-value">{row.value}</dd>
-                            </div>
-                          );
-                        })}
+                        {/* A `quote` block is one line with no key, so it is
+                            rendered as its own branch rather than mapped: the
+                            connector still comes from the same place, and it is
+                            `└──` because it is the only -- and therefore the
+                            last -- line under this header. */}
+                        {"quote" in block ? (
+                          <div className="hero-tree-row hero-tree-row--last">
+                            <span className="hero-tree-branch" aria-hidden="true">
+                              └──
+                            </span>
+                            <dd className="hero-tree-quote">{block.quote}</dd>
+                          </div>
+                        ) : (
+                          block.rows.map((row, index) => {
+                            const last = index === block.rows.length - 1;
+                            return (
+                              <div
+                                key={row.key}
+                                className={last ? "hero-tree-row hero-tree-row--last" : "hero-tree-row"}
+                              >
+                                <span className="hero-tree-branch" aria-hidden="true">
+                                  {last ? "└──" : "├──"}
+                                </span>
+                                <dt className="hero-tree-key">{row.key}</dt>
+                                <dd className="hero-tree-value">{row.value}</dd>
+                              </div>
+                            );
+                          })
+                        )}
                       </dl>
                     </div>
                   ))}
-
-                  {/* The pull quote sits below the blocks rather than inside one.
-                      It is a line she wrote, not a field in a listing, and it was
-                      in the arrangement before these blocks existed -- so it is
-                      kept rather than deleted. The sans italic is the project's
-                      gesture for someone's own words; it was Source Serif 4
-                      until the type system was adopted from the reference. */}
-                  <p className="hero-tree-quote">Too curious to stick to one thing.</p>
                 </div>
 
             {/* The email now lives in the sidebar footer, so it is not repeated

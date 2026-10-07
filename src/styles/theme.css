@@ -628,10 +628,16 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--gray-500);
 }
 
-/* The pull quote, which is what this block is for now that MISSION.LOG is gone.
-   Featured rather than captioned: at 17px it is the largest prose on the page
-   and the only serif, which is what makes one line of it carry the weight of a
-   statement.
+/* The pull quote, now the body of `quote.txt` rather than a paragraph floating
+   under the blocks. It sits in the value column so its left edge lines up with
+   the values above it, and the block gap above it comes from
+   `.hero-tree-block + .hero-tree-block` like every other block.
+
+   `grid-column: 3` and `margin: 0` are declared here rather than by also
+   applying `.hero-tree-value`: both that rule and this one are a single class, so
+   sharing them would leave the winner decided by which happens to be written
+   later in the file. This is a value-shaped element with a different face, and
+   the two properties that make it value-shaped are its own.
 
    The serif is doing real work here, so it gets the two things it needs and the
    sans does not. `antialiased`, because Source Serif 4 has open counters and
@@ -639,10 +645,10 @@ h1, h2, h3, h4, h5, h6 {
    subpixel rendering. And `font-synthesis: none`, because the fallback is the
    sans and a browser handed an italic it has no italic cut for will shear the
    upright to fake one -- the real italic is requested from Google Fonts, so
-   nothing should ever be synthesised here. */
+   nothing here should ever be synthesised. */
 .hero-tree-quote {
-  margin-top: 2rem;
-  max-width: 34ch;
+  grid-column: 3;
+  margin: 0;
   font-family: var(--font-quote);
   font-size: 17px;
   font-style: italic;
@@ -651,6 +657,16 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-synthesis: none;
+}
+
+/* Below `sm` the value column is already the narrow one, and a 17px serif on two
+   lines wants the full width it can get. Letting it start at the key column
+   instead gives it ~4.25rem more and stops "Too curious to stick to one thing."
+   breaking mid-phrase. */
+@media (max-width: 639px) {
+  .hero-tree-quote {
+    grid-column: 2 / -1;
+  }
 }
 
 /* The branch connector. A real character in the markup, `aria-hidden` there, so
