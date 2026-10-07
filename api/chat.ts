@@ -1897,6 +1897,44 @@ async function resolveConversation(
   return findConversationByVisitor(visitorId);
 }
 
+/**
+ * The last MAX_TURNS turns of a conversation as stored server-side. Used as the
+ * Gemini history instead of the client's copy, so a visitor cannot put words
+ * in the assistant's mouth by sending forged `model` turns. System notices are
+ * skipped; admin replies count as the assistant's side of the conversation.
+ */
+async function loadStoredHistory(conversationId: string): Promise<ChatMessage[] | null> {
+  const result = await supabaseRequest(
+    `chat_messages?conversation_id=eq.${encodeURIComponent(conversationId)}&select=id,conversation_id,role,body,created_at&role=in.(visitor,assistant,admin)&order=created_at.desc&limit=${MAX_TURNS}`
+  );
+  if (!Array.isArray(result)) return null;
+
+  const turns: ChatMessage[] = result
+    .filter(isStoredMessage)
+    .reverse()
+    .filter((row) => row.body.trim().length > 0)
+    .map((row) => ({ role: row.role === "visitor" ? "user" : "model", text: row.body }));
+
+  const firstUserIndex = turns.findIndex((turn) => turn.role === "user");
+  return firstUserIndex < 0 ? null : turns.slice(firstUserIndex);
+}
+
+/**
+ * Prefers the stored transcript. Falls back to the client's user turns only
+ * (never its `model` turns) when storage is unavailable or the current message
+ * did not make it into the database.
+ */
+async function getGeminiHistory(
+  conversationId: string | null,
+  clientMessages: ChatMessage[]
+): Promise<ChatMessage[]> {
+  if (conversationId) {
+    const stored = await loadStoredHistory(conversationId);
+    if (stored && stored.length > 0 && stored[stored.length - 1].role === "user") return stored;
+  }
+  return clientMessages.filter((message) => message.role === "user");
+}
+
 function getLastUserMessage(messages: ChatMessage[]): string {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (messages[index].role === "user") return messages[index].text;
@@ -2864,10 +2902,11 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
   // Per-model outcome, so a chain that dies on candidate three says which two
   // worked -- the single most useful fact when GEMINI_MODEL is stale.
   const attempts: Array<Record<string, unknown>> = [];
+  const geminiMessages = await getGeminiHistory(conversationId, modelMessages);
 
   for (const model of getModelCandidates()) {
     try {
-      const response = await requestGemini(apiKey, model, modelMessages);
+      const response = await requestGemini(apiKey, model, geminiMessages);
       if (response.ok) {
         geminiResponse = response;
         attempts.push({ model, outcome: "ok", status: response.status });
