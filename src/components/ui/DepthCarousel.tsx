@@ -70,6 +70,8 @@ export default function DepthCarousel({
   const positionRef = useRef(0);
   const targetRef = useRef(0);
   const pausedRef = useRef(false);
+  const hoverRef = useRef(false);
+  const focusRef = useRef(false);
   const activeRef = useRef(0);
 
   const [active, setActive] = useState(0);
@@ -161,13 +163,27 @@ export default function DepthCarousel({
       }
     };
 
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
     const tick = () => {
+      const remaining = targetRef.current - positionRef.current;
+      if (Math.abs(remaining) < 0.0005) {
+        if (positionRef.current === targetRef.current) return;
+        positionRef.current = targetRef.current;
+        apply();
+        return;
+      }
+      if (reducedMotion.matches) {
+        positionRef.current = targetRef.current;
+        apply();
+        return;
+      }
       // Frame-rate independent chase. `deltaRatio` is the current frame's
       // duration relative to a 60fps frame, so normalising by it keeps the
       // easing identical at 60Hz, 120Hz and after a stall.
       const ratio = gsap.ticker.deltaRatio();
       const blend = 1 - Math.pow(1 - EASE, Number.isFinite(ratio) ? ratio : 1);
-      positionRef.current += (targetRef.current - positionRef.current) * blend;
+      positionRef.current += remaining * blend;
       apply();
     };
 
@@ -178,7 +194,7 @@ export default function DepthCarousel({
     };
   }, [count, loop, cardWidth, depth, spread, tilt, visibleCards]);
 
-  /** Autoplay, paused on hover and when the tab is hidden. */
+  /** Autoplay, paused on hover, on keyboard focus, and when the tab is hidden. */
   useEffect(() => {
     const reduced =
       typeof window !== "undefined" &&
@@ -294,10 +310,21 @@ export default function DepthCarousel({
       // below. These two cannot share a box.
       style={{ perspective: `${perspective}px` }}
       onMouseEnter={() => {
+        hoverRef.current = true;
         pausedRef.current = true;
       }}
       onMouseLeave={() => {
-        pausedRef.current = false;
+        hoverRef.current = false;
+        pausedRef.current = focusRef.current;
+      }}
+      onFocus={() => {
+        focusRef.current = true;
+        pausedRef.current = true;
+      }}
+      onBlur={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+        focusRef.current = false;
+        pausedRef.current = hoverRef.current;
       }}
     >
       <div
