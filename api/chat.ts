@@ -1077,6 +1077,52 @@ function storeAdminLoginAttempt(key: string, entry: { count: number; resetAt: nu
   adminLoginAttempts.set(key, entry);
 }
 
+/* ---------------------------------------------------------------------------
+ * Visitor message rate limit.
+ *
+ * Every visitor message can cost a Gemini call and a notification email, so a
+ * script must not be able to send them unbounded. Same caveat as the login
+ * brake: in-memory, per instance, best-effort.
+ * ------------------------------------------------------------------------ */
+
+const VISITOR_RATE_WINDOW_MS = 60 * 1000;
+const VISITOR_RATE_MAX_EVENTS = 20;
+const VISITOR_RATE_MAX_TRACKED_KEYS = 10000;
+
+const visitorRateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+/**
+ * One key per client address. On Vercel the platform sets
+ * `x-vercel-forwarded-for` / `x-real-ip` itself, so unlike `x-forwarded-for`
+ * they cannot be chosen by the client. Locally the socket address is real.
+ */
+function getVisitorRateKey(req: VercelRequest): string {
+  if (isDeployed()) {
+    const platform = readHeader(req, "x-vercel-forwarded-for") || readHeader(req, "x-real-ip");
+    if (platform) return `ip:${platform.split(",")[0].trim()}`;
+  }
+  return `ip:${req.socket?.remoteAddress ?? "unknown"}`;
+}
+
+/** Counts this request; returns seconds to wait when over the limit, else 0. */
+function takeVisitorRateToken(key: string): number {
+  const now = Date.now();
+  const entry = visitorRateBuckets.get(key);
+  if (!entry || now > entry.resetAt) {
+    if (visitorRateBuckets.size >= VISITOR_RATE_MAX_TRACKED_KEYS) {
+      for (const [k, v] of visitorRateBuckets) if (now > v.resetAt) visitorRateBuckets.delete(k);
+      if (visitorRateBuckets.size >= VISITOR_RATE_MAX_TRACKED_KEYS) visitorRateBuckets.clear();
+    }
+    visitorRateBuckets.set(key, { count: 1, resetAt: now + VISITOR_RATE_WINDOW_MS });
+    return 0;
+  }
+  if (entry.count >= VISITOR_RATE_MAX_EVENTS) {
+    return Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
+  }
+  entry.count += 1;
+  return 0;
+}
+
 function issueAdminSession(password: string): string {
   return signAdminSession(Date.now() + ADMIN_SESSION_TTL_MS, password);
 }
@@ -2806,6 +2852,15 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
     const entry = await insertActivity(conversation.id, kind, page, label);
 
     return res.status(200).json({ ok: true, recorded: Boolean(entry) });
+  }
+
+  const retryAfter = takeVisitorRateToken(getVisitorRateKey(req));
+  if (retryAfter > 0) {
+    console.warn(JSON.stringify({ scope: "ian-chat-rate-limit", event, visitorId, retryAfter }));
+    res.setHeader("Retry-After", String(retryAfter));
+    return res.status(429).json({
+      error: "You're sending messages a little fast. Please wait a moment and try again.",
+    });
   }
 
   // A visitor may only write to their own thread. The thread is keyed by the
