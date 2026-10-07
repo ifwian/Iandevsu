@@ -33,6 +33,13 @@ export const PROFILE = {
     email: "iandevsu@gmail.com",
     github: "https://github.com/ifwian",
     linkedin: "https://www.linkedin.com/in/ifwiannn/",
+    /**
+     * Paste the resume/CV URL here and the sidebar's "view resume" pill appears.
+     * Left empty rather than pointed at a guessed path: a link that 404s is
+     * worse than no link, and an invented URL in a portfolio is a dead end for
+     * anyone who tries it. The sidebar renders nothing for this until it is set.
+     */
+    resume: "",
   },
 } as const;
 

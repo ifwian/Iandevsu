@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mail, MapPin, Search } from "lucide-react";
+import { ArrowUpRight, FileText, Mail, MapPin, Search } from "lucide-react";
 import { PROFILE } from "@/content/profile";
 import { NAV_ITEMS } from "@/lib/navigation";
+import { SOCIAL_ITEMS } from "@/lib/socials";
 import ThemeToggle from "./ThemeToggle";
 
 interface SidebarNavProps {
@@ -170,29 +171,122 @@ function SidebarIdentity() {
         <MapPin size={14} strokeWidth={1.7} className="shrink-0" />
         <span>calamba · laguna · ph</span>
       </div>
+
+      {/* Group 3: availability. A third bordered group rather than a second line
+          inside the location block, so it reads as its own fact: where she is,
+          and what she is open to, are two different answers.
+
+          The dot is the only coloured thing in the rail and it is `--ink`, not a
+          green: the site's one sanctioned accent is reserved for the chat's
+          conversation statuses, and reusing it here would make a static line
+          look like a live state it is not. Meaning does not depend on it -- the
+          words say it outright.
+
+          `.clinerules` treats colour as the wrong instrument for emphasis, so
+          the dot is a mark and the emphasis is the `open to` label, which is
+          what a visitor reads. */}
+      <div
+        className="flex items-center gap-[0.45rem] border-b border-[var(--gray-200)] py-5 text-[12px] leading-[1.5]"
+        style={{ color: "var(--gray-500)", fontFamily: "var(--font-mono)" }}
+      >
+        <span
+          aria-hidden="true"
+          className="h-1.5 w-1.5 shrink-0 rounded-full"
+          style={{ backgroundColor: "var(--ink)" }}
+        />
+        <span>
+          open to <span style={{ color: "var(--ink)" }}>opportunities</span>
+        </span>
+      </div>
     </>
   );
 }
 
 /**
- * The contact block. Replaces the social icon row the reference layout has
- * here; GitHub/LinkedIn/Instagram still live in the hero, so nothing became
- * unreachable. Sits directly below the last group, which is why it carries no
- * separator of its own.
+ * The primary action, above the footer's divider.
+ *
+ * A pill rather than the mailto link, because it is the rail's one call to
+ * action and the mailto below it is a fallback for when a visitor has no mail
+ * client. Renders only when `PROFILE.links.resume` is filled in -- see the note
+ * there -- so the rail never shows a button that goes nowhere.
+ *
+ * `.terminal-pill` rather than a bespoke box: the hero's chips and the social
+ * row's hover already speak that vocabulary, and a second pill shape in the
+ * rail would read as a different kind of control.
+ */
+function SidebarResumeAction() {
+  const resume = PROFILE.links.resume;
+  if (!resume) return null;
+
+  return (
+    <a
+      href={resume}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="terminal-pill group w-full justify-center"
+    >
+      <FileText size={13} aria-hidden="true" />
+      <span>view resume</span>
+      <ArrowUpRight
+        size={11}
+        strokeWidth={1.7}
+        aria-hidden="true"
+        className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+      />
+    </a>
+  );
+}
+
+/**
+ * The social row and the theme toggle, in one line at the bottom of the rail.
+ *
+ * The three marks come from `lib/socials`, which the hero also reads, so the two
+ * surfaces cannot end up pointing at different accounts.
+ *
+ * Each link is icon-only and carries its name in `aria-label`, which is what the
+ * markup needs here: a `title` would be the only thing naming these on hover and
+ * it is unavailable to touch and to a screen reader in the same way. The row is
+ * `justify-between` with the toggle last, so the toggle lands in the corner and
+ * the marks space evenly along the rail's width rather than huddling at the
+ * left edge.
+ */
+function SidebarSocialRow() {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-1">
+        {SOCIAL_ITEMS.map(({ label, href, Icon }) => (
+          <a
+            key={label}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={label}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--gray-500)] transition-colors duration-200 hover:bg-[var(--gray-100)] hover:text-[var(--ink)]"
+          >
+            <Icon size={15} />
+          </a>
+        ))}
+      </div>
+      {/* `compact` because the full three-way control is a labelled segmented
+          row that would wrap a 16rem rail on its own; here it has the icons to
+          sit beside. */}
+      <ThemeToggle compact />
+    </div>
+  );
+}
+
+/**
+ * The contact block, pinned to the bottom of the rail.
  *
  * `items-start` rather than `items-center`, and the text is left-aligned: the
- * rest of the sidebar -- identity, location, the numbered nav -- all hangs off
- * the same left edge, and a centred footer was the one block breaking that
- * line. The toggle and the address are `inline-flex`, so they shrink to their
- * content and sit flush once the cross-axis is start-aligned.
+ * rest of the sidebar -- identity, location, availability, the numbered nav --
+ * all hangs off the same left edge, and a centred footer was the one block
+ * breaking that line.
  */
 function SidebarContact() {
   return (
     <div className="flex flex-col items-start gap-3">
-      {/* Full three-way control (system / light / dark, defaulting to system)
-          rather than the single-button toggle, which is the design language's
-          documented pattern. */}
-      <ThemeToggle />
+      <SidebarResumeAction />
 
       <p
         className="max-w-[28ch] text-left text-[11px] leading-[1.5]"
@@ -215,6 +309,13 @@ function SidebarContact() {
         <Mail size={13} strokeWidth={1.7} className="shrink-0" />
         <span>{PROFILE.links.email}</span>
       </a>
+
+      {/* The social row is last, below a divider of its own: it is a set of
+          utility links rather than part of the contact sentence above it, and a
+          hairline is what says so without adding a label. */}
+      <div className="w-full border-t border-[var(--gray-200)] pt-3">
+        <SidebarSocialRow />
+      </div>
     </div>
   );
 }
@@ -299,13 +400,24 @@ export default function Sidebar({ className = "", onOpenPalette }: SidebarProps)
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           <SidebarIdentity />
           {/*
-            The numbered section list is gone from the rail -- it duplicated the
-            palette and made the sidebar the longest thing on the page. The
-            palette is the way in now. The list is still rendered in the mobile
-            drawer below, where it is the only navigation a touch user has: a
-            hamburger that opened a drawer containing one button which opened a
-            modal would be strictly worse than not having a drawer.
+            The numbered list is the rail's primary navigation. It was removed
+            earlier as a duplicate of the command palette, which is a fair
+            argument on a rail that already has to hold a contact block and a
+            social row -- but it left a desktop visitor with one button that
+            opens a modal, and no way to see where they can go.
+
+            So both are here, and they are not duplicates in practice: the list
+            shows the eight sections and marks the active one, while the palette
+            is a search across them for someone who knows what they want. The
+            list scrolls with the page rather than jumping, so it is the way
+            someone browses; the palette is the way someone who already knows.
+
+            `min-h-0` on the wrapper above is what keeps this honest: the rail is
+            a flex column, and a flex item's default `min-height: auto` would
+            refuse to shrink below the list's height, pushing the footer off the
+            bottom of a short viewport instead of letting this area scroll.
           */}
+          <SidebarNav active={active} />
           <SidebarCommandButton onOpen={() => onOpenPalette?.()} />
         </div>
         {/* `mt-auto` pins the contact block to the bottom of the flex column,
