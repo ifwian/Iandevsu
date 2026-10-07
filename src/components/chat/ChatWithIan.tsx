@@ -549,6 +549,13 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const wasOpenRef = useRef(false);
+
+  useEffect(() => {
+    if (wasOpenRef.current && !open) triggerRef.current?.focus();
+    wasOpenRef.current = open;
+  }, [open]);
   // Held in a ref rather than state: the broadcast effect must not re-subscribe
   // every time the composer text changes.
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
@@ -1245,6 +1252,7 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
     <>
       {!open && (
         <button
+          ref={triggerRef}
           type="button"
           onClick={handleOpen}
           aria-label="Chat with Ian"
@@ -1274,6 +1282,12 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
           role="dialog"
           aria-label={`Chat with ${PROFILE.goesBy}`}
           aria-busy={loading}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.stopPropagation();
+              setOpen(false);
+            }
+          }}
         >
           <div
             className="flex items-center justify-between gap-2 px-4 py-3"
