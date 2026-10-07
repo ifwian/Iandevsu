@@ -1,4 +1,5 @@
 import type { Project } from "@/content/projects";
+import TechIcon from "@/components/icons/TechIcon";
 
 interface ProjectCardProps {
   project: Project;
@@ -19,7 +20,7 @@ interface ProjectCardProps {
  * That swap is the point. This used to centre the title's first letter at 30px
  * in `--gray-300`, which made every card in the grid advertise the same
  * anonymous shape and pushed the card's real content two thirds of the way down
- * the card. The devicon of `project.stack[0]` is content the visitor can
+ * the card. The outline mark for `project.stack[0]` is content the visitor can
  * actually recognise, it is already the first thing in the stack row below, and
  * it gives the six cards six different previews.
  *
@@ -33,11 +34,12 @@ function Preview({ project }: { project: Project }) {
     <div className="project-card-preview">
       <div className="halftone" style={{ opacity: 0.45 }} aria-hidden="true" />
       {primary ? (
-        <i
-          className={`${primary} relative text-4xl sm:text-5xl`}
-          style={{ filter: "grayscale(0.55) contrast(0.95)" }}
-          aria-hidden="true"
-        />
+        /* Lighter stroke than the stack row below, because the same pen at 44px
+           carries far more ink than at 15px. It takes `--gray-400` rather than
+           `--ink` so the mark sits behind the card's text instead of competing
+           with it, and lifts to ink on the card's hover along with everything
+           else. */
+        <TechIcon name={primary} size={44} strokeWidth={1.25} className="project-card-mark" />
       ) : null}
     </div>
   );
@@ -98,8 +100,11 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
         <p className="project-card-summary">{project.description}</p>
 
         <div className="project-card-stack">
-          {project.stack.map((icon: string) => (
-            <i key={icon} className={icon} aria-hidden="true" />
+          {project.stack.map((icon, index) => (
+            /* Keyed by position within the card. The name alone is not unique --
+               a project can list the same technology twice -- and the list is
+               static, so the index is stable here and does not remount. */
+            <TechIcon key={`${project.title}-${index}`} name={icon} size={15} strokeWidth={1.6} />
           ))}
         </div>
 

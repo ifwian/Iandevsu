@@ -1319,7 +1319,7 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--gray-400);
 }
 
-/* The devicon row. `aria-hidden` is on each icon in the markup; the stack is
+/* The outline mark row. `aria-hidden` is on each icon in the markup; the stack is
    decorative next to a prose description that already names the technologies in
    words, so nothing is lost to a screen reader. */
 .project-card-stack {
@@ -1330,20 +1330,36 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 0.85rem;
 }
 
-.project-card-stack img,
-.project-card-stack i {
-  font-size: 15px;
-  line-height: 1;
-  /* 11px devicon glyphs on a 14px body would look like dirt; this is the same
-     bump the hero's build pills already rely on. */
-  filter: saturate(0.9);
+/* Sized in the markup by the `size` prop, not here: these are SVGs, so
+   `font-size` does nothing to them the way it sized the Devicon glyphs this
+   replaced. What this rule owns is colour and motion -- a mark that inherits
+   `currentColor` from the card, dimmed at rest and lifted on hover with the
+   rest of the card's contents. */
+.project-card-stack svg {
+  color: var(--gray-500);
   opacity: 0.85;
-  transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+  flex: none;
+  transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out), color 0.3s var(--ease-out);
 }
 
-.project-card:hover .project-card-stack i {
+.project-card:hover .project-card-stack svg {
+  color: var(--ink);
   opacity: 1;
   transform: translateY(-1px);
+}
+
+/* The card's big preview mark. Same treatment as the row, one step heavier:
+   44px of 1.25px stroke carries more ink than 15px of 1.6px, so it sits at
+   `--gray-400` and only reaches ink with the card. */
+.project-card-mark {
+  color: var(--gray-400);
+  opacity: 0.9;
+  transition: color 0.3s var(--ease-out), opacity 0.3s var(--ease-out);
+}
+
+.project-card:hover .project-card-mark {
+  color: var(--ink);
+  opacity: 1;
 }
 
 .project-card-foot {
