@@ -1,416 +1,108 @@
-# Portfolio -- bryl-minimal edition (Vite + React + TS)
+# Marianne Napaño — Portfolio
 
-Design language ported from https://github.com/bryllim/bryl-minimal-design
-(Bryl Lim's `bryl-minimal-design` skill) and applied by hand across every
-component -- monochrome palette, numbered section headers, mono
-micro-labels, hairline cards, halftone accents, and full light/dark
-theming.
+Personal portfolio of Marianne Napaño ("Ian"), a Computer Science student and aspiring web developer. A single-page site in a monochrome, terminal-inspired design ("bryl-minimal"), with a Gemini-powered "Chat with Ian" assistant and a password-protected admin inbox.
 
-This matches the Vite project you already have set up (not Next.js --
-see the folder layout below).
+**Live:** `<add live URL here>`
 
-## 1. Install dependencies
+## Screenshots
+
+| Home | Projects | Chat |
+|---|---|---|
+| `<screenshot: home>` | `<screenshot: /projects>` | `<screenshot: chat widget>` |
+
+## Features
+
+- Numbered sections: home, about, projects, tech stack, education, life outside the IDE, GitHub activity, blog
+- Light / dark / system theme with a no-flash init script
+- ⌘K command palette for section navigation
+- 3D photo carousel and pixel-dissolve portrait (GSAP), both respecting `prefers-reduced-motion`
+- "Chat with Ian": streams answers from Gemini via a serverless function; the API key never reaches the browser
+- Conversations persisted to Supabase, with an admin inbox at `/chat-inbox` (human takeover, statuses, internal notes, visitor activity, reactions)
+
+## Tech stack
+
+- **Frontend:** Vite, React 19, TypeScript, React Router
+- **Styling:** design tokens in `src/styles/theme.css`, Tailwind utility classes for layout
+- **Fonts:** Kode Mono (headings and UI chrome), Geist (body), Source Serif 4 (prose)
+- **Animation:** GSAP
+- **Icons:** lucide-react, Devicon
+- **Backend:** Vercel serverless function (`api/chat.ts`), Google Gemini API, Supabase (Postgres + anonymous auth)
+
+## Project structure
+
+```
+api/chat.ts            Vercel serverless function: Gemini proxy, persistence, admin endpoints
+src/
+  main.tsx, App.tsx    entry point and routes
+  styles/theme.css     design tokens and component classes
+  components/          layout, sections, ui, chat, projects
+  content/             profile and project data
+  lib/                 shared helpers (Supabase client, formatting, navigation)
+  pages/               /projects and /chat-inbox
+public/                images and static assets
+supabase/              schema.sql (fresh database), migrations/, APPLY_PENDING.sql (upgrades)
+```
+
+`@/*` resolves to `src/*`.
+
+`api/chat.ts` keeps its own copy of the profile facts instead of importing `src/content/profile.ts`. Imports from outside `/api` break the Vercel function at runtime. If you change facts in `src/content/profile.ts`, update `api/chat.ts` too.
+
+## Getting started
+
+Requirements: Node.js 20.19+ or 22.12+ (required by Vite 8) and npm.
 
 ```bash
-npm install gsap lucide-react
-npm install -D @vercel/node
-```
-
-(react, react-dom, and their @types should already be installed from
-earlier -- gsap is for PixelTransition/DepthCarousel, lucide-react is
-the icon set now used in the sidebar and theme toggle.)
-
-## 2. Copy files in
-
-```
-src/main.tsx              -- Vite entry point, mounts <App />
-src/App.tsx               -- root component, composes every section
-src/styles/theme.css       -- design tokens, fonts, .card/.pill/etc.
-index.html                 -- replace your existing one at the project root
-components/layout/Sidebar.tsx
-components/layout/ThemeToggle.tsx
-components/layout/Footer.tsx
-components/layout/ScrollTopButton.tsx
-components/sections/Hero.tsx
-components/sections/TechStackShowcase.tsx
-components/sections/Education.tsx
-components/sections/GithubActivity.tsx
-components/sections/Projects.tsx
-components/sections/Blog.tsx
-components/sections/LifeOutsideIDE.tsx
-components/ui/PixelTransition.tsx
-components/ui/PixelTransition.module.css
-components/ui/DepthCarousel.tsx
-components/ui/DepthCarousel.module.css
-```
-
-Delete your old `style.css` and `script.js` -- both are fully
-superseded (theme.css replaces style.css; the components replace
-script.js's DOM logic).
-
-Confirm `tsconfig.json` has `"baseUrl": "."` alongside `"paths": { "@/*": ["./*"] }`,
-and that `vite.config.ts` includes the `tsconfigPaths()` plugin (both
-should already be true from your existing setup).
-
-## 3. What the design language actually changes
-
-- **No accent color, anywhere.** Every color in every component comes
-  from the tokens in `theme.css` (`--bg`, `--ink`, `--gray-50`
-  through `--gray-950`). Emphasis is inversion (ink chip on the page,
-  like the scroll-to-top button) or typography, never a brand color.
-- **Numbered section headers.** Each section's eyebrow reads like
-  `01 — home`, `02 — stack`, etc., set in the mono display role at
-  small size, gray-400. Renumber if you reorder sections.
-- **Four font roles**: Geist (body/UI), Geist Mono (labels, the tiny
-  uppercase micro-label register used everywhere), Source Serif 4
-  (the Hero's long-form intro paragraphs only), and Geist Pixel as the
-  fourth "display" role — see the dedicated bullet below for where
-  it's actually used and why.
-- **Light / dark / system theming.** `ThemeToggle.tsx` is the 3-way
-  switch in the sidebar; it sets `data-theme` on `<html>` and persists
-  the choice to `localStorage`. The inline script in `index.html`'s
-  `<head>` reads that before first paint so there's no flash. Every
-  color reference in the components uses the CSS variables, so
-  there's nothing else to wire up.
-- **Cards, pills, buttons** all pull from the three reusable classes
-  in `theme.css` (`.card`, `.pill` / `.pill-inverted`, `.btn-primary`,
-  `.link-arrow`) rather than one-off Tailwind color utilities, so the
-  shadow recipe, radius ladder, and hover motion timing from the spec
-  stay consistent everywhere instead of drifting component to
-  component.
-- **Halftone accent**, used exactly twice per the spec's "seasoning,
-  not wallpaper" rule: as a small dot cluster bleeding off the top
-  corner of the Hero photo frame. It's the `.halftone` class -- a
-  radial dot field masked to fade at the edges.
-- **Real Geist Pixel font**, self-hosted (Square variant, OFL-licensed —
-  `public/fonts/GeistPixel-Square.woff2` + `GeistPixel-LICENSE.txt`,
-  sourced directly from `vercel/geist-pixel-font`). `--font-display`
-  now points at it for real. It's used for the `mrn.` logotype and the
-  mobile full-screen menu's nav labels — short, lowercase, ASCII-only
-  text, since the font's coverage of accented characters is limited
-  (that's also why the Hero's "Marianne Napaño" heading still uses
-  the regular body font rather than the pixel one). Section eyebrows
-  (`01 — home`) intentionally stayed on Geist Mono — the pixel font
-  is a display face and gets illegible at that size. Want a different
-  mood? Swap `GeistPixel-Square.woff2` for the Circle/Grid/Line/Triangle
-  variant from the same repo and update the `@font-face` src in
-  `theme.css`.
-- **Page-load entrance animation.** The Hero's text and photo, plus
-  the sidebar logo and nav links, fade up in a single staggered
-  sequence (~70ms apart) on load, using the `.enter` class from
-  `theme.css` with inline `animationDelay` per element. This only
-  runs once, on mount — it's not a scroll-triggered reveal (the spec
-  treats this as "one orchestrated moment," not a repeating effect
-  down the whole page).
-- **Sidebar breakpoint moved to `lg:` (1024px)**, not `md:` (768px),
-  matching the spec's stated breakpoint. Below it, navigation is now
-  a sticky top bar that expands to a full-screen overlay menu (not
-  the bottom sheet from the previous version) -- also per spec.
-
-## 4. Images
-
-Move `images/` into `public/images/` if you haven't already -- Vite
-serves `public/` at the site root, so code refers to `/images/mypfp.png`.
-
-## 5. Run it
-
-```bash
+npm install
+cp .env.example .env.local   # fill in the values you need
 npm run dev
 ```
 
-## 7. Hero now doubles as the contact card
+`npm run dev` serves both the site and the API. A small plugin in `vite.config.ts` mounts `api/chat.ts` on a loopback port and proxies `/api` to it, loading `.env.local` first, so `vercel dev` is not required.
 
-The standalone Contact section is gone -- its three links (email,
-GitHub, LinkedIn) moved into the Hero as an inline arrow-link row,
-matching the reference layout where the profile card (photo + name +
-bio + links) is one self-contained unit. `Sidebar.tsx`'s nav list had
-its `#contact` entry removed to match; renumber `Hero`'s "01 — home"
-eyebrow if you rename or reorder things later.
+### Supabase (optional, needed for history and the inbox)
 
-Two more changes to Hero specifically:
+1. Create a Supabase project and run `supabase/schema.sql` in the SQL editor.
+2. Enable **Authentication → Providers → Anonymous**. Without it, visitors stop receiving admin replies.
+3. To upgrade an existing database, run `supabase/APPLY_PENDING.sql` instead. It is idempotent.
 
-- **Font**: the whole card (heading, bio, link row) is now set in
-  Geist Mono, matching the reference profile card exactly, instead of
-  mixing in Geist Sans and Source Serif 4. Every *other* section still
-  uses the body/mono/serif split described above -- this mono-only
-  treatment is scoped to Hero on purpose, since that's what the
-  reference card actually does. If you want the whole site in
-  monospace instead, that's a one-line change: set `--font-body` to
-  `var(--font-mono)` in `theme.css`.
-- **Photo placeholder**: `PixelTransition`'s `firstContent` (shown by
-  default) is now a plain placeholder — a generic outline icon on
-  `--gray-100` with a "hover to reveal" label — and `secondContent`
-  (shown on hover/tap) is the real photo at `/images/mypfp.png`. That's
-  the reverse of the previous version. Nothing else about
-  `PixelTransition.tsx` needed to change; it was already built to
-  swap two arbitrary pieces of content.
+Without Supabase the chat still answers, but nothing is saved.
 
-## 8. Icons, theme toggle placement, and the redesigned Projects cards
+## Environment variables
 
-- **Sidebar icons**: each nav item now has a small line icon from
-  `lucide-react` (`Home`, `Layers`, `GraduationCap`, `Github`,
-  `FolderKanban`, `Newspaper`, `Sparkles`), matching the reference
-  dashboard's iconography. Swap any of them for a different lucide
-  icon by changing the import and the `Icon` reference in
-  `NAV_ITEMS`.
-- **Theme toggle moved to the top** of the desktop sidebar (next to
-  the `mrn.` logo) and added to the mobile sticky top bar too, instead
-  of sitting at the bottom. It's also icon-only now (`Monitor` / `Sun`
-  / `Moon` from lucide-react) rather than text labels, matching the
-  reference's icon pill.
-- **Projects redesigned** as browser-preview cards: a placeholder
-  "browser window" (monochrome traffic-light dots + a halftone-and-
-  monogram placeholder, since there's no real screenshot yet) sits
-  above the title, role line, description, a small devicon stack row,
-  and a footer row that shows `visit site ↗` for anything with a real
-  `href`, or a muted "not live yet" label otherwise -- so nothing links
-  out to a dead page. Fill in `href` on any `PROJECTS` entry once it's
-  actually deployed. The "more on github" pill at the bottom links to
-  your profile in place of the reference's "Explore 25+ Projects"
-  button, since a project count you can't back up would be misleading.
+Set these in `.env.local` for local development and in the Vercel project settings for deployments. Never commit real values. `.env.example` lists every name.
 
-## 9. Chat with Ian (Gemini-powered)
+| Variable | Required | Purpose |
+|---|---|---|
+| `GEMINI_API_KEY` | yes (chat) | Gemini API key, server-side only |
+| `GEMINI_MODEL` | no | Overrides the default model |
+| `SUPABASE_URL` | for persistence | Supabase project URL, server-side |
+| `SUPABASE_SERVICE_ROLE_KEY` | for persistence | Service-role key, server-side only |
+| `SUPABASE_ANON_KEY` | for persistence | Used to verify visitor sessions |
+| `VITE_SUPABASE_URL` | for persistence | Supabase URL exposed to the browser |
+| `VITE_SUPABASE_ANON_KEY` | for persistence | Anon key exposed to the browser |
+| `CHAT_ADMIN_PASSWORD` | on every deployment | Admin inbox password; the inbox returns 503 on a deployment without it |
+| `CHAT_NOTIFICATION_EMAIL` | no | Where new-chat notifications go |
+| `RESEND_API_KEY` | no | Sends notification emails via Resend |
+| `CHAT_NOTIFICATION_FROM` | no | Sender address for notification emails |
+| `CHAT_NOTIFICATION_WEBHOOK` | no | Alternative webhook for notifications |
+| `CHAT_DEV_API_PORT` | no | Local API port (default 8787) |
+| `VITE_API_BASE_URL` | no | Overrides the API base URL used by the browser |
 
-A floating chat widget, bottom-left, that answers visitor questions
-*as* you, using the Gemini API. The API key is never exposed to the
-browser -- a Vercel serverless function (`api/chat.ts`) holds it
-server-side and is the only thing that talks to Gemini directly.
+## Scripts
 
-It is more than a prompt-and-reply box. Conversations are persisted to
-Supabase, the visitor optionally gives a name and email before their
-first message, they can react to messages, and you get a password-
-protected admin inbox at `/chat-inbox` to take a conversation over from
-the AI by hand -- with internal notes, a visitor activity timeline, four
-conversation statuses, and search. A visitor sees a typing indicator
-while you type and a "Ian has joined the chat" line when you take over.
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the dev server (site + local chat API) |
+| `npm run build` | Production build to `dist/` |
+| `npm run preview` | Serve the production build locally |
 
-### Files
+## Deployment
 
-```
-content/profile.ts            -- single source of truth for the facts
-                                 fed into the chat persona (name, bio,
-                                 stack, projects, links). Edit this,
-                                 not api/chat.ts, when your info changes.
-api/chat.ts                  -- Vercel serverless function. The only
-                                 thing that talks to Gemini, and the only
-                                 reader of every secret. Streams the reply
-                                 back as SSE and persists the transcript.
-components/chat/             -- ChatWithIan.tsx (the floating widget),
-                                 ReactionBar, StatusPill, TypingIndicator,
-                                 and inbox/ (the admin side components)
-pages/ChatInboxPage.tsx      -- the admin inbox, at /chat-inbox
-lib/chatFormat.ts            -- shared formatting and the status vocabulary
-lib/useTypingSignal.ts       -- the typing heartbeat, used by both sides
-supabase/                    -- schema.sql for a fresh database, plus
-                                 migrations/ and APPLY_PENDING.sql
-.env.example                 -- template; copy to .env.local and fill in.
-```
+Deployed on Vercel. `vercel.json` configures the `api/chat.ts` function and the SPA rewrite to `index.html`. Add the environment variables above in the Vercel project settings before deploying.
 
-### Setup
+## Known limitations
 
-1. Get a free API key at https://aistudio.google.com/apikey.
-2. `cp .env.example .env.local` and fill it in. **Never commit `.env.local`**
-   -- Vite's default `.gitignore` already excludes it, double check yours
-   does too. The Gemini key alone gets you a working chat; Supabase is
-   what makes conversations survive a reload and powers the inbox.
-3. Create a Supabase project and run `supabase/schema.sql` in its SQL
-   editor. That is the whole schema -- tables, constraints, indexes and
-   RLS policies, in dependency order.
-4. Turn on **Authentication → Providers → Anonymous** in Supabase. This
-   is the setting most likely to be missed: with it off, a conversation
-   is still created but cannot be matched back to the visitor, so they
-   silently stop receiving replies.
-5. In your Vercel project's dashboard: Settings → Environment Variables →
-   add the same keys, so the deployed function has them. `.env.local`
-   only covers your own machine. `CHAT_ADMIN_PASSWORD` is required on
-   every deployment, preview included.
-6. `npm install gsap lucide-react` and `npm install -D @vercel/node`
-   (just for the request/response types in `api/chat.ts` -- it's a
-   dev-only dependency, adds nothing to your shipped bundle).
-
-### `npm run dev` is enough -- no `vercel dev` needed
-
-`vite.config.ts` contains a `localChatApiPlugin` that mounts
-`api/chat.ts` on a spare loopback port and proxies `/api` to it, loading
-your `.env.local` into the function's environment first. So plain
-`npm run dev` serves the frontend *and* the API, with the same routing
-the deployed function sees. `vercel dev` still works if you prefer it;
-nothing about the plugin depends on it.
-
-### Upgrading an existing database
-
-`supabase/schema.sql` is for a **fresh** database only. It opens with
-`create table if not exists`, so on a database that already has
-`chat_conversations` the inline constraints are silently skipped and you
-end up with a schema that quietly differs from a clean install.
-
-To bring an existing database up to date, paste
-`supabase/APPLY_PENDING.sql` into the SQL editor instead. It is the
-ordered union of the five chat migrations, it is idempotent (every add is
-`if not exists`, every constraint is dropped before it is re-added), and
-it ends with verification queries whose expected results are in comments.
-Re-running it is safe.
-
-Keep the two in step: every index and named length check in
-`supabase/migrations/` should also appear in `schema.sql`.
-
-### The admin inbox
-
-`/chat-inbox`, one password, no user accounts. The password is exchanged
-for an HMAC-signed session that lasts 12 hours and lives in
-`sessionStorage` -- this tab only, and the password itself is never
-persisted in the browser. The signing key is derived from the password,
-so rotating it invalidates every existing session.
-
-Eight login attempts per 15 minutes are allowed, tracked per transport
-address. It is an in-memory brake, so it resets when a cold instance
-recycles -- it raises the cost of a naive sweep rather than enforcing a
-hard limit.
-
-On a **local dev server only**, the ceiling is `null`: no lockout, so
-a mistyped password cannot stop you testing. `adminLoginAttemptLimit()`
-returns the real number whenever `VERCEL_ENV`, `VERCEL` or `CI` is set,
-so preview deployments are rate limited exactly like production. The
-loopback bind in `vite.config.ts` (127.0.0.1) is the other half of that:
-"local" means this machine, not this network.
-
-The same gate covers the password. `CHAT_ADMIN_PASSWORD` unset locally
-falls back to `DEV_ADMIN_PASSWORD`, so `npm run dev` works with no env
-setup; unset on any deployment it is a 503 instead, because a committed
-fallback plus a public preview URL is full inbox access for anyone who
-has read this repository.
-
-
-The inbox polls (2s for the open thread, 3s for the list) and also
-subscribes to Supabase Realtime. The realtime path is currently inert:
-this page authenticates with a password and never establishes a Supabase
-session, so it subscribes as `anon` and the `to authenticated` SELECT
-policies do not admit it. The pollers are what keep the page live; the
-subscriptions are left in because they cost nothing and start working the
-moment an admin Supabase session exists.
-
-Internal notes, visitor activity and reactions have **no** RLS policies at
-all, and must stay that way. Granting an admin-scoped SELECT policy means
-granting it to *someone*, and those are the rows a visitor must never
-reach -- so they are served through the serverless function instead.
-
-### Model name
-
-`api/chat.ts` defaults to `gemini-3.8-flash`, overridable via the
-`GEMINI_MODEL` env var without touching code. Gemini's model lineup
-moves fast and Google has been retiring versions on a few months'
-notice -- if the default 404s, check
-https://ai.google.dev/gemini-api/docs/models for whatever's current
-and free-tier-eligible, and set `GEMINI_MODEL` accordingly (no code
-change needed).
-
-Requests walk a candidate chain rather than a single model: a 404, 429 or
-503 retries the next candidate, anything else stops. Each attempt logs
-its own outcome, so a chain that dies on candidate three says which two
-worked -- the single most useful fact when `GEMINI_MODEL` is stale.
-
-### What's deliberately simple here
-
-- **Rate limiting**: `api/chat.ts` caps each request to the last 12
-  messages and 600 characters per message, which bounds token usage
-  and casual abuse, but there's no real per-visitor rate limit --
-  serverless functions are stateless between invocations, so that
-  needs an external store (Vercel KV, Upstash Redis, etc.) to do
-  properly. Fine to skip for a portfolio site with light traffic;
-  worth adding if this ever gets meaningful volume.
-- **Attachments are filenames, not uploads**: the assistant reads text
-  only, so an attachment travels to the model and to the persisted
-  transcript as `[attachment] resume.pdf (212 KB)`. The visitor sees a
-  real preview chip; nothing is uploaded and the bytes never leave the
-  browser. That is the honest version of "I sent you a screenshot" --
-  real file transfer would mean a bucket, MIME sniffing and a scanner.
-- **Degrades without the inbox migration**: reads and conversation
-  inserts both retry without the newer columns, so the chat keeps
-  working on a database that has only had `schema.sql` applied. What
-  goes inert is the unread badge, the waiting/assigned statuses, the
-  visitor panel, internal notes, the activity timeline and reactions.
-- **Free-tier data use**: Google's free tier terms allow using your
-  prompts/outputs to improve their models. Fine for a public portfolio
-  chat about your own public info; just don't be surprised by it.
-
-
-## 10. Five polish requests
-
-1. **Theme-switch animation** -- clicking the toggle now expands a
-   circle out from wherever the button sits on screen, using the View
-   Transitions API (`document.startViewTransition` in
-   `ThemeToggle.tsx`, the actual keyframes in `theme.css` under
-   `::view-transition-new(root)`). Browsers without support (or
-   people with `prefers-reduced-motion` on) skip straight to the
-   plain CSS crossfade that was already on `body` -- widened in this
-   pass to cover background/border/color/fill/stroke on every element
-   via a universal selector, not just `body` itself, so the fallback
-   path is smooth too, not just the fancy one.
-2. **Toggle redesign** -- `ThemeToggle.tsx` is now a single icon
-   button (no border, no background at rest) that cycles
-   light → dark → system on click, showing whichever icon matches the
-   *current* theme. Position didn't change -- still top of the
-   desktop sidebar and the mobile top bar -- only how it looks and
-   behaves.
-3. **Hero photo restored** -- the previous version showed a
-   placeholder by default and only revealed your real photo on hover,
-   which read as a missing/broken photo rather than an interactive
-   effect. It's flipped back: your real photo shows immediately,
-   `PixelTransition` still fires on hover/tap, now revealing a small
-   "now learning" card instead of hiding the photo. Still a portrait
-   rectangle (not circular), still on the right on desktop.
-4. **"View Projects" removed** from Hero -- projects are reachable
-   from the sidebar already, so the extra button was redundant.
-5. **Font**: `.btn-primary` and `.link-arrow` (used for every button
-   and arrow-link across the site -- Hero's link row, the GitHub
-   section's `@ifwian ↗` handle, Projects' `visit site ↗` /
-   `more on github`) now use Geist instead of Geist Mono. Hero's
-   heading/bio also lost the mono override it had picked up from an
-   earlier request, so it's back to Geist. Mobile menu nav labels
-   switched from the pixel display font to Geist too.
-
-   **Scoping note**: I did *not* touch the small uppercase "kicker"
-   text -- section eyebrows (`01 — home`), `.micro-label`, and
-   `.pill` tags -- those stay on Geist Mono. That's a distinct
-   secondary register for metadata/labels in the bryl-minimal system,
-   not body copy, and removing it would flatten a chunk of the
-   existing design language rather than just changing "the font." The
-   `mrn.` logotype also stays on the Geist Pixel display font as a
-   wordmark, the same way a brand mark commonly differs from body text
-   even on single-font sites. If you actually want *everything*
-   including those on Geist, say so -- it's a small, contained change,
-   I just didn't want to make that call unasked given the "don't
-   unnecessarily redesign" instruction.
-
-## 11. Font clarified, animation lag fixed
-
-- **Headings → Geist Pixel, paragraphs → Geist.** Every `<h1>`–`<h6>`
-  across the site now uses the pixel display font (one rule in
-  `theme.css`, so every section heading picks it up automatically —
-  no per-file edits needed). Buttons and arrow-links (`.btn-primary`,
-  `.link-arrow`) and the sidebar's nav labels followed the same
-  heading/UI-chrome bucket, back onto Geist Pixel. Body copy (`<p>`
-  tags, card descriptions, the bio paragraphs) stays on Geist,
-  unaffected — that split is the actual distinction between "the
-  font" and "content/paragraphs" from your message. The small
-  uppercase kicker labels (section eyebrows, `.micro-label`, `.pill`)
-  are still on Geist Mono, not Pixel — a pixel font at 9-11px reads as
-  noise rather than text, so I kept those on the mono face they were
-  already using rather than making them illegible.
-
-  One rendering note with no real fix: Geist Pixel's character set
-  doesn't include accented letters, so "Marianne Napaño" will show
-  "Napa" and "o" in the pixel font but the "ñ" specifically falls back
-  to Geist Mono (the next font in `--font-display`'s stack) for just
-  that one glyph. That's the browser's normal per-character
-  font-fallback behavior, not a bug -- there's no way to force a
-  missing glyph to render in a font that doesn't have it.
-
-- **Animation lag, fixed.** The previous pass had two animations
-  running at once in any browser that supports View Transitions: the
-  circular reveal *and* a plain CSS color-transition on every element,
-  fighting each other every frame -- that's what read as
-  stutter/lag. The plain CSS crossfade is now wrapped in
-  `@supports not (view-transition-name: none)`, so it only exists at
-  all in browsers that *lack* View Transitions support. Anywhere the
-  circle reveal actually runs, it's now the only animation happening.
+- Only admin login is rate limited. The limit is in memory per function instance, so it is best-effort rather than a hard limit.
+- Chat attachments are sent as file names only. The assistant reads text, and no files are uploaded.
+- The admin inbox updates by polling. Its Supabase Realtime subscriptions currently receive nothing.
+- Google's free tier may use prompts and outputs to improve its models.
