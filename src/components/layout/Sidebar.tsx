@@ -34,14 +34,20 @@ function useModifierLabel(): string {
  * The single navigation affordance that replaced the long section list on the
  * desktop rail.
  *
- * Terminal-styled on purpose -- bracketed label, monospace, a `>` prompt glyph --
- * to match the rest of the sidebar's register rather than looking like a web
- * button dropped into it.
+ * Terminal-styled on purpose -- monospace, small, quiet -- to match the rest of
+ * the sidebar's register rather than looking like a web button dropped into it.
  *
- * The hover is a border and text colour change, not a fill. `.clinerules` is
- * explicit that emphasis here comes from inversion or typography and never from
- * a new colour, and a filled button would also be the loudest thing in a rail
- * that is otherwise hairline rules and 11px mono.
+ * An inline text item, not a boxed button: no fill, no border, no radius. The
+ * rail is hairline rules and 13px mono, and a bordered box here competed with
+ * the one real chrome surface in the column (the chat panel's own edge). Icon
+ * plus label sits in the same row shape as the numbered nav links -- same
+ * `py-[0.45rem]`, same `text-[13px]`, same `leading-normal` -- so the three read
+ * as one list of places rather than a link above two widgets.
+ *
+ * The hover is a colour change on the icon and label, and nothing else: no
+ * border to move, no fill to appear. `.clinerules` is explicit that emphasis
+ * here comes from inversion or typography and never from a new colour, so a
+ * highlighted surface would be the wrong gesture at this size.
  */
 function SidebarCommandButton({ onOpen }: { onOpen: () => void }) {
   const modifier = useModifierLabel();
@@ -51,38 +57,27 @@ function SidebarCommandButton({ onOpen }: { onOpen: () => void }) {
       <button
         type="button"
         onClick={onOpen}
-        /**
-         * Deliberately the same box as the "chat with Ian" button below it, so
-         * the two read as one control family: same `rounded-lg`, same
-         * `px-3 py-2.5`, same `text-xs`, same 14px icon, same `--gray-50` fill.
-         *
-         * `leading-none` is what actually pins the height. Without it the label
-         * sits in a ~1.5 line box and the button comes out a few pixels taller
-         * than its neighbour -- the earlier version of this looked misaligned
-         * precisely because it was missing this one class.
-         */
-        className="group flex w-full items-center gap-2 rounded-lg border border-[var(--gray-300)] px-3 py-2.5 text-left text-xs leading-none transition-colors duration-200 hover:border-[var(--ink)]"
-        style={{ backgroundColor: "var(--gray-50)", color: "var(--gray-500)", fontFamily: "var(--font-mono)" }}
+        className="group flex w-full items-center gap-2 py-[0.45rem] text-left text-[13px] leading-normal transition-colors"
+        style={{ color: "var(--gray-500)", fontFamily: "var(--font-mono)" }}
       >
         <Search
-          size={14}
+          size={13}
           strokeWidth={1.8}
           aria-hidden="true"
-          className="shrink-0 transition-colors duration-200 group-hover:text-[var(--ink)]"
+          className="shrink-0 transition-colors group-hover:text-[var(--ink)]"
         />
-        <span className="min-w-0 flex-1 truncate transition-colors duration-200 group-hover:text-[var(--ink)]">
+        <span className="min-w-0 flex-1 truncate transition-colors group-hover:text-[var(--ink)]">
           jump to section
         </span>
         {/**
          * The shortcut is shown on the control, not only in a tooltip: it is the
          * only way a visitor learns the palette has a keyboard shortcut.
          *
-         * `py-px` rather than `py-0.5` on purpose. This tag is the tallest thing
-         * in the row, so its height is what sets the button's height: 10px line
-         * + 2px padding + 2px border = 14px, exactly the icon beside it. At
-         * `py-0.5` it reached 20px and pushed the button back out of alignment
-         * with the chat button, which is what this whole control was resized to
-         * match.
+         * `py-px` rather than `py-0.5` on purpose, unchanged from when the row
+         * had a box: the tag is the tallest thing here, so at `py-0.5` it reached
+         * 20px and dragged the row's line box out of step with the 13px label
+         * beside it. At `py-px` it is 10px line + 2px padding + 2px border =
+         * 14px, and `items-center` puts it level with the icon.
          */}
         <kbd
           className="shrink-0 rounded border border-[var(--gray-300)] px-1 py-px text-[10px] leading-none text-[var(--gray-400)] transition-colors duration-200 group-hover:border-[var(--gray-400)] group-hover:text-[var(--gray-500)]"

@@ -1269,16 +1269,24 @@ export default function ChatWithIan({ variant = "floating" }: ChatWithIanProps) 
           aria-label="Chat with Ian"
           className={
             isSidebar
-              ? "flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--gray-300)] px-3 py-2.5 text-xs leading-none transition-colors hover:border-[var(--ink)]"
+              ? /* Inline text item, matching the "jump to section" row above it
+                   and the numbered nav links: no fill, no border, no radius, the
+                   same `py-[0.45rem]` / `text-[13px]` row shape. Hover is the
+                   label and icon warming to ink and nothing else -- the icon
+                   inherits the button's colour, so one `hover:text-*` covers
+                   both without a `group`. The floating trigger below is
+                   untouched: it is a fixed overlay on the page, where an
+                   unboxed control would have nothing to sit on. */
+                "flex w-full items-center gap-2 py-[0.45rem] text-left text-[13px] leading-normal transition-colors hover:text-[var(--ink)]"
               : "fixed bottom-[25px] left-[25px] z-40 flex h-11 items-center gap-2 rounded-full px-4 text-sm shadow-lg transition-opacity hover:opacity-85"
           }
           style={{
-            backgroundColor: isSidebar ? "var(--gray-50)" : "var(--ink)",
-            color: isSidebar ? "var(--ink)" : "var(--bg)",
+            backgroundColor: isSidebar ? "transparent" : "var(--ink)",
+            color: isSidebar ? "var(--gray-500)" : "var(--bg)",
             fontFamily: "var(--font-mono)",
           }}
         >
-          <MessageCircle size={isSidebar ? 14 : 16} strokeWidth={1.8} />
+          <MessageCircle size={isSidebar ? 13 : 16} strokeWidth={1.8} />
           chat with {PROFILE.goesBy.toLowerCase()}
         </button>
       )}
