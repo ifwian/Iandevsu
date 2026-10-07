@@ -47,7 +47,7 @@ function PanelCard({ heading, children }: { heading: string; children: ReactNode
   return (
     <div className="card flex h-full flex-col border border-[var(--gray-200)] bg-[var(--gray-50)] p-5">
       <p
-        className="micro-label mb-4 font-medium"
+        className="micro-label mb-4"
         style={{ fontFamily: "var(--font-display)" }}
       >
         {heading}
@@ -77,10 +77,9 @@ export default function Education() {
         education &amp; certifications
       </h2>
 
-        {/* Section description -- prose, so Source Serif 4. The family comes
-            from `.font-source-serif` rather than an inline style, which is the
-            same binding every serif line below uses. */}
-        <p className="font-source-serif mb-8 max-w-xl text-[15px] leading-[1.7] text-[var(--gray-400)]">
+        {/* Section description -- prose, so the body's sans, bound through the
+            `font-body` utility rather than an inline style. */}
+        <p className="font-body mb-8 max-w-xl text-[15px] leading-[1.7] text-[var(--gray-400)]">
           Where I&rsquo;ve studied, what I&rsquo;ve learned, and what I&rsquo;m currently building along
           the way.
         </p>
@@ -92,13 +91,13 @@ export default function Education() {
                 inline here, which is what keeps this scannable against a
                 certification's single year.
 
-                `.font-source-serif` sets only the family, so the micro-label
+                `.font-body` sets only the family, so the micro-label
                 register is untouched: same 11px, same tracking, same gray. */}
-            <p className="font-source-serif micro-label mb-2 text-[11px] tracking-wider text-[var(--gray-500)]">
+            <p className="font-body micro-label mb-2 text-[11px] tracking-wider text-[var(--gray-500)]">
               2025 &mdash; 2029
             </p>
             <p
-              className="text-sm font-semibold tracking-tight text-[var(--ink)] sm:text-base"
+              className="text-sm tracking-tight text-[var(--ink)] sm:text-base"
               style={{ fontFamily: "var(--font-display)" }}
             >
               BS Computer Science
@@ -106,21 +105,21 @@ export default function Education() {
             {/* Institution and status are the descriptive layer of the card, so
                 they take the serif. `italic` on the status line is a real Source
                 Serif 4 italic -- the italic cut is requested in index.html, and
-                `.font-source-serif` sets `font-synthesis: none` so the browser
+                `.font-body` sets `font-synthesis: none` so the browser
                 cannot fake it by shearing the upright. */}
-            <p className="font-source-serif mt-1.5 text-sm text-[var(--gray-400)]">
+            <p className="font-body mt-1.5 text-sm text-[var(--gray-400)]">
               City College of Calamba
             </p>
-            <p className="font-source-serif mt-3 text-sm italic text-[var(--gray-500)]">
+            <p className="font-body mt-3 text-sm italic text-[var(--gray-500)]">
               Currently studying
             </p>
           </PanelCard>
 
           <PanelCard heading="certifications">
-            <p className="font-source-serif text-sm font-semibold tracking-tight text-[var(--ink)] sm:text-base">
+            <p className="font-body text-sm tracking-tight text-[var(--ink)] sm:text-base">
               HackerRank
             </p>
-            <p className="font-source-serif micro-label mt-1 text-[11px] tracking-wider text-[var(--gray-500)]">
+            <p className="font-body micro-label mt-1 text-[11px] tracking-wider text-[var(--gray-500)]">
               2026
             </p>
             {/* An inline SVG tick rather than a "✓" character: the check glyph
@@ -149,7 +148,7 @@ export default function Education() {
                       detail, not chrome. The em-dash span inherits the family
                       and only overrides the colour, so the pair reads as one
                       line set in one face. */}
-                  <span className="font-source-serif text-[var(--gray-400)]">
+                  <span className="font-body text-[var(--gray-400)]">
                     {cert.label}
                     <span className="text-[var(--gray-500)]"> &mdash; {cert.detail}</span>
                   </span>
@@ -175,7 +174,7 @@ export default function Education() {
             the Hero separates its numbered lines. */}
         <div className="mt-12">
           <p
-            className="micro-label mb-4 text-[11px] font-medium uppercase tracking-wider text-[var(--gray-500)]"
+            className="micro-label mb-4 text-[11px] uppercase tracking-wider text-[var(--gray-500)]"
             style={{ fontFamily: "var(--font-display)" }}
           >
             currently learning
@@ -191,7 +190,7 @@ export default function Education() {
                 </span>
                 <div className="min-w-0">
                   <p
-                    className="text-sm font-semibold leading-[1.4] tracking-tight text-[var(--ink)]"
+                    className="text-sm leading-[1.4] tracking-tight text-[var(--ink)]"
                     style={{ fontFamily: "var(--font-display)" }}
                   >
                     {item.title}

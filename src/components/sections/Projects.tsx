@@ -17,7 +17,7 @@ export default function Projects() {
           <div className="section-shell-body">
       <h2 className="section-title">projects</h2>
 
-        {/* Section description -- prose, so Source Serif 4.
+        {/* Section description -- prose, so the body's sans.
 
             `--gray-400`, not the `--gray-500` this carried: it is the same
             sentence /projects renders above its grid, and at two different
@@ -26,7 +26,7 @@ export default function Projects() {
             prose is `--gray-400`. */}
         <p
           className="mb-8 max-w-xl text-[15px] leading-[1.75] sm:text-[17px]"
-          style={{ fontFamily: "var(--font-serif)", color: "var(--gray-400)" }}
+          style={{ fontFamily: "var(--font-body)", color: "var(--gray-400)" }}
         >
           I&rsquo;m just getting started &mdash; here&rsquo;s what I&rsquo;m planning to build first.
         </p>

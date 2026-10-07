@@ -77,7 +77,7 @@ export default function ProjectsPage() {
 
             <p
               className="mb-8 max-w-xl text-[15px] leading-[1.75] sm:text-[17px]"
-              style={{ fontFamily: "var(--font-serif)", color: "var(--gray-400)" }}
+              style={{ fontFamily: "var(--font-body)", color: "var(--gray-400)" }}
             >
               Everything I&rsquo;m building or planning to build, real projects and practice templates
               alike.

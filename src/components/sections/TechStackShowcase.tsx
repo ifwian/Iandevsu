@@ -89,10 +89,10 @@ export default function TechStackShowcase() {
           tech stack
         </h2>
 
-        {/* Section description -- prose, so Source Serif 4. */}
+        {/* Section description -- prose, so the body's sans. */}
         <p
           className="mb-6 max-w-xl text-[15px] leading-[1.7] text-[var(--gray-500)]"
-          style={{ fontFamily: "var(--font-serif)" }}
+          style={{ fontFamily: "var(--font-body)" }}
         >
           The tools, frameworks, and platforms I reach for across my projects.
         </p>
@@ -102,7 +102,7 @@ export default function TechStackShowcase() {
             {FULL_STACK_DATA.map((group) => (
               <div key={group.categoryLabel}>
                 <p 
-                  className="micro-label mb-2 text-[11px] font-medium uppercase tracking-wider text-[var(--gray-500)]"
+                  className="micro-label mb-2 text-[11px] uppercase tracking-wider text-[var(--gray-500)]"
                   style={{ fontFamily: "var(--font-display)" }}
                 >
                   {group.categoryLabel}

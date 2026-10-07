@@ -55,12 +55,12 @@ export default function LifeOutsideIDE() {
               Outside the IDE
             </h2>
 
-            {/* Description -- paragraph prose, so Source Serif 4. The max-w
+            {/* Description -- paragraph prose, so the body's sans. The max-w
                 keeps the measure readable instead of letting it run the full
                 width of the column. */}
             <p
               className="mb-6 max-w-xl text-[15px] leading-[1.75] text-[var(--gray-400)] sm:text-[17px]"
-              style={{ fontFamily: "var(--font-serif)" }}
+              style={{ fontFamily: "var(--font-body)" }}
             >
               When I step away from the tech world, I recharge through physical activity and creative hobbies, returning to my projects with fresh energy and perspective.
             </p>

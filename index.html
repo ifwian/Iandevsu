@@ -33,9 +33,18 @@
        Tailwind's Play CDN ships the platform's own stacks, and its default
        `font-serif` is `ui-serif, Georgia, Cambria, "Times New Roman", Times,
        serif` -- so a `font-serif` class anywhere would put a system serif on
-       the page. The three font-family utilities are pointed at the tokens in
-       src/styles/theme.css instead, which makes a `font-sans`, `font-mono` or
-       `font-serif` class resolve only to Geist, Kode Mono or Source Serif 4.
+       the page. The three roles of this project's type system are pointed at
+       the tokens in src/styles/theme.css instead.
+
+       `body` is the extra key: it emits the `font-body` utility, which is how
+       an element inside a mono-set section (the section wrappers all set
+       --font-mono) opts back into the sans without an inline style.
+
+       `serif` stays mapped even though this project has no serif any more,
+       and deliberately points at the sans. Leaving it out would hand the
+       utility back to Tailwind's Georgia default -- the one thing the previous
+       serif work existed to prevent -- so a future `font-serif` resolves to
+       Geist instead of to a stranger's face.
 
        The tokens stay the single source of truth: this names them rather than
        restating the stacks, so a stack is still edited in exactly one place.
@@ -49,9 +58,11 @@
       theme: {
         extend: {
           fontFamily: {
+            body: ["var(--font-body)"],
             mono: ["var(--font-mono)"],
+            display: ["var(--font-display)"],
             sans: ["var(--font-body)"],
-            serif: ["var(--font-serif)"],
+            serif: ["var(--font-body)"],
           },
         },
       },
@@ -62,21 +73,39 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@2.17.0/devicon.min.css" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@2.17.0/devicon.min.css" /></noscript>
 
-  <!-- Typography: the roles of the bryl-minimal stack.
-       Display + Mono -- Kode Mono      (headings, labels, nav, UI chrome)
-       Body           -- Geist          (UI copy, buttons, subheadings)
-       Serif          -- Source Serif 4 (prose, institutions, dates)
-       Loaded here, once, rather than injected per-component at runtime.
-       Source Serif 4 is requested in both upright and italic (`ital,opsz,wght`)
-       because the Education section sets its "Currently studying" subtitle in
-       italic. Requesting only the upright cut would leave that line rendered as
-       a synthetic oblique -- a sheared upright, which reads as broken rather
-       than italic at small sizes. -->
+  <!-- Typography: the three roles of the bryl-minimal stack, as adopted from
+       Vurios/portfolio (github.com/Vurios/portfolio) -- the same design language
+       this site was built on, with its type system rather than one invented here.
+
+         Sans    -- Geist          (headings, body copy, prose, values)
+         Mono    -- Geist Mono     (labels, nav, badges, dates, pills, code)
+         Display -- Geist Pixel    (brand, section titles, index numbers)
+
+       Geist and Geist Mono come from Google Fonts, requested once here rather
+       than injected per component. Weights are discrete rather than the 300-700
+       variable ranges this site used before: 600 is loaded on both because the
+       design sets `font-semibold` on headings and mono labels, and without a
+       real 600 cut the browser fakes one by smearing the 500 -- which is the
+       thing this project moved away from when it dropped synthetic italics.
+
+       Geist Pixel is NOT on Google Fonts (the CSS2 API returns 400 for it),
+       which is why Vurios self-hosts it too. The face and its OFL licence are
+       in public/fonts/; the @font-face that binds it is in src/styles/theme.css,
+       and the preload below gets it fetching in parallel with the CSS rather
+       than after it. It is 27KB for the whole set and paints the brand name and
+       the section titles, so it is on the critical path for first paint. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Kode+Mono:wght@400..700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..700;1,8..60,300..700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap"
     rel="stylesheet"
+  />
+  <link
+    rel="preload"
+    href="/fonts/GeistPixel-Square.woff2"
+    as="font"
+    type="font/woff2"
+    crossorigin
   />
 
   <!-- No-flash theme init: read the stored/system preference before

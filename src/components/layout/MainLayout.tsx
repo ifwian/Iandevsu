@@ -94,7 +94,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
     <>
       {/* No font utility on the wrapper on purpose. `font-geist-mono` was never
           a real class in this project, so it was silently doing nothing. Each
-          section picks its own role (--font-mono / --font-display / --font-serif)
+          section picks its own role (--font-body / --font-mono / --font-display)
           and everything else inherits Geist from `body`. */}
       <div className="flex min-h-screen flex-col lg:flex-row">
         {/* Sidebar wrapper */}

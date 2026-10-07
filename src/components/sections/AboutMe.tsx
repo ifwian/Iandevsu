@@ -99,7 +99,7 @@ export default function AboutMe() {
         {/* Two columns at `lg` and up, one below.
 
             The 1.45fr/1fr split is doing the real work: the narrative keeps a
-            ~480px measure at 17px serif, which lands at roughly 62 characters a
+            ~480px measure at 17px prose, which lands at roughly 62 characters a
             line -- the comfortable band for this size. An even split would put
             the prose at ~400px and start breaking lines mid-phrase, and a 2fr/1fr
             would let the measure stretch past where the eye wants it.

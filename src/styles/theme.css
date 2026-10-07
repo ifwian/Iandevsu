@@ -1,23 +1,44 @@
 /* ---------- Fonts ----------
-   Two real faces, so nothing mixes:
-     Kode Mono      -- headings, badges, nav, labels, UI chrome
-     Source Serif 4 -- paragraph descriptions and long-form prose
+   Three real faces, so nothing mixes, adopted from Vurios/portfolio
+   (github.com/Vurios/portfolio) -- the same bryl-minimal design language this
+   site was built on, carrying its type system rather than one invented here:
 
-   --font-display and --font-mono intentionally resolve to the same family.
-   They are kept as separate tokens because they mean different things
-   (a heading vs. a 10px badge), and collapsing them to one name would make
-   the markup lie about intent. Every call site therefore renders Kode Mono
-   regardless of which role it reaches for, which is what "consistent" means
-   here -- swapping a badge to --font-display can no longer change its face.
+     Sans    -- Geist        headings, body copy, prose, values
+     Mono    -- Geist Mono   labels, nav, badges, dates, pills, code
+     Display -- Geist Pixel  brand name, section titles, index numbers
 
-   Geist stays as --font-body for the document base and the one subheading
-   that is neither chrome nor prose; it is never used for headings or labels.
+   The role tokens keep their separate names for the same reason they always
+   did: they mean different things (a 10px badge vs. a section title), and
+   collapsing them to one name would make the markup lie about intent. What
+   changed is what each resolves to.
 
-   All three are requested once from Google Fonts in index.html, so there are
-   no @font-face blocks here. Kode Mono is a variable font with a wght axis,
-   so `font-semibold` (600) resolves to a real weight rather than being
-   snapped to the nearest static cut. Raw Kode Mono .ttf files also sit unused
-   in /public/fonts if you ever want to self-host instead. */
+   There is no serif role any more. Source Serif 4 is gone, and prose is set in
+   the sans, which is what the reference does -- its `.prose` and `.hero__intro`
+   carry no font-family at all and simply inherit the body face. So
+   `--font-serif` is not repointed at a serif; it is gone, and the call sites
+   that used it were moved to `--font-body`.
+
+   Geist Pixel ships at weight 400 only, and the reference never sets a weight
+   on it either. That is why no `font-semibold` survives at a --font-display
+   call site: asking a single-weight face for 600 does not make it bolder, it
+   makes the browser synthesise a faux bold by smearing the outline. The weight
+   that used to carry the heading hierarchy now comes from size and colour.
+
+   Geist and Geist Mono are requested once from Google Fonts in index.html, so
+   there are no @font-face blocks for them. Geist Pixel is the exception: it is
+   not on Google Fonts at all (the CSS2 API rejects the family), so it is
+   self-hosted from /public/fonts with its OFL licence beside it -- the same
+   arrangement the reference uses. */
+
+@font-face {
+  font-family: "Geist Pixel";
+  src: url("/fonts/GeistPixel-Square.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  /* swap, not block: the face is only 27KB and it paints the brand name, so
+     blocking would trade a visible blank for a barely-perceptible delay. */
+  font-display: swap;
+}
 
 
 /* =========================================================
@@ -85,18 +106,14 @@
   --sidebar-w: 16rem;
 
 
-  --font-body: "Geist", system-ui, sans-serif;
-  --font-mono: "Kode Mono", ui-monospace, monospace;
-  --font-display: "Kode Mono", ui-monospace, monospace;
-  /* Source Serif 4, and on failure the site's own body face -- deliberately not
-     a generic `serif`. A bare `serif` keyword resolves to Times New Roman on
-     Windows, Georgia on older macOS and Noto Serif on Linux, so a blocked or
-     slow Google Fonts request would silently re-render every serif line in a
-     different face from the one the design was drawn in. Falling back to Geist
-     keeps the fallback inside the palette: a sans in the site's own family
-     rather than a stranger's serif. `font-synthesis` below then guarantees an
-     italic subtitle never becomes a sheared upright. */
-  --font-serif: "Source Serif 4", var(--font-body);
+  /* Adopted from Vurios/portfolio, stacks copied from its css/styles.css so the
+     two projects resolve an unavailable face identically. Geist Mono and Geist
+     Pixel are quoted before their generic fallbacks on purpose: a pixel face
+     falling back to a pixel system font would look worse than falling back to
+     the mono, which is what the reference does too. */
+  --font-body: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-display: "Geist Pixel", "Geist Mono", ui-monospace, monospace;
 
   color-scheme: light;
 }
@@ -161,8 +178,8 @@
   }
 }
 
-/* `.kode-mono-regular` was removed along with the Kode Mono webfont link.
-   Headings now use var(--font-display) (Kode Mono) directly, so the class
+/* The `.kode-mono-regular` helper went with the Kode Mono webfont link.
+   Headings now use var(--font-display) directly, so the class
    had no remaining callers. */
 
 /* ---------- Reset & base ---------- */
@@ -463,7 +480,6 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
   font-size: 1.25rem;
   line-height: 1.25;
-  font-weight: 600;
   letter-spacing: -0.025em;
   color: var(--ink);
   margin-bottom: 0.5rem;
@@ -620,7 +636,6 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
   font-size: 2rem;
   line-height: 1.1;
-  font-weight: 600;
   letter-spacing: -0.03em;
   color: var(--ink);
 }
@@ -940,67 +955,18 @@ h1, h2, h3, h4, h5, h6 {
 `aria-hidden` at every call site: it is decoration implying "editable", and
    these are static reads -- announcing a cursor would be a false claim.
 
-/* ---------- Serif role ----------
-   The one class that binds an element to Source Serif 4, so "prose set in the
-   serif" is a named role in the stylesheet rather than an inline
-   `style={{ fontFamily: "var(--font-serif)" }}` repeated per call site.
+/* ---------- Prose ----------
+   The narrative column. No font-family here on purpose: prose is set in the
+   body's sans, which is what the reference does -- its `.prose` carries no
+   family either. The serif role this column used to declare is gone with
+   Source Serif 4, and re-adding a font-family just to name the body's own face
+   would be a second place to keep in sync.
 
-   It exists as a class rather than Tailwind's own `font-serif` utility on
-   purpose. Tailwind's `font-serif` resolves to `ui-serif, Georgia, Cambria,
-   "Times New Roman", Times, serif` -- that default stack is where a Georgia
-   rendering comes from, and this project never wires the font tokens into
-   `@theme`, so the utility would keep emitting it. Binding the face here means
-   the serif role is Source Serif 4 by construction and there is no utility
-   left that can quietly reintroduce a system serif.
-
-   Sized and coloured by the caller: this sets the family and nothing else, so
-   an 11px tracked date and a 15px paragraph can share it.
-
-   `-webkit-font-smoothing: antialiased` is applied to the serif only, not to
-   the document. Source Serif 4 has open counters and hairline serifs; on the
-   dark theme, default subpixel rendering thickens those strokes enough to fill
-   in at 11-15px, and antialiasing keeps the glyph edges sharp against the card
-   ground. The mono and sans text is left on the document's own smoothing, which
-   is what it was already drawn against.
-
-   `font-synthesis: none` forbids the faux italic and faux bold a browser will
-   otherwise invent for any weight or style it thinks is missing. The real
-   italic cut is requested from Google Fonts, so `italic` below renders a true
-   Source Serif 4 italic rather than a sheared upright. */
-.font-source-serif {
-  font-family: var(--font-serif);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  font-synthesis: none;
-}
-
-/* Locks the family for the elements that combine the serif role with a class
-   that declares a family of its own -- the Education dates carry `.micro-label`,
-   which sets `font-family: var(--font-mono)` for the chrome register.
-
-   Both selectors are one class, so between `.micro-label` and
-   `.font-source-serif` the cascade is decided purely by which rule is written
-   last, and today that is `.font-source-serif` only by virtue of it living
-   lower in this file. Insert a rule between the two, or move one, and the
-   dates silently fall back to Kode Mono -- a regression invisible in review and
-   invisible in a build, because nothing is wrong, the order merely is.
-
-   Two classes here beats one, so the serif family wins by specificity and the
-   outcome no longer depends on where either rule sits. Scoped to the one
-   pairing that exists rather than applied to `.font-source-serif` generally: an
-   element wanting the chrome register should say so with the chrome class, not
-   be overruled by a blanket rule. */
-.micro-label.font-source-serif {
-  font-family: var(--font-serif);
-}
-
-/* Narrative column. `line-height: 1.75` at 15px and 1.8 at 17px: serif at this
-   size needs more leading than the 1.6 the body sets, or the ascenders and
-   descenders of adjacent lines crowd on a dark background. The measure is
-   capped so the column does not stretch to the full max-w-4xl and break lines
-   at awkward points. */
+   `line-height: 1.75` at 15px and 1.8 at 17px: this size needs more leading
+   than the 1.6 the body sets, or adjacent lines crowd on a dark background. The
+   measure is capped so the column does not stretch to the full max-w-4xl and
+   break lines at awkward points. */
 .about-prose {
-  font-family: var(--font-serif);
   font-size: 15px;
   line-height: 1.75;
   color: var(--gray-400);
@@ -1025,7 +991,7 @@ h1, h2, h3, h4, h5, h6 {
 
    The underline is `underline` at an offset with a 30%-ink colour rather than
    a solid one, for the reason `.text-link` gives: a full-strength rule under
-   17px serif competes with the glyphs. */
+   17px text competes with the glyphs. */
 .about-em {
   color: var(--ink);
   text-decoration: underline;
@@ -1216,7 +1182,6 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
   font-size: 14px;
   line-height: 1.45;
-  font-weight: 500;
   letter-spacing: -0.01em;
   color: var(--ink);
   /* Full-opacity `--ink`, not the `--gray-400` the prose uses: this is the one
@@ -1323,7 +1288,6 @@ h1, h2, h3, h4, h5, h6 {
 .project-card-title {
   font-family: var(--font-display);
   font-size: 15px;
-  font-weight: 600;
   line-height: 1.3;
   letter-spacing: -0.02em;
   color: var(--ink);
@@ -1344,10 +1308,12 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--gray-500);
 }
 
-/* Serif, because this is prose describing a project rather than a label. */
+/* The body's sans, because this is prose describing a project rather than a
+   label -- stated as a family anyway, since the card sits inside a project grid
+   whose other text is set by the components around it. */
 .project-card-summary {
   margin-top: 0.6rem;
-  font-family: var(--font-serif);
+  font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.7;
   color: var(--gray-400);
@@ -2023,7 +1989,7 @@ h1, h2, h3, h4, h5, h6 {
 .inbox-bubble {
   /* `--font-body` (Geist), NOT the mono the page wrapper sets. The whole shell
      is mono because every label in it is chrome, and a visitor's message is not
-     chrome: it is a sentence they typed, often in Tagalog, and Kode Mono at
+     chrome: it is a sentence they typed, often in Tagalog, and a mono face at
      message length sets a letter width per character that makes a 60-character
      message measurably harder to scan than a proportional face. The meta line
      above stays mono, so the register change is exactly "this is their voice,
@@ -2310,7 +2276,6 @@ select:focus-visible,
   background-color: var(--ink);
   color: var(--bg);
   font-family: var(--font-display);
-  font-weight: 500;
   font-size: 13px;
   border-radius: 7px;
   padding: 0.7rem 1.3rem;
@@ -2325,7 +2290,6 @@ select:focus-visible,
   align-items: center;
   gap: 0.35rem;
   font-family: var(--font-display);
-  font-weight: 500;
   font-size: 13px;
   color: var(--ink);
 }

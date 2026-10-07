@@ -23,7 +23,7 @@ Personal portfolio of Marianne Napaño ("Ian"), a Computer Science student and a
 
 - **Frontend:** Vite, React 19, TypeScript, React Router
 - **Styling:** design tokens in `src/styles/theme.css`, Tailwind utility classes for layout
-- **Fonts:** Kode Mono (headings and UI chrome), Geist (body), Source Serif 4 (prose)
+- **Fonts:** Geist Pixel (brand, section titles), Geist Mono (labels, nav, badges), Geist (body and prose) — self-hosted pixel face in `public/fonts/`, the other two from Google Fonts
 - **Animation:** GSAP
 - **Icons:** lucide-react, Devicon
 - **Backend:** Vercel serverless function (`api/chat.ts`), Google Gemini API, Supabase (Postgres + anonymous auth)

@@ -63,10 +63,10 @@ export default function BlogSection() {
           blog
         </h2>
 
-        {/* Section description -- prose, so Source Serif 4. */}
+        {/* Section description -- prose, so the body's sans. */}
         <p
           className="mb-10 max-w-xl text-[15px] leading-[1.7] text-[var(--gray-500)]"
-          style={{ fontFamily: "var(--font-serif)" }}
+          style={{ fontFamily: "var(--font-body)" }}
         >
           Documenting the sophomore grind, surviving data structures, and mastering the art of vibe coding.
         </p>
@@ -107,8 +107,11 @@ export default function BlogSection() {
                 <span>{post.readTime}</span>
               </div>
 
-              {/* Title */}
-              <h3 className="text-sm sm:text-base font-bold text-[var(--ink)] leading-snug tracking-tight">
+              {/* Title. `font-semibold`, not `font-bold`: 700 is above the
+                  heaviest cut either webfont ships here, so a 700 would be a
+                  synthesised smear of 600 rather than a real weight. 600 is
+                  also what the reference sets its card titles at. */}
+              <h3 className="text-sm font-semibold text-[var(--ink)] leading-snug tracking-tight sm:text-base">
                 {post.title}
               </h3>
             </a>
