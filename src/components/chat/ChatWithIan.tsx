@@ -1262,6 +1262,7 @@ export default function ChatWithIan() {
           type="button"
           onClick={handleOpen}
           aria-label="Chat with Ian"
+          data-kuro-avoid
           /* Fixed to the bottom-right, clear of the sidebar rail on the left and
              of the browser chrome at the bottom.
 
@@ -1297,6 +1298,7 @@ export default function ChatWithIan() {
 {open && (
         <div
           className="card chat-panel fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] right-[calc(env(safe-area-inset-right,0px)+1rem)] z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden sm:bottom-6 sm:right-6"
+          data-kuro-avoid
           role="dialog"
           aria-label={`Chat with ${PROFILE.goesBy}`}
           aria-busy={loading}
