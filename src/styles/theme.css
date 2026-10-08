@@ -2630,3 +2630,14 @@ select:focus-visible,
     padding-left: var(--sidebar-w);
   }
 }
+
+/* Kuro desktop pet bubble theme variables — mapped to the site's CSS
+   tokens so colours retint automatically per theme (no hard-coded hex
+   values that would break the monochrome palette in one mode or the
+   other). */
+.kuro {
+  --kuro-bubble-bg: var(--gray-50);
+  --kuro-bubble-fg: var(--ink);
+  --kuro-bubble-border: color-mix(in srgb, var(--ink) 5%, transparent);
+  --kuro-font: var(--font-mono);
+}
