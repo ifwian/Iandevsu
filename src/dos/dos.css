@@ -3,7 +3,8 @@
  * The bubble is white in light AND dark mode on purpose (a retro "dialog box":
  * white ring, dark line, white fill). Re-theme it by overriding the custom
  * properties from your own stylesheet:
- *   .dos { --dos-bubble-bg: #f4f4f5; --dos-bubble-fg: #1b1b1f; --dos-bubble-line: #3a3a3e; --dos-font: var(--font-mono); }
+ *   .dos { --dos-bubble-bg: #f4f4f5; --dos-bubble-fg: #1b1b1f; --dos-bubble-line: #3a3a3e; --dos-font: var(--font-mono);
+ *          --dos-font-size: 13px; --dos-bubble-max-width: 200px; }
  * The defaults use :where() so any rule you write wins without a specificity fight.
  */
 
@@ -77,7 +78,7 @@
   left: 0;
   box-sizing: border-box;
   width: max-content;
-  max-width: 200px;
+  max-width: var(--dos-bubble-max-width, 200px);
   padding: 7px 12px;
   /* white ring, then a dark line just inside it, then the white fill */
   border: 3px solid var(--dos-bubble-bg);
@@ -85,7 +86,7 @@
   background: var(--dos-bubble-bg);
   box-shadow: inset 0 0 0 2px var(--dos-bubble-line);
   color: var(--dos-bubble-fg);
-  font: 500 13px/1.35 var(--dos-font);
+  font: 500 var(--dos-font-size, 13px)/1.35 var(--dos-font);
   text-align: center;
   overflow-wrap: anywhere;
   pointer-events: none; /* a bubble must never block a click */
