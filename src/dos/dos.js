@@ -60,6 +60,18 @@ const DEFAULTS = {
   corner: "bottom-left",
   /** How quickly he flies up to the hand when picked up. Higher = snappier, lower = floatier. */
   dragFollow: 14,
+  /** Chance per 100 ms tick that an idle animation (nap, scratch) starts once he has been idle for a second. */
+  idleChance: 1 / 150,
+  /** Relative odds of each idle animation. 0 switches one off (e.g. { sleeping: 0 } = never naps). */
+  idleWeights: { sleeping: 1, scratchSelf: 1, wall: 1 },
+  /** How long a nap lasts, in 100 ms ticks (192 = about 19 s). */
+  sleepLength: 192,
+  /** Chance per tick of clawing the wall when the cursor is on the other side of it. */
+  wallChance: 0.1,
+  /** Min and max ticks between rotating speech bubbles (130-240 = every 13-24 s). */
+  sayEvery: [130, 240],
+  /** How long a rotating speech bubble stays up, in ticks (38 = about 4 s). */
+  sayDuration: 38,
   /** Matching viewports get idle-only Dos (no chasing, no dragging). */
   idleOnlyQuery: "(max-width: 767px), (hover: none)",
   zIndex: null,
@@ -88,6 +100,16 @@ const DEFAULTS = {
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+function pickWeighted(items) {
+  const total = items.reduce((sum, [, w]) => sum + Math.max(0, w), 0);
+  if (total <= 0) return null;
+  let r = Math.random() * total;
+  for (const [value, w] of items) {
+    r -= Math.max(0, w);
+    if (r < 0) return value;
+  }
+  return items[items.length - 1][0];
+}
 function shuffle(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -99,6 +121,7 @@ function shuffle(arr) {
 
 export function initDos(userOptions = {}) {
   const opts = { ...DEFAULTS, ...userOptions };
+  const weights = { ...DEFAULTS.idleWeights, ...(userOptions.idleWeights || {}) };
   const inert = { destroy() {}, say() {} };
 
   if (typeof window === "undefined" || typeof document === "undefined" || !document.body) return inert;
@@ -395,9 +418,13 @@ export function initDos(userOptions = {}) {
       const walls = wallsAvailable();
       const wanted = target && target.outside ? WALL_FOR_SIDE[target.outside] : null;
       if (wanted && walls.includes(wanted)) {
-        if (Math.random() < 1 / 10) idleAnim = wanted; // cursor is on the other side of the wall
-      } else if (Math.random() < 1 / 150) {
-        idleAnim = pick(["sleeping", "scratchSelf", ...walls]);
+        if (Math.random() < opts.wallChance) idleAnim = wanted; // cursor is on the other side of the wall
+      } else if (Math.random() < opts.idleChance) {
+        idleAnim = pickWeighted([
+          ["sleeping", weights.sleeping],
+          ["scratchSelf", weights.scratchSelf],
+          ...walls.map((w) => [w, weights.wall]),
+        ]);
       }
     }
 
@@ -409,7 +436,7 @@ export function initDos(userOptions = {}) {
           if (idleAnimFrame === 8) say(pick(opts.sleepMessages), 30);
           setSprite("sleeping", Math.floor(idleAnimFrame / 4));
         }
-        if (idleAnimFrame > 192) resetIdle();
+        if (idleAnimFrame > opts.sleepLength) resetIdle();
         break;
       case "scratchWallN":
       case "scratchWallS":
@@ -423,9 +450,9 @@ export function initDos(userOptions = {}) {
         setSprite("idle", 0);
         // Rotating speech bubble: only while he is just hanging around.
         if (bubbleTicks === 0 && --nextSayIn <= 0) {
-          say(pendingGreeting || nextMessage());
+          say(pendingGreeting || nextMessage(), opts.sayDuration);
           pendingGreeting = null;
-          nextSayIn = rand(130, 240);
+          nextSayIn = rand(opts.sayEvery[0], opts.sayEvery[1]);
         }
         return;
     }

@@ -15,6 +15,18 @@ export interface DosOptions {
   corner?: "bottom-left" | "bottom-right" | "top-left" | "top-right";
   /** How quickly he flies up to the hand when picked up (higher = snappier). Default 14. */
   dragFollow?: number;
+  /** Chance per 100 ms tick that an idle animation (nap, scratch) starts. Default 1/150. */
+  idleChance?: number;
+  /** Relative odds of each idle animation; 0 switches one off. Default all 1. */
+  idleWeights?: { sleeping?: number; scratchSelf?: number; wall?: number };
+  /** Nap length in 100 ms ticks. Default 192. */
+  sleepLength?: number;
+  /** Chance per tick of clawing the wall when the cursor is beyond it. Default 0.1. */
+  wallChance?: number;
+  /** Min and max ticks between rotating speech bubbles. Default [130, 240]. */
+  sayEvery?: [number, number];
+  /** How long a rotating speech bubble stays, in ticks. Default 38. */
+  sayDuration?: number;
   /** Media query that switches to idle-only mode. Default "(max-width: 767px), (hover: none)". */
   idleOnlyQuery?: string | null;
   zIndex?: number | null;
