@@ -1,4 +1,6 @@
 import { Suspense, lazy, useEffect } from "react";
+import "./kuro/kuro.css";
+import { initKuro } from "./kuro/kuro";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import Hero from "@/components/sections/Hero";
@@ -105,4 +107,12 @@ export default function App() {
       <ChatWithIan />
     </BrowserRouter>
   );
+  useEffect(() => {
+    const kuro = initKuro({
+      containerSelector: "main",
+      corner: "bottom-left",
+      zIndex: 45,
+    });
+    return () => kuro.destroy();
+  }, []);
 }
