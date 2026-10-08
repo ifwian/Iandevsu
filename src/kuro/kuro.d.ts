@@ -13,6 +13,8 @@ export interface KuroOptions {
   edgeInset?: number;
   /** Start / idle-only corner. Default "bottom-left". */
   corner?: "bottom-left" | "bottom-right" | "top-left" | "top-right";
+  /** How tightly he follows the hand while dragged (higher = tighter, lower = more mochi lag). Default 8. */
+  dragFollow?: number;
   /** Media query that switches to idle-only mode. Default "(max-width: 767px), (hover: none)". */
   idleOnlyQuery?: string | null;
   zIndex?: number | null;

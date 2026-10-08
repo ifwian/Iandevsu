@@ -57,6 +57,8 @@ const DEFAULTS = {
   edgeInset: 0,
   /** Where he starts, and where he sits in idle-only mode. */
   corner: "bottom-left",
+  /** While dragged he is carried along behind the hand. Higher = tighter follow, lower = more mochi lag. */
+  dragFollow: 8,
   /** Matching viewports get idle-only Kuro (no chasing, no dragging). */
   idleOnlyQuery: "(max-width: 767px), (hover: none)",
   zIndex: null,
@@ -494,7 +496,7 @@ export function initKuro(userOptions = {}) {
   }
 
   function move(dt) {
-    if (!running) return;
+    if (!running || drag) return;
     const target = computeTarget();
     if (!target) return;
     const dx = target.x - x;
@@ -606,6 +608,7 @@ export function initKuro(userOptions = {}) {
       t0: performance.now(),
       moved: false,
     };
+    running = false; // a chase in progress must not tug against the hand
     resetIdle();
     idleTime = 0;
     sprite.classList.add("is-dragging");
@@ -656,6 +659,13 @@ export function initKuro(userOptions = {}) {
       x = c.x;
       y = c.y;
     } else {
+      if (drag) {
+        // Carry him along with the hand, trailing a little behind it. The gap between
+        // him and the hand is what stretches the mochi (see stepSpring).
+        const f = 1 - Math.exp(-dt * opts.dragFollow);
+        x += (pointer.x - drag.gx - x) * f;
+        y += (pointer.y - drag.gy - y) * f;
+      }
       clampToBounds();
     }
 
