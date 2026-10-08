@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect } from "react";
-import "./kuro/kuro.css";
-import { initKuro } from "./kuro/kuro";
+import "./dos/dos.css";
+import { initDos } from "./dos/dos";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import Hero from "@/components/sections/Hero";
@@ -85,12 +85,12 @@ function Home() {
 
 export default function App() {
   useEffect(() => {
-    const kuro = initKuro({
+    const dos = initDos({
       containerSelector: "main",
       corner: "bottom-left",
       zIndex: 45,
     });
-    return () => kuro.destroy();
+    return () => dos.destroy();
   }, []);
 
   return (
