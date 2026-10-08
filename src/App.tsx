@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect } from "react";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import "./dos/dos.css";
 import { initDos } from "./dos/dos";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
@@ -101,19 +102,23 @@ export default function App() {
       <a href="#main-content" className="skip-link">
         Skip to content
       </a>
-      <Suspense fallback={null}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/chat-inbox" element={<ChatInboxPage />} />
-        </Routes>
+      <Suspense fallback="Loading...">
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/chat-inbox" element={<ChatInboxPage />} />
+          </Routes>
+        </ErrorBoundary>
       </Suspense>
+      <ErrorBoundary>
+        <ChatWithIan />
+      </ErrorBoundary>
       {/* The chat trigger and its panel are both `fixed`, so this is mounted
           beside the routes rather than inside one: it stays reachable from every
           page instead of only the ones whose layout happens to include it, and it
           cannot inherit a route's `overflow` or stacking context and be clipped
           by it. */}
-      <ChatWithIan />
     </BrowserRouter>
   );
 }
