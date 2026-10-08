@@ -84,6 +84,15 @@ function Home() {
 }
 
 export default function App() {
+  useEffect(() => {
+    const kuro = initKuro({
+      containerSelector: "main",
+      corner: "bottom-left",
+      zIndex: 45,
+    });
+    return () => kuro.destroy();
+  }, []);
+
   return (
     <BrowserRouter>
       {/* Inside the router: it reads the location, so it has to be a descendant
@@ -107,12 +116,4 @@ export default function App() {
       <ChatWithIan />
     </BrowserRouter>
   );
-  useEffect(() => {
-    const kuro = initKuro({
-      containerSelector: "main",
-      corner: "bottom-left",
-      zIndex: 45,
-    });
-    return () => kuro.destroy();
-  }, []);
 }
