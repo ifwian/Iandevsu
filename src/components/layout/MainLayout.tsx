@@ -108,7 +108,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
             it reads --sidebar-w so it cannot drift from the sidebar width. */}
         <main
           id="main-content"
-          data-kuro-container
+          data-dos-container
           tabIndex={-1}
           className="sidebar-offset w-full px-5 pb-8 pt-20 sm:pt-24 lg:px-0 lg:py-12 lg:pr-8"
         >
