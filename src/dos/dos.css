@@ -1,0 +1,143 @@
+/* Dos desktop pet. Pairs with dos.js.
+ *
+ * The bubble is white in light AND dark mode on purpose (a retro "dialog box":
+ * white ring, dark line, white fill). Re-theme it by overriding the custom
+ * properties from your own stylesheet:
+ *   .dos { --dos-bubble-bg: #f4f4f5; --dos-bubble-fg: #1b1b1f; --dos-bubble-line: #3a3a3e; --dos-font: var(--font-mono); }
+ * The defaults use :where() so any rule you write wins without a specificity fight.
+ */
+
+/* The root never catches the mouse. dos.js turns pointer events on for the sprite
+   only while the cursor is over an opaque pixel of the cat (.is-hot). */
+.dos {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--dos-size, 64px);
+  height: var(--dos-size, 64px);
+  z-index: 40;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  will-change: transform;
+}
+
+.dos__sprite {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  /* pixel art: no smoothing when scaled 2x */
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  touch-action: none;
+  pointer-events: none;
+}
+
+.dos__sprite.is-hot {
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.dos__sprite.is-dragging {
+  cursor: grabbing;
+}
+
+/* Little hop when he notices the cursor. Uses `translate` so it never fights the
+   inline `transform` that dos.js uses for the poke / drop hop. */
+.dos__sprite.is-alert {
+  animation: dos-hop 0.28s ease-out;
+}
+
+@keyframes dos-hop {
+  0% { translate: 0 0; }
+  40% { translate: 0 -6px; }
+  100% { translate: 0 0; }
+}
+
+/* While carried, the whole page shows the grabbing cursor and ignores text selection. */
+.dos-dragging,
+.dos-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+/* ---------------------------------------------------------------- speech bubble */
+
+:where(.dos) {
+  --dos-bubble-bg: #f4f4f5;
+  --dos-bubble-fg: #1b1b1f;
+  --dos-bubble-line: #3a3a3e;
+  --dos-font: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+.dos__bubble {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: 200px;
+  padding: 7px 12px;
+  /* white ring, then a dark line just inside it, then the white fill */
+  border: 3px solid var(--dos-bubble-bg);
+  border-radius: 0;
+  background: var(--dos-bubble-bg);
+  box-shadow: inset 0 0 0 2px var(--dos-bubble-line);
+  color: var(--dos-bubble-fg);
+  font: 500 13px/1.35 var(--dos-font);
+  text-align: center;
+  overflow-wrap: anywhere;
+  pointer-events: none; /* a bubble must never block a click */
+  opacity: 0;
+  transition: opacity 0.12s steps(2, end);
+}
+
+.dos__bubble.is-visible {
+  opacity: 1;
+}
+
+/* Tail: a small solid triangle in the ring colour, pointing at the cat.
+   --dos-tail is set by dos.js to the cat's position along the bubble edge. */
+.dos__bubble::after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
+  border: 7px solid transparent;
+}
+
+.dos__bubble[data-side="top"]::after {
+  bottom: -16px;
+  left: var(--dos-tail, 50%);
+  margin-left: -7px;
+  border-top-color: var(--dos-bubble-bg);
+}
+
+.dos__bubble[data-side="bottom"]::after {
+  top: -16px;
+  left: var(--dos-tail, 50%);
+  margin-left: -7px;
+  border-bottom-color: var(--dos-bubble-bg);
+}
+
+.dos__bubble[data-side="right"]::after {
+  left: -16px;
+  top: var(--dos-tail, 50%);
+  margin-top: -7px;
+  border-right-color: var(--dos-bubble-bg);
+}
+
+.dos__bubble[data-side="left"]::after {
+  right: -16px;
+  top: var(--dos-tail, 50%);
+  margin-top: -7px;
+  border-left-color: var(--dos-bubble-bg);
+}
+
+/* dos.js already refuses to start with reduced motion; this covers the CSS side too. */
+@media (prefers-reduced-motion: reduce), print {
+  .dos {
+    display: none !important;
+  }
+}
