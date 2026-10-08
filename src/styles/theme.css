@@ -2635,9 +2635,4 @@ select:focus-visible,
    tokens so colours retint automatically per theme (no hard-coded hex
    values that would break the monochrome palette in one mode or the
    other). */
-.kuro {
-  --kuro-bubble-bg: var(--gray-50);
-  --kuro-bubble-fg: var(--ink);
-  --kuro-bubble-border: color-mix(in srgb, var(--ink) 5%, transparent);
-  --kuro-font: var(--font-mono);
-}
+.dos { --dos-font: var(--font-mono); }
