@@ -963,6 +963,15 @@ export function initDos(userOptions = {}) {
   // ---------------------------------------------------------------- main loop
   function frame(now) {
     raf = requestAnimationFrame(frame);
+
+    // A theme crossfade/reveal is playing. She stays on screen, fully opaque and
+    // in place, but every per-frame write is skipped: the view transition
+    // snapshots the page once, and a `transform` that changes between the
+    // snapshot and the composite is what makes a moving sprite smear across the
+    // wipe. Holding the loop costs nothing visually -- the pause is shorter than
+    // the fade -- and the frame after it resumes from the same state.
+    if (window.__themeTransitioning) return;
+
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
 

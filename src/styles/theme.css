@@ -357,12 +357,45 @@ body {
   transition: background-color 0.5s var(--ease-out), color 0.5s var(--ease-out);
 }
 
+/*
+ * Colour crossfade, for browsers with NO view-transition support.
+ *
+ * This used to read `@supports not (view-transition-name: none)`, which is
+ * "where view transitions do not exist" -- so the crossfade only ever applied
+ * where the circular reveal in ThemeToggle could not run, and never applied in
+ * the browsers that show the reveal. The two mechanisms were effectively
+ * exclusive: capable browsers got only the wipe, and the rest got only the fade.
+ *
+ * With the reveal in place, the wipe is the whole effect, so the fallback fade
+ * belongs exactly here. Where view transitions DO work, `.theme-transitioning`
+ * below neutralises these transitions for the duration of the reveal, so the two
+ * cannot overlap.
+ */
 @supports not (view-transition-name: none) {
   *,
   *::before,
   *::after {
     transition: background-color 0.4s var(--ease-out), border-color 0.4s var(--ease-out), color 0.4s var(--ease-out), fill 0.4s var(--ease-out), stroke 0.4s var(--ease-out);
   }
+}
+
+/*
+ * While the circular reveal plays, hold every colour still.
+ *
+ * The reveal is a snapshot crossfade: `::view-transition-old(root)` is a static
+ * image of the old theme and the new one is revealed through an animated
+ * clip-path over it. If the live DOM underneath kept crossfading its colours at
+ * the same time, the two animations ran on top of each other and the wipe looked
+ * like a stutter rather than a reveal. `transition: none` on the root cancels
+ * the fallback fade for exactly as long as the transition is flagged, and the
+ * flag is cleared on both the `finished` promise and a timer, so nothing is left
+ * disabled if the transition is skipped.
+ */
+:root.theme-transitioning,
+:root.theme-transitioning *,
+:root.theme-transitioning *::before,
+:root.theme-transitioning *::after {
+  transition: none !important;
 }
 
 a {
