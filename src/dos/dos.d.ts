@@ -3,7 +3,7 @@ export interface DosOptions {
   spriteUrl?: string;
   /** CSS selector or Element for the column Dos lives in. null = viewport. Default "main". */
   containerSelector?: string | Element | null;
-  /** Pixel scale. Default 2. */
+  /** Pixel scale: 32px cells at 2.25 = a 72px cat. Default 2.25. */
   scale?: number;
   /** Run speed in CSS px per second. Default 130. */
   speed?: number;

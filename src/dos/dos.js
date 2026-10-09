@@ -100,7 +100,9 @@ const DEFAULTS = {
   spriteUrl: "/assets/kuro/jess.png",
   /** CSS selector (or Element) for the content column Dos lives in. null = viewport. */
   containerSelector: "main",
-  scale: 2,
+  /** Pixel scale: 32px cells at 2.25 = a 72px cat. Matches kuro.js, which uses
+   *  2.25 on desktop and 1.75 on coarse pointers. */
+  scale: 2.25,
   /** Run speed in CSS px per second. */
   speed: 130,
   /** How close Dos stops to the cursor, in CSS px. */

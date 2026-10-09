@@ -14,8 +14,8 @@
   position: fixed;
   top: 0;
   left: 0;
-  width: var(--dos-size, 64px);
-  height: var(--dos-size, 64px);
+  width: var(--dos-size, 72px);
+  height: var(--dos-size, 72px);
   z-index: 40;
   pointer-events: none;
   user-select: none;
