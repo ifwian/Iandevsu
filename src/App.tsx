@@ -7,7 +7,6 @@ import Hero from "@/components/sections/Hero";
 import AboutMe from "@/components/sections/AboutMe";
 import Projects from "@/components/sections/Projects";
 import TechStackShowcase from "@/components/sections/TechStackShowcase";
-import Education from "@/components/sections/Education";
 import LifeOutsideIDE from "@/components/sections/LifeOutsideIDE";
 import GithubActivity from "@/components/sections/GithubActivity";
 import Blog from "@/components/sections/Blog";
@@ -74,7 +73,6 @@ function Home() {
         <AboutMe />
         <Projects />
         <TechStackShowcase />
-        <Education />
         <LifeOutsideIDE />
         <GithubActivity />
         <Blog />

@@ -41,7 +41,7 @@ export default function LifeOutsideIDE() {
            * the rest, so the grid below starts with the heading.
            */}
           <div className="section-shell-bar">
-            <p className="section-eyebrow">06 &mdash; life</p>
+            <p className="section-eyebrow">05 &mdash; life</p>
           </div>
 
 

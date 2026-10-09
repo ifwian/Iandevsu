@@ -98,7 +98,7 @@ export default function GithubActivity() {
           {/* Eyebrow and profile link share the title bar, so the handle sits on
               the same baseline as the label rather than beside the heading. */}
           <div className="section-shell-bar">
-            <p className="section-eyebrow">07 &mdash; github</p>
+            <p className="section-eyebrow">06 &mdash; github</p>
             <a
               href={`https://github.com/${GITHUB_USERNAME}`}
               target="_blank"
