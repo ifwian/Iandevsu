@@ -1,5 +1,7 @@
 import type { Project } from "@/content/projects";
 import TechIcon from "@/components/icons/TechIcon";
+import BuildingPreview from "@/components/projects/BuildingPreview";
+import "./project-preview.css";
 
 interface ProjectCardProps {
   project: Project;
@@ -14,35 +16,31 @@ interface ProjectCardProps {
 /**
  * The preview area.
  *
- * There is no screenshot to show -- nothing in `content/projects.ts` has a
- * thumbnail -- so this is a texture with the project's own primary icon in it.
+ * A project with a screenshot (`project.image`) shows it. A project without one
+ * shows the "still building" scene instead (`BuildingPreview`): the project's
+ * own mark, Dos with a speech bubble, and a progress bar. Either way the area is
+ * the same 16:9 box, so a grid mixing both stays aligned.
  *
- * That swap is the point. This used to centre the title's first letter at 30px
- * in `--gray-300`, which made every card in the grid advertise the same
- * anonymous shape and pushed the card's real content two thirds of the way down
- * the card. The outline mark for `project.stack[0]` is content the visitor can
- * actually recognise, it is already the first thing in the stack row below, and
- * it gives the six cards six different previews.
- *
- * `aria-hidden` throughout: the stack row beneath names every technology in
- * words, so the glyph announces nothing new.
+ * The screenshot is decorative next to the title, but it is also the only thing
+ * that shows what the project looks like, so it keeps real alt text.
  */
 function Preview({ project }: { project: Project }) {
-  const [primary] = project.stack;
-
-  return (
-    <div className="project-card-preview">
-      <div className="halftone" style={{ opacity: 0.45 }} aria-hidden="true" />
-      {primary ? (
-        /* Lighter stroke than the stack row below, because the same pen at 44px
-           carries far more ink than at 15px. It takes `--gray-400` rather than
-           `--ink` so the mark sits behind the card's text instead of competing
-           with it, and lifts to ink on the card's hover along with everything
-           else. */
-        <TechIcon name={primary} size={44} strokeWidth={1.25} className="project-card-mark" />
-      ) : null}
-    </div>
-  );
+  if (project.image) {
+    return (
+      <div className="project-card-preview">
+        <img
+          className="project-card-shot"
+          src={project.image.src}
+          alt={project.image.alt}
+          width={1200}
+          height={675}
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
+    );
+  }
+  return <BuildingPreview project={project} />;
 }
 
 export default function ProjectCard({ project, index }: ProjectCardProps) {

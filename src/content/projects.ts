@@ -24,7 +24,36 @@ export interface Project {
   /** Key into the outline mark set in `components/icons/TechIcon.tsx`. */
   stack: TechIconName[];
   href?: string; // omit if not live yet
+  /**
+   * Screenshot for the card's preview area (16:9, WebP, saved in
+   * `public/images/projects/`). Omit it and the card shows the "still building"
+   * scene instead: the project's own mark, Dos, and a progress bar.
+   */
+  image?: { src: string; alt: string };
+  /**
+   * Build progress, 0-100, for the "still building" scene. Omit it and the bar
+   * shows an animated "in progress" sweep instead of a percentage.
+   */
+  progress?: number;
+  /** Text in Dos's speech bubble on the "still building" scene. Default: "still building". */
+  buildNote?: string;
 }
+
+/*
+ * TEMPLATE: copy this block into PROJECTS to add a project.
+ *
+ * {
+ *   title: "Project name",
+ *   role: "Your role",
+ *   status: "coming soon",            // short tag text
+ *   tone: "active",                   // "live" | "active" | "template"
+ *   description: "One or two sentences.",
+ *   stack: ["react", "tailwindcss"],  // keys of TechIcon, first one is the card's big mark
+ *   href: "https://...",              // omit until deployed
+ *   image: { src: "/images/projects/project-name.webp", alt: "Screenshot of ..." }, // omit while building
+ *   progress: 40,                     // optional, 0-100 (only shown without an image)
+ * },
+ */
 
 export const PROJECTS: Project[] = [
   {
@@ -42,6 +71,10 @@ export const PROJECTS: Project[] = [
       "postgresql",
       "prisma",
     ],
+    image: {
+      src: "/images/projects/the-sifted-cafe.webp",
+      alt: "The Sifted Cafe home page: a blue hero reading Good coffee. Good food. Good people., with View Menu and Reserve a Table buttons.",
+    },
   },
   {
     title: "LMS Notifier",
@@ -50,6 +83,24 @@ export const PROJECTS: Project[] = [
     tone: "active",
     description: "A small web app that checks a Learning Management System (LMS) for new announcements and sends notifications to users. Built with Python.",
     stack: ["python"],
+    image: {
+      src: "/images/projects/lms-notifier.webp",
+      alt: "e-GURO Companion landing page: Your LMS, without the constant checking, with Connect, Detect and Notify steps.",
+    },
+  },
+  {
+    // TODO: confirm title, role, status and stack. Only the description and image
+    // come from the screenshot; the rest are placeholders.
+    title: "FRAME",
+    role: "Frontend Developer",
+    status: "coming soon",
+    tone: "active",
+    description: "A reservation site for a gaming station lounge: check live station availability, see opening hours and pricing, and reserve a slot.",
+    stack: ["react", "tailwindcss"],
+    image: {
+      src: "/images/projects/frame.webp",
+      alt: "FRAME home page: Reserve. Play. Repeat., with a Reserve a Station button and live availability of 7 of 12 stations.",
+    },
   },
   {
     title: "To-Do List",
