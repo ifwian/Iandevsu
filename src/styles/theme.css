@@ -2634,7 +2634,7 @@ select:focus-visible,
     clip-path: circle(0px at var(--theme-toggle-x, 50%) var(--theme-toggle-y, 50%));
   }
   to {
-    clip-path: circle(150vmax at var(--theme-toggle-x, 50%) var(--theme-toggle-y, 50%));
+    clip-path: circle(var(--theme-reveal-radius, 150vmax) at var(--theme-toggle-x, 50%) var(--theme-toggle-y, 50%));
   }
 }
 
