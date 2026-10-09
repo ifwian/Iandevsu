@@ -3,7 +3,7 @@ export interface DosOptions {
   spriteUrl?: string;
   /** CSS selector or Element for the column Dos lives in. null = viewport. Default "main". */
   containerSelector?: string | Element | null;
-  /** Pixel scale. Default 2. */
+  /** Pixel scale: 32px cells at 2.25 = a 72px cat. Default 2.25. */
   scale?: number;
   /** Run speed in CSS px per second. Default 130. */
   speed?: number;
@@ -11,8 +11,16 @@ export interface DosOptions {
   stopDistance?: number;
   /** Gap between Dos and his resting corner (idle-only mode). Default 0. */
   edgeInset?: number;
-  /** Start / idle-only corner. Default "bottom-left". */
+  /** Fallback resting spot when there is no [data-dos-home] element. Default "bottom-left". */
   corner?: "bottom-left" | "bottom-right" | "top-left" | "top-right";
+  /** Selector of the element she perches on top of (the chat launcher). Default "[data-dos-home]". */
+  homeSelector?: string;
+  /** How far her feet sink into the top of that element, in px. Default 4. */
+  perchOffset?: number;
+  /** Min and max ticks (100 ms) she sits idle between idle animations. Default [20, 70]. */
+  restEvery?: [number, number];
+  /** Ms of a still cursor before she stops following and is placed back on the perch. 0 = never. Default 20000. */
+  followTimeout?: number;
   /** How quickly he flies up to the hand when picked up (higher = snappier). Default 14. */
   dragFollow?: number;
   /** Chance per 100 ms tick that an idle animation (nap, scratch) starts. Default 1/150. */
@@ -36,7 +44,9 @@ export interface DosOptions {
   avoidSelector?: string;
   greeting?: string;
   messages?: string[];
-  pokeMessages?: string[];
+  followMessages?: string[];
+  stayMessages?: string[];
+  boredMessages?: string[];
   grabMessages?: string[];
   releaseMessages?: string[];
   wakeMessages?: string[];
