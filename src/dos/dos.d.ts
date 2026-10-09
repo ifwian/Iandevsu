@@ -17,15 +17,9 @@ export interface DosOptions {
   homeSelector?: string;
   /** How far her feet sink into the top of that element, in px. Default 4. */
   perchOffset?: number;
-  /** Wandering speed and zoomies speed, in CSS px per second. Defaults 90 and 220. */
-  roamSpeed?: number;
-  zoomSpeed?: number;
-  /** Min and max ticks (100 ms) she rests between wanders. Default [20, 70]. */
+  /** Min and max ticks (100 ms) she sits idle between idle animations. Default [20, 70]. */
   restEvery?: [number, number];
-  /** Chance that the next wander is a trip home / a zoomies run. Defaults 0.3 and 0.2. */
-  homeChance?: number;
-  zoomChance?: number;
-  /** Ms of a still cursor before she stops following and goes back to playing. 0 = never. Default 20000. */
+  /** Ms of a still cursor before she stops following and is placed back on the perch. 0 = never. Default 20000. */
   followTimeout?: number;
   /** How quickly he flies up to the hand when picked up (higher = snappier). Default 14. */
   dragFollow?: number;
@@ -53,7 +47,6 @@ export interface DosOptions {
   followMessages?: string[];
   stayMessages?: string[];
   boredMessages?: string[];
-  zoomMessages?: string[];
   grabMessages?: string[];
   releaseMessages?: string[];
   wakeMessages?: string[];
