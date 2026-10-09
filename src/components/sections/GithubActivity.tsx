@@ -37,13 +37,28 @@ function toWeeks(days: ContributionDay[]): (ContributionDay | null)[][] {
   return weeks;
 }
 
-const LEVEL_CLASSES: Record<number, string> = {
-  0: "bg-[var(--gray-100)] border border-[var(--gray-200)] hover:border-[var(--gray-300)]",
-  1: "bg-[var(--gray-200)] hover:bg-[var(--gray-300)]",
-  2: "bg-[var(--gray-300)] hover:bg-[var(--gray-400)]",
-  3: "bg-[var(--gray-400)] hover:bg-[var(--gray-300)]",
-  4: "bg-[var(--ink)] hover:bg-[var(--gray-100)]",
+/**
+ * Dot radius per contribution level.
+ *
+ * The bryl-minimal contribution grid encodes volume as a *size*, not a colour:
+ * an empty day is a hairline dot, a busy day is a filled disc, and the ramp
+ * between them is read at a glance because area scales with count. Colour still
+ * moves with it so the grid stays monochrome -- one ink, stepping up through the
+ * gray ramp -- rather than introducing an accent the rest of the page avoids.
+ *
+ * The values are percentages of the cell, so the grid holds its proportions at
+ * any width instead of needing a breakpoint per level.
+ */
+const DOT_SCALE: Record<number, { size: number; fill: string }> = {
+  0: { size: 22, fill: "var(--gray-200)" },
+  1: { size: 38, fill: "var(--gray-300)" },
+  2: { size: 54, fill: "var(--gray-400)" },
+  3: { size: 70, fill: "var(--gray-500)" },
+  4: { size: 86, fill: "var(--ink)" },
 };
+
+/** The same ramp for the legend, so it previews the scale rather than a colour set. */
+const LEVEL_COUNT = 5;
 
 export default function GithubActivity() {
   const [weeks, setWeeks] = useState<(ContributionDay | null)[][] | null>(null);
@@ -201,20 +216,31 @@ export default function GithubActivity() {
               >
               {weeks?.map((week, wi) =>
                 week.map((day, di) => {
-                  const levelClass = day
-                    ? LEVEL_CLASSES[day.level] ?? LEVEL_CLASSES[0]
-                    : "bg-transparent border-transparent";
-                  
+                  // A padding cell (outside the fetched year) stays empty. An empty
+                  // *real* day still gets level 0's small dot -- the difference
+                  // between "nothing happened" and "no such day" is the size.
+                  if (!day) {
+                    return <div key={`${wi}-${di}`} className="aspect-square" />;
+                  }
+
+                  const dot = DOT_SCALE[day.level] ?? DOT_SCALE[0];
+
                   return (
                     <div
                       key={`${wi}-${di}`}
-                      title={
-                        day
-                          ? `${day.count} contribution${day.count === 1 ? "" : "s"} on ${day.date}`
-                          : undefined
-                      }
-                      className={`w-full aspect-square rounded-[2px] cursor-pointer transition-all duration-150 hover:scale-125 hover:z-10 ${levelClass}`}
-                    />
+                      title={`${day.count} contribution${day.count === 1 ? "" : "s"} on ${day.date}`}
+                      className="flex aspect-square cursor-pointer items-center justify-center transition-transform duration-200 ease-out hover:scale-110"
+                      style={{ transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)" }}
+                    >
+                      <span
+                        className="block rounded-full transition-colors duration-200"
+                        style={{
+                          width: `${dot.size}%`,
+                          height: `${dot.size}%`,
+                          backgroundColor: dot.fill,
+                        }}
+                      />
+                    </div>
                   );
                 })
               )}
@@ -238,16 +264,29 @@ export default function GithubActivity() {
 
             {/* Legend */}
 <div 
-              className="flex items-center gap-1.5 text-[11px] text-[var(--gray-400)]"
+              className="flex items-center gap-2 text-[11px] text-[var(--gray-400)]"
               style={{ fontFamily: "var(--font-display)" }}
             >
               <span>Less</span>
-              <div className="flex gap-1">
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--gray-100)] border border-[var(--gray-200)]" />
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--gray-200)]" />
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--gray-300)]" />
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--gray-400)]" />
-                <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--ink)]" />
+              <div className="flex items-center gap-1">
+                {Array.from({ length: LEVEL_COUNT }, (_, level) => {
+                  const dot = DOT_SCALE[level] ?? DOT_SCALE[0];
+                  return (
+                    <span
+                      key={level}
+                      className="flex h-3 w-3 items-center justify-center"
+                    >
+                      <span
+                        className="block rounded-full"
+                        style={{
+                          width: `${dot.size}%`,
+                          height: `${dot.size}%`,
+                          backgroundColor: dot.fill,
+                        }}
+                      />
+                    </span>
+                  );
+                })}
               </div>
               <span>More</span>
             </div>
