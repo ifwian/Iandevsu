@@ -11,6 +11,7 @@
  *
  * Markup hooks (all optional):
  *   [data-dos-container]  the element Dos lives inside (falls back to `containerSelector`, then the viewport)
+ *   [data-dos-home]       the element she perches on top of (e.g. the chat launcher). Falls back to `corner`.
  *   [data-dos-avoid]      extra elements the speech bubble should not cover
  *   [data-dos-ignore]     elements (or subtrees) the speech bubble may cover
  */
@@ -56,8 +57,22 @@ const DEFAULTS = {
   stopDistance: 64,
   /** Gap kept between Dos and the corner he rests in (idle-only mode). */
   edgeInset: 0,
-  /** Where he starts, and where he sits in idle-only mode. */
+  /** Fallback resting spot, used when there is no [data-dos-home] element. */
   corner: "bottom-left",
+  /** The element she perches on top of, and goes back to for naps. */
+  homeSelector: "[data-dos-home]",
+  /** How far her feet sink into the top of that element, in px. */
+  perchOffset: 4,
+  /** How fast she wanders, and how fast on a zoomies run (CSS px per second). */
+  roamSpeed: 90,
+  zoomSpeed: 220,
+  /** Min and max ticks (100 ms each) she rests between wanders. */
+  restEvery: [20, 70],
+  /** Chance that the next wander is a trip home / a zoomies run. */
+  homeChance: 0.3,
+  zoomChance: 0.2,
+  /** After a click she follows the cursor; this many ms of a still cursor and she goes back to playing. 0 = never. */
+  followTimeout: 20000,
   /** How quickly he flies up to the hand when picked up. Higher = snappier, lower = floatier. */
   dragFollow: 14,
   /** Chance per 100 ms tick that an idle animation (nap, scratch) starts once he has been idle for a second. */
@@ -86,11 +101,14 @@ const DEFAULTS = {
     "i am 90% fur",
     "scroll, hooman",
     "meow (that means hi)",
-    "is that a cursor?!",
+    "click me and i'll follow you",
     "Dos on duty.",
     "please don't unplug me",
   ],
-  pokeMessages: ["nyaa!", "boing!", "hey!", "rude. (nice)"],
+  followMessages: ["ok! following you", "lead the way!", "i'm coming!", "walkies?"],
+  stayMessages: ["ok, i'll go play", "fine. staying.", "bye bye~"],
+  boredMessages: ["...you got boring", "going to play now", "bored. bye"],
+  zoomMessages: ["zoomies!", "wheee", "can't stop!"],
   grabMessages: ["put me down!", "mmmf!", "hanging in there", "nyaaa~"],
   releaseMessages: ["thud.", "ow. rude.", "...again?"],
   wakeMessages: ["...huh?", "i was NOT sleeping", "mrrp?"],
@@ -167,7 +185,7 @@ export function initDos(userOptions = {}) {
   let cur = SPRITES.idle[0];
   let isHop = false;
 
-  const pointer = { x: 0, y: 0, active: false };
+  const pointer = { x: 0, y: 0, active: false, t: 0 };
   let drag = null;
   let hot = false;
   const hop = { y: 0, vy: 0 }; // vertical offset (px, negative = up) of the poke / drop hop
@@ -186,6 +204,15 @@ export function initDos(userOptions = {}) {
   let pendingGreeting = opts.greeting;
   let bag = [];
 
+  // roaming + following
+  let following = false; // only true after she has been clicked
+  let wander = null; // current wander goal: { x, y, speed, home }
+  let wallGoal = null; // wall she walked to on purpose, to scratch
+  let restTicks = rand(15, 40);
+  let home = null; // { x, y }: where she perches, or null
+  let homeEl = null;
+  let reach = bounds; // bounds she may stand in: the column plus her perch
+
   const modeMq = opts.idleOnlyQuery ? window.matchMedia(opts.idleOnlyQuery) : null;
   let idleOnly = !!(modeMq && modeMq.matches);
 
@@ -195,6 +222,27 @@ export function initDos(userOptions = {}) {
     container =
       document.querySelector("[data-dos-container]") ||
       (typeof c === "string" ? document.querySelector(c) : c instanceof Element ? c : null);
+  }
+
+  function resolveHome() {
+    homeEl = opts.homeSelector ? document.querySelector(opts.homeSelector) : null;
+  }
+
+  /** The point her feet rest on top of the home element. Null when it is missing or off screen. */
+  function refreshHome() {
+    home = null;
+    if (!homeEl || !homeEl.isConnected) return;
+    const r = homeEl.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) return;
+    const vw = document.documentElement.clientWidth;
+    const hx = clamp(r.left + r.width / 2, S / 2, vw - S / 2);
+    const hy = r.top + opts.perchOffset - S / 2;
+    if (hy < S / 2 || r.top > window.innerHeight) return;
+    home = { x: hx, y: hy };
+  }
+
+  function atHome() {
+    return !!home && Math.hypot(x - home.x, y - home.y) < 8;
   }
 
   function refreshBounds() {
@@ -233,6 +281,17 @@ export function initDos(userOptions = {}) {
       maxY: Math.max(t + h, b - h),
       real,
     };
+    refreshHome();
+    // She may also stand on her perch, even when it sits outside the column (e.g. over the sidebar).
+    reach = home
+      ? {
+          minX: Math.min(bounds.minX, home.x),
+          maxX: Math.max(bounds.maxX, home.x),
+          minY: Math.min(bounds.minY, home.y),
+          maxY: Math.max(bounds.maxY, home.y),
+          real: bounds.real,
+        }
+      : bounds;
   }
 
   function cornerPosition() {
@@ -244,9 +303,14 @@ export function initDos(userOptions = {}) {
     };
   }
 
+  /** Where she rests: on top of the home element, or in the fallback corner. */
+  function restPosition() {
+    return home || cornerPosition();
+  }
+
   function clampToBounds() {
-    x = clamp(x, bounds.minX, bounds.maxX);
-    y = clamp(y, bounds.minY, bounds.maxY);
+    x = clamp(x, reach.minX, reach.maxX);
+    y = clamp(y, reach.minY, reach.maxY);
   }
 
   // ---------------------------------------------------------------- sprite + hit testing
@@ -374,17 +438,81 @@ export function initDos(userOptions = {}) {
   }
 
   // ---------------------------------------------------------------- behaviour (one tick = 100 ms)
+  /** What she is walking toward right now: the cursor (only after a click), or her own wander goal. */
   function computeTarget() {
-    if (idleOnly || !pointer.active) return null;
+    if (idleOnly) return null;
+    if (following) {
+      if (!pointer.active) return null;
+      const b = bounds;
+      const outside =
+        pointer.x < b.minX ? "l" : pointer.x > b.maxX ? "r" : pointer.y < b.minY ? "t" : pointer.y > b.maxY ? "b" : null;
+      return {
+        kind: "follow",
+        x: clamp(pointer.x, b.minX, b.maxX),
+        y: clamp(pointer.y, b.minY, b.maxY),
+        outside, // cursor is beyond the column: run to that wall instead of stopping short
+        stop: outside ? 3 : opts.stopDistance,
+        speed: opts.speed,
+      };
+    }
+    if (wander) return { kind: "wander", x: wander.x, y: wander.y, outside: null, stop: 4, speed: wander.speed };
+    return null;
+  }
+
+  function setFollowing(v) {
+    if (following === v) return;
+    following = v;
+    wander = null;
+    wallGoal = null;
+    resetIdle();
+    idleTime = v ? 6 : 0; // starting: show the alert pose first
+    restTicks = rand(opts.restEvery[0], opts.restEvery[1]);
+    if (v) pointer.t = performance.now();
+  }
+
+  const between = (a, b) => a + Math.random() * (b - a);
+
+  /** Pick what to do next while roaming: go home, run to a wall to scratch it, or just run somewhere. */
+  function planNext() {
     const b = bounds;
-    const outside =
-      pointer.x < b.minX ? "l" : pointer.x > b.maxX ? "r" : pointer.y < b.minY ? "t" : pointer.y > b.maxY ? "b" : null;
-    return {
-      x: clamp(pointer.x, b.minX, b.maxX),
-      y: clamp(pointer.y, b.minY, b.maxY),
-      outside, // cursor is beyond the column: run to that wall instead of stopping short
-      stop: outside ? 3 : opts.stopDistance,
-    };
+    const r = Math.random();
+    if (home && !atHome() && r < opts.homeChance) {
+      wander = { x: home.x, y: home.y, speed: opts.roamSpeed, home: true };
+      return;
+    }
+    const zoom = Math.random() < opts.zoomChance;
+    const speed = zoom ? opts.zoomSpeed : opts.roamSpeed;
+    if (zoom && Math.random() < 0.5) say(pick(opts.zoomMessages), 20);
+
+    const walls = ["l", "r", "t", "b"].filter((side) => b.real[side]);
+    if (walls.length && Math.random() < 0.2) {
+      const side = pick(walls);
+      wander = {
+        x: side === "l" ? b.minX : side === "r" ? b.maxX : between(b.minX, b.maxX),
+        y: side === "t" ? b.minY : side === "b" ? b.maxY : between(b.minY, b.maxY),
+        speed,
+      };
+      wallGoal = WALL_FOR_SIDE[side];
+      return;
+    }
+
+    let px = x;
+    let py = y;
+    for (let i = 0; i < 8; i++) {
+      px = between(b.minX, b.maxX);
+      py = between(b.minY, b.maxY);
+      if (Math.hypot(px - x, py - y) > 140) break; // go somewhere worth walking to
+    }
+    wander = { x: px, y: py, speed };
+  }
+
+  /** She reached her wander goal. */
+  function arrive() {
+    const w = wander;
+    wander = null;
+    idleTime = 0;
+    restTicks = rand(opts.restEvery[0], opts.restEvery[1]) * (atHome() ? 3 : 1);
+    if (w && !w.home && Math.random() < 0.35) hop.vy = -260; // a little pounce
   }
 
   function hopActive() {
@@ -414,14 +542,23 @@ export function initDos(userOptions = {}) {
     running = false;
     idleTime++;
 
+    // She walked to a wall on purpose: scratch it.
+    if (!idleAnim && wallGoal && idleTime > 2) {
+      if (wallsAvailable().includes(wallGoal)) idleAnim = wallGoal;
+      wallGoal = null;
+    }
+
     if (!idleAnim && idleTime > 10) {
       const walls = wallsAvailable();
       const wanted = target && target.outside ? WALL_FOR_SIDE[target.outside] : null;
+      const onPerch = atHome();
       if (wanted && walls.includes(wanted)) {
         if (Math.random() < opts.wallChance) idleAnim = wanted; // cursor is on the other side of the wall
-      } else if (Math.random() < opts.idleChance) {
+      } else if (Math.random() < opts.idleChance * (onPerch ? 4 : 1)) {
+        // She naps on her perch (or when she is idle-only / following), not in the middle of the page.
+        const canSleep = idleOnly || following || onPerch;
         idleAnim = pickWeighted([
-          ["sleeping", weights.sleeping],
+          ["sleeping", canSleep ? weights.sleeping * (onPerch ? 3 : 1) : 0],
           ["scratchSelf", weights.scratchSelf],
           ...walls.map((w) => [w, weights.wall]),
         ]);
@@ -448,12 +585,8 @@ export function initDos(userOptions = {}) {
         break;
       default:
         setSprite("idle", 0);
-        // Rotating speech bubble: only while he is just hanging around.
-        if (bubbleTicks === 0 && --nextSayIn <= 0) {
-          say(pendingGreeting || nextMessage(), opts.sayDuration);
-          pendingGreeting = null;
-          nextSayIn = rand(opts.sayEvery[0], opts.sayEvery[1]);
-        }
+        // Roaming: after a rest, set off somewhere new.
+        if (!following && !idleOnly && !wander && idleTime > restTicks) planNext();
         return;
     }
     idleAnimFrame++;
@@ -462,8 +595,15 @@ export function initDos(userOptions = {}) {
   function tick() {
     frameCount++;
 
-    if (!container || !container.isConnected) {
-      if (frameCount % 20 === 0) resolveContainer();
+    if (frameCount % 20 === 0) {
+      if (!container || !container.isConnected) resolveContainer();
+      if (!homeEl || !homeEl.isConnected) resolveHome();
+    }
+
+    // A still cursor for long enough: she gets bored of following and goes back to playing.
+    if (following && opts.followTimeout > 0 && performance.now() - pointer.t > opts.followTimeout) {
+      setFollowing(false);
+      say(pick(opts.boredMessages), 28);
     }
 
     if (bubbleTicks > 0) {
@@ -482,6 +622,13 @@ export function initDos(userOptions = {}) {
       return;
     }
 
+    // Rotating speech bubble. She chats while wandering or resting, but not while asleep.
+    if (bubbleTicks === 0 && idleAnim !== "sleeping" && --nextSayIn <= 0) {
+      say(pendingGreeting || nextMessage(), opts.sayDuration);
+      pendingGreeting = null;
+      nextSayIn = rand(opts.sayEvery[0], opts.sayEvery[1]);
+    }
+
     const target = computeTarget();
     if (!target) {
       idleTick(null);
@@ -492,20 +639,26 @@ export function initDos(userOptions = {}) {
     const dy = y - target.y;
     const dist = Math.hypot(dx, dy);
     if (dist <= target.stop) {
-      idleTick(target);
+      if (target.kind === "wander") {
+        arrive();
+        idleTick(null);
+      } else {
+        idleTick(target);
+      }
       return;
     }
 
     if (resetIdle()) say(pick(opts.wakeMessages), 24);
 
-    // Alert pose before bolting off, like oneko.
-    if (idleTime > 1) {
+    // Alert pose before bolting off after the cursor, like oneko. Wandering needs no warning.
+    if (target.kind === "follow" && idleTime > 1) {
       running = false;
       setSprite("alert", 0);
       idleTime = Math.min(idleTime, 7) - 1;
       return;
     }
 
+    if (target.kind !== "follow") idleTime = 0;
     running = true;
     let dir = "";
     dir += dy / dist > 0.5 ? "N" : "";
@@ -524,7 +677,7 @@ export function initDos(userOptions = {}) {
     const dist = Math.hypot(dx, dy);
     const gap = dist - target.stop;
     if (gap <= 0) return;
-    const step = Math.min(opts.speed * dt, gap);
+    const step = Math.min((target.speed || opts.speed) * dt, gap);
     x += (dx / dist) * step;
     y += (dy / dist) * step;
   }
@@ -559,6 +712,7 @@ export function initDos(userOptions = {}) {
     pointer.x = e.clientX;
     pointer.y = e.clientY;
     pointer.active = true;
+    pointer.t = performance.now();
     if (drag) {
       if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 4) drag.moved = true;
     } else {
@@ -582,6 +736,8 @@ export function initDos(userOptions = {}) {
     }
     drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: performance.now(), moved: false };
     running = false; // a chase in progress must not tug against the hand
+    wander = null;
+    wallGoal = null;
     hop.y = 0;
     hop.vy = 0;
     resetIdle();
@@ -604,9 +760,15 @@ export function initDos(userOptions = {}) {
       /* already released */
     }
     if (!d.moved && performance.now() - d.t0 < 400) {
-      // A quick click is a poke: hop and complain.
+      // A quick click toggles following: she hops, then tags along (or goes back to playing).
       hop.vy = -420;
-      say(pick(opts.pokeMessages), 28);
+      if (following) {
+        setFollowing(false);
+        say(pick(opts.stayMessages), 28);
+      } else {
+        setFollowing(true);
+        say(pick(opts.followMessages), 28);
+      }
     } else {
       // Dropped: a small hop as he lands on his feet.
       hop.vy = -200;
@@ -621,6 +783,9 @@ export function initDos(userOptions = {}) {
       endDrag();
       setHot(false);
       pointer.active = false;
+      following = false;
+      wander = null;
+      wallGoal = null;
     }
   }
 
@@ -632,7 +797,7 @@ export function initDos(userOptions = {}) {
 
     refreshBounds();
     if (idleOnly) {
-      const c = cornerPosition();
+      const c = restPosition();
       x = c.x;
       y = c.y;
     } else {
@@ -664,8 +829,9 @@ export function initDos(userOptions = {}) {
   function start() {
     if (destroyed) return;
     resolveContainer();
+    resolveHome();
     refreshBounds();
-    const c = cornerPosition();
+    const c = restPosition();
     x = c.x;
     y = c.y;
     setSprite("idle", 0);

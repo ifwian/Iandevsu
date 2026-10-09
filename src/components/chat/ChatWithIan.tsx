@@ -1263,6 +1263,7 @@ export default function ChatWithIan() {
           onClick={handleOpen}
           aria-label="Chat with Ian"
           data-dos-avoid
+          data-dos-home="true"
           /* Fixed to the bottom-right, clear of the sidebar rail on the left and
              of the browser chrome at the bottom.
 

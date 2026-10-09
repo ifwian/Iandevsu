@@ -11,8 +11,22 @@ export interface DosOptions {
   stopDistance?: number;
   /** Gap between Dos and his resting corner (idle-only mode). Default 0. */
   edgeInset?: number;
-  /** Start / idle-only corner. Default "bottom-left". */
+  /** Fallback resting spot when there is no [data-dos-home] element. Default "bottom-left". */
   corner?: "bottom-left" | "bottom-right" | "top-left" | "top-right";
+  /** Selector of the element she perches on top of (the chat launcher). Default "[data-dos-home]". */
+  homeSelector?: string;
+  /** How far her feet sink into the top of that element, in px. Default 4. */
+  perchOffset?: number;
+  /** Wandering speed and zoomies speed, in CSS px per second. Defaults 90 and 220. */
+  roamSpeed?: number;
+  zoomSpeed?: number;
+  /** Min and max ticks (100 ms) she rests between wanders. Default [20, 70]. */
+  restEvery?: [number, number];
+  /** Chance that the next wander is a trip home / a zoomies run. Defaults 0.3 and 0.2. */
+  homeChance?: number;
+  zoomChance?: number;
+  /** Ms of a still cursor before she stops following and goes back to playing. 0 = never. Default 20000. */
+  followTimeout?: number;
   /** How quickly he flies up to the hand when picked up (higher = snappier). Default 14. */
   dragFollow?: number;
   /** Chance per 100 ms tick that an idle animation (nap, scratch) starts. Default 1/150. */
@@ -36,7 +50,10 @@ export interface DosOptions {
   avoidSelector?: string;
   greeting?: string;
   messages?: string[];
-  pokeMessages?: string[];
+  followMessages?: string[];
+  stayMessages?: string[];
+  boredMessages?: string[];
+  zoomMessages?: string[];
   grabMessages?: string[];
   releaseMessages?: string[];
   wakeMessages?: string[];
