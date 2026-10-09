@@ -9,6 +9,40 @@
  * Sprite sheet: oneko layout, 8 x 4 frames of 32 x 32 px (256 x 128).
  * A sheet that is an exact multiple of that size (512 x 256, ...) also works.
  *
+ * PLACEMENT RULE (permanent -- do not reintroduce an auto-return):
+ * she never walks herself anywhere and never returns to her perch on her own.
+ * Click to follow; click again (or let the cursor go idle) and she stops dead
+ * where she is and stays there until moved again. No roaming, no "go play"
+ * state, no path back to the launcher. `stopInPlace()` is the only way she comes
+ * to rest; do not replace it with anything that sets `x`/`y`.
+ *
+ * The sprite table, and the petting / drag-stretch / shake-wobble / spring-settle
+ * / cursor-startle behaviour, are adapted from Vurios/portfolio (`js/kuro.js`),
+ * which is itself built on oneko.js by adryd. Their wander mode and perch-restore
+ * are deliberately NOT taken, per the placement rule above.
+ *
+ * oneko.js is released under the MIT License:
+ *
+ * Copyright (c) 2022 adryd
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
  * Markup hooks (all optional):
  *   [data-dos-container]  the element Dos lives inside (falls back to `containerSelector`, then the viewport)
  *   [data-dos-home]       the element she perches on top of (e.g. the chat launcher). Falls back to `corner`.
@@ -23,13 +57,29 @@ const TICK_MS = 100; // logic tick, same cadence as oneko.js
 const ALPHA_MIN = 24; // alpha above this counts as "on the cat" for hit testing
 const GRAVITY = 2400; // px/s^2, for the little hop when he is poked or dropped
 
+/**
+ * How far above the viewport floor the perch element's bottom edge may sit and
+ * still count as the fixed launcher. Generous enough for `bottom-6` plus a
+ * safe-area inset, and for the trigger being a little taller than it looks.
+ */
+const HOME_FLOOR_TOLERANCE = 160;
+/** Retries for a perch that has not mounted yet, and the gap between them. */
+const HOME_WAIT_TRIES = 20;
+const HOME_WAIT_MS = 25;
+/**
+ * How close counts as "arrived" on the perch, in px. Wider than the old 4px
+ * arrival radius so she does not creep the last few pixels one frame at a time,
+ * which reads as jitter; she snaps the rest of the way instead.
+ */
+const HOME_SNAP = 16;
+
 // [column, row] offsets in frames (negative, like oneko.js background-position values)
 const SPRITES = {
   idle: [[-3, -3]],
   alert: [[-7, -3]],
   scratchSelf: [[-5, 0], [-6, 0], [-7, 0]],
   scratchWallN: [[0, 0], [0, -1]], // paws up: also the "hanging" pose while he is carried
-  scratchWallS: [[-7, -1], [-6, -1]],
+  scratchWallS: [[-7, -1], [-6, -2]],
   scratchWallE: [[-2, -2], [-2, -3]],
   scratchWallW: [[-4, 0], [-4, -1]],
   tired: [[-3, -2]],
@@ -39,7 +89,7 @@ const SPRITES = {
   E: [[-3, 0], [-3, -1]],
   SE: [[-5, -1], [-5, -2]],
   S: [[-6, -3], [-7, -2]],
-  SW: [[-5, -3], [-6, -2]],
+  SW: [[-5, -3], [-6, -1]],
   W: [[-4, -2], [-4, -3]],
   NW: [[-1, 0], [-1, -1]],
 };
@@ -63,15 +113,9 @@ const DEFAULTS = {
   homeSelector: "[data-dos-home]",
   /** How far her feet sink into the top of that element, in px. */
   perchOffset: 4,
-  /** How fast she wanders, and how fast on a zoomies run (CSS px per second). */
-  roamSpeed: 90,
-  zoomSpeed: 220,
-  /** Min and max ticks (100 ms each) she rests between wanders. */
+  /** Min and max ticks (100 ms each) she sits idle between idle animations. */
   restEvery: [20, 70],
-  /** Chance that the next wander is a trip home / a zoomies run. */
-  homeChance: 0.3,
-  zoomChance: 0.2,
-  /** After a click she follows the cursor; this many ms of a still cursor and she goes back to playing. 0 = never. */
+  /** After a click she follows the cursor; this many ms of a still cursor and she is placed back on the perch. 0 = never. */
   followTimeout: 20000,
   /** How quickly he flies up to the hand when picked up. Higher = snappier, lower = floatier. */
   dragFollow: 14,
@@ -106,13 +150,17 @@ const DEFAULTS = {
     "please don't unplug me",
   ],
   followMessages: ["ok! following you", "lead the way!", "i'm coming!", "walkies?"],
-  stayMessages: ["ok, i'll go play", "fine. staying.", "bye bye~"],
-  boredMessages: ["...you got boring", "going to play now", "bored. bye"],
-  zoomMessages: ["zoomies!", "wheee", "can't stop!"],
+  // Said when a click turns following off. She goes back to her perch, so these
+  // must not promise roaming she no longer does.
+  stayMessages: ["ok, back to my spot", "home i go", "right where i was"],
+  // Said when the cursor goes idle long enough and she gives up following.
+  boredMessages: ["...you got boring", "back to the button then", "enough. bye~"],
   grabMessages: ["put me down!", "mmmf!", "hanging in there", "nyaaa~"],
   releaseMessages: ["thud.", "ow. rude.", "...again?"],
   wakeMessages: ["...huh?", "i was NOT sleeping", "mrrp?"],
   sleepMessages: ["zzz...", "zZz", "5 more minutes..."],
+  /** Said when the cursor rests on her long enough to pet her. */
+  petMessages: ["purr...", "*purr*", "mmrrp~", "...yes. right there."],
 };
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
@@ -172,6 +220,7 @@ export function initDos(userOptions = {}) {
   let destroyed = false;
   let started = false;
   let raf = 0;
+  let restTimer = 0;
   let last = 0;
   let acc = 0;
 
@@ -185,11 +234,28 @@ export function initDos(userOptions = {}) {
   let cur = SPRITES.idle[0];
   let isHop = false;
 
-  const pointer = { x: 0, y: 0, active: false, t: 0 };
+  const pointer = { x: 0, y: 0, active: false, t: 0, vx: 0, vy: 0 };
   let drag = null;
   let hot = false;
   const hop = { y: 0, vy: 0 }; // vertical offset (px, negative = up) of the poke / drop hop
   let hopApplied = false;
+
+  // ---- ported from Vurios/portfolio js/kuro.js (oneko.js, MIT) --------------
+  // Petting, drag stretch, shake wobble, spring settle and cursor startle.
+  // Wander mode and the perch-restore from that file are deliberately NOT
+  // ported: she must not roam or auto-return (see the placement rule above).
+  let petTicks = 0; // eyes-closed "content" pose after being petted
+  let petAt = -Infinity; // performance.now() of the last pet, for the cooldown
+  let hoverMs = 0; // cursor rested on her opaque pixels for this long
+  let startleAt = 0; // last cursor-flick startle
+  let settling = false; // the spring-back loop after a drop is running
+  let stretchApplied = false; // whether a stretch transform is currently on the sprite
+  // Squash / stretch while carried, and the damped spring back to rest on drop.
+  const stretch = { sx: 1, sy: 1, skew: 0, vsx: 0, vsy: 0, vskew: 0 };
+  const HELD_WOBBLE = 900; // ms a shake wobble lasts
+  const STARTLE_COOLDOWN = 3000; // ms before another flick can startle her
+  const PET_COOLDOWN = 5000;
+  const PET_HOLD_MS = 1200; // cursor rested on her this long = a pet
 
   let container = null;
   let bounds = { minX: 0, maxX: 0, minY: 0, maxY: 0, real: { l: true, r: true, t: true, b: true } };
@@ -204,9 +270,10 @@ export function initDos(userOptions = {}) {
   let pendingGreeting = opts.greeting;
   let bag = [];
 
-  // roaming + following
+  // Following + perching. She picks no destinations of her own any more: idle
+  // means parked on `home`, and the only movement she does is chasing the cursor
+  // after a click.
   let following = false; // only true after she has been clicked
-  let wander = null; // current wander goal: { x, y, speed, home }
   let wallGoal = null; // wall she walked to on purpose, to scratch
   let restTicks = rand(15, 40);
   let home = null; // { x, y }: where she perches, or null
@@ -235,14 +302,27 @@ export function initDos(userOptions = {}) {
     const r = homeEl.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) return;
     const vw = document.documentElement.clientWidth;
-    const hx = clamp(r.left + r.width / 2, S / 2, vw - S / 2);
-    const hy = r.top + opts.perchOffset - S / 2;
-    if (hy < S / 2 || r.top > window.innerHeight) return;
+    const vh = window.innerHeight;
+    const h = S / 2;
+    // The perch is the floating launcher, which is `fixed` to the bottom of the
+    // viewport. If the rect puts its bottom edge far above the floor, the styles
+    // have not settled yet and the read is handing back the button's in-flow
+    // document position -- near the top of the page. Accepting that is what used
+    // to park her along the top edge instead of on the button, so treat it as
+    // "not rendered yet" and let the caller wait or fall back.
+    if (vh - r.bottom > HOME_FLOOR_TOLERANCE) return;
+    const hx = clamp(r.left + r.width / 2, h, Math.max(h, vw - h));
+    // Her feet sit `perchOffset` px into the element's top edge, so her centre is
+    // one half-sprite above it. Clamped into a reachable band rather than rejected:
+    // this can never yield y = 0, however early the rect was read.
+    const hy = clamp(r.top + opts.perchOffset - h, h, Math.max(h, vh - h));
     home = { x: hx, y: hy };
   }
 
+  /** True while she is standing on the perch, using the arrival threshold so this
+   *  agrees with when the walk home is considered finished. */
   function atHome() {
-    return !!home && Math.hypot(x - home.x, y - home.y) < 8;
+    return !!home && Math.hypot(x - home.x, y - home.y) <= HOME_SNAP;
   }
 
   function refreshBounds() {
@@ -309,8 +389,16 @@ export function initDos(userOptions = {}) {
   }
 
   function clampToBounds() {
-    x = clamp(x, reach.minX, reach.maxX);
-    y = clamp(y, reach.minY, reach.maxY);
+    // `reach` is where she may stand, but it is not the last word: the perch
+    // (`home`) is resolved against the viewport, so a stale home point or a
+    // mid-frame layout shift could otherwise sit outside it. The viewport
+    // clamp underneath guarantees half a sprite of margin on every side, which
+    // is what keeps her from being clipped at the edge of the screen.
+    const vw = document.documentElement.clientWidth;
+    const vh = window.innerHeight;
+    const h = S / 2;
+    x = clamp(x, Math.max(reach.minX, h), Math.min(reach.maxX, vw - h));
+    y = clamp(y, Math.max(reach.minY, h), Math.min(reach.maxY, vh - h));
   }
 
   // ---------------------------------------------------------------- sprite + hit testing
@@ -438,7 +526,7 @@ export function initDos(userOptions = {}) {
   }
 
   // ---------------------------------------------------------------- behaviour (one tick = 100 ms)
-  /** What she is walking toward right now: the cursor (only after a click), or her own wander goal. */
+  /** What she is walking toward right now: the cursor (only after a click), or the perch. */
   function computeTarget() {
     if (idleOnly) return null;
     if (following) {
@@ -455,64 +543,39 @@ export function initDos(userOptions = {}) {
         speed: opts.speed,
       };
     }
-    if (wander) return { kind: "wander", x: wander.x, y: wander.y, outside: null, stop: 4, speed: wander.speed };
+    // No walking target at all: when she is not following she stands still where she
+    // was left, so there is nothing for her to travel towards.
     return null;
   }
 
   function setFollowing(v) {
     if (following === v) return;
     following = v;
-    wander = null;
-    wallGoal = null;
     resetIdle();
     idleTime = v ? 6 : 0; // starting: show the alert pose first
     restTicks = rand(opts.restEvery[0], opts.restEvery[1]);
     if (v) pointer.t = performance.now();
+    // Follow is over (a click, or the cursor going idle). She stops wherever she
+    // happens to be -- no walk, no snap, no path back to the button.
+    else stopInPlace();
   }
 
-  const between = (a, b) => a + Math.random() * (b - a);
-
-  /** Pick what to do next while roaming: go home, run to a wall to scratch it, or just run somewhere. */
-  function planNext() {
-    const b = bounds;
-    const r = Math.random();
-    if (home && !atHome() && r < opts.homeChance) {
-      wander = { x: home.x, y: home.y, speed: opts.roamSpeed, home: true };
-      return;
-    }
-    const zoom = Math.random() < opts.zoomChance;
-    const speed = zoom ? opts.zoomSpeed : opts.roamSpeed;
-    if (zoom && Math.random() < 0.5) say(pick(opts.zoomMessages), 20);
-
-    const walls = ["l", "r", "t", "b"].filter((side) => b.real[side]);
-    if (walls.length && Math.random() < 0.2) {
-      const side = pick(walls);
-      wander = {
-        x: side === "l" ? b.minX : side === "r" ? b.maxX : between(b.minX, b.maxX),
-        y: side === "t" ? b.minY : side === "b" ? b.maxY : between(b.minY, b.maxY),
-        speed,
-      };
-      wallGoal = WALL_FOR_SIDE[side];
-      return;
-    }
-
-    let px = x;
-    let py = y;
-    for (let i = 0; i < 8; i++) {
-      px = between(b.minX, b.maxX);
-      py = between(b.minY, b.maxY);
-      if (Math.hypot(px - x, py - y) > 140) break; // go somewhere worth walking to
-    }
-    wander = { x: px, y: py, speed };
-  }
-
-  /** She reached her wander goal. */
-  function arrive() {
-    const w = wander;
-    wander = null;
+  /**
+ * Stops her dead where she stands.
+ *
+ * Clears every piece of movement state without touching `x`/`y`, so a click that
+ * ends follow, or a drag release, leaves her on the spot. Nothing here walks,
+ * snaps or teleports her anywhere: once she is placed she stays where the
+ * visitor put her until they move her again.
+ */
+  function stopInPlace() {
+    hop.y = 0; // the drop/poke hop is the only velocity here
+    hop.vy = 0;
+    wallGoal = null;
+    running = false; // movement flag off, whatever she was doing before
+    resetIdle(); // no half-finished nap or scratch carried into the stop
     idleTime = 0;
-    restTicks = rand(opts.restEvery[0], opts.restEvery[1]) * (atHome() ? 3 : 1);
-    if (w && !w.home && Math.random() < 0.35) hop.vy = -260; // a little pounce
+    setSprite("idle", 0);
   }
 
   function hopActive() {
@@ -541,6 +604,13 @@ export function initDos(userOptions = {}) {
   function idleTick(target) {
     running = false;
     idleTime++;
+
+    // Being petted: eyes closed, content, for a beat (ported from kuro.js).
+    if (petTicks > 0) {
+      petTicks -= 1;
+      setSprite("tired", 0);
+      return;
+    }
 
     // She walked to a wall on purpose: scratch it.
     if (!idleAnim && wallGoal && idleTime > 2) {
@@ -585,8 +655,6 @@ export function initDos(userOptions = {}) {
         break;
       default:
         setSprite("idle", 0);
-        // Roaming: after a rest, set off somewhere new.
-        if (!following && !idleOnly && !wander && idleTime > restTicks) planNext();
         return;
     }
     idleAnimFrame++;
@@ -600,7 +668,11 @@ export function initDos(userOptions = {}) {
       if (!homeEl || !homeEl.isConnected) resolveHome();
     }
 
-    // A still cursor for long enough: she gets bored of following and goes back to playing.
+    // She is either following the cursor or sitting still where she was left. Nothing
+    // pulls her back to the perch: free placement means she stays put until the
+    // visitor moves her, clicks her, or drags her.
+
+    // A still cursor for long enough: she gets bored of following and goes home.
     if (following && opts.followTimeout > 0 && performance.now() - pointer.t > opts.followTimeout) {
       setFollowing(false);
       say(pick(opts.boredMessages), 28);
@@ -622,7 +694,7 @@ export function initDos(userOptions = {}) {
       return;
     }
 
-    // Rotating speech bubble. She chats while wandering or resting, but not while asleep.
+    // Rotating speech bubble. She chats while perched or resting, but not while asleep.
     if (bubbleTicks === 0 && idleAnim !== "sleeping" && --nextSayIn <= 0) {
       say(pendingGreeting || nextMessage(), opts.sayDuration);
       pendingGreeting = null;
@@ -639,18 +711,13 @@ export function initDos(userOptions = {}) {
     const dy = y - target.y;
     const dist = Math.hypot(dx, dy);
     if (dist <= target.stop) {
-      if (target.kind === "wander") {
-        arrive();
-        idleTick(null);
-      } else {
-        idleTick(target);
-      }
+      idleTick(target);
       return;
     }
 
     if (resetIdle()) say(pick(opts.wakeMessages), 24);
 
-    // Alert pose before bolting off after the cursor, like oneko. Wandering needs no warning.
+    // Alert pose before bolting off after the cursor, like oneko. The walk home needs no warning.
     if (target.kind === "follow" && idleTime > 1) {
       running = false;
       setSprite("alert", 0);
@@ -680,6 +747,68 @@ export function initDos(userOptions = {}) {
     const step = Math.min((target.speed || opts.speed) * dt, gap);
     x += (dx / dist) * step;
     y += (dy / dist) * step;
+    clampToBounds();
+  }
+
+  // --------------------------------------- petting, stretch & settle ----
+  // Ported from Vurios/portfolio `js/kuro.js` (oneko.js, MIT -- notice kept at
+  // the top of this file). Wander mode and the perch-restore are not ported.
+  function applyStretch() {
+    stretchApplied = true;
+  }
+
+  /** A cursor rested on one of her opaque pixels for long enough. */
+  function pet() {
+    if (performance.now() - petAt < PET_COOLDOWN) return;
+    petAt = performance.now();
+    hoverMs = 0;
+    resetIdle();
+    petTicks = 16;
+    say(pick(opts.petMessages), 1800);
+    for (let i = 0; i < 4; i++) window.setTimeout(spawnHeart, i * 180);
+  }
+
+  /** Little hearts drifting up out of her. */
+  function spawnHeart() {
+    if (destroyed) return;
+    const span = document.createElement("span");
+    span.className = "dos-heart";
+    span.setAttribute("aria-hidden", "true");
+    const left = Math.round(clamp(x + (Math.random() * 2 - 1) * S * 0.35, 0, window.innerWidth - 12));
+    const top = Math.round(y - S / 2 - 6);
+    span.style.left = `${left}px`;
+    span.style.top = `${top}px`;
+    document.body.appendChild(span);
+    span.addEventListener("animationend", () => span.remove());
+  }
+
+  /** The cursor flicked fast past her: a startled hop. */
+  function maybeStartle() {
+    if (following || running || performance.now() - startleAt < STARTLE_COOLDOWN) return;
+    const vx = pointer.vx;
+    const vy = pointer.vy;
+    if (Math.hypot(vx, vy) < 45) return;
+    if (Math.hypot(pointer.x - x, pointer.y - y) > 130) return;
+    startleAt = performance.now();
+    resetIdle();
+    petTicks = 0;
+    hop.vy = -420;
+    setSprite("alert", 0);
+  }
+
+  /** Called every frame from the main loop; decides whether she is being petted. */
+  function checkPetting(dt) {
+    if (idleOnly || drag || !pointer.active) {
+      hoverMs = 0;
+      return;
+    }
+    const still = performance.now() - pointer.t > 80 || Math.hypot(pointer.vx, pointer.vy) < 6;
+    if (still && hitTest(pointer.x, pointer.y)) {
+      hoverMs += dt * 1000;
+      if (hoverMs > PET_HOLD_MS) pet();
+    } else {
+      hoverMs = 0;
+    }
   }
 
   // ---------------------------------------------------------------- hop (poke / drop)
@@ -695,28 +824,42 @@ export function initDos(userOptions = {}) {
   }
 
   function applyHop() {
-    if (hop.y === 0) {
+    // The stretch (skew/scale) and the hop (translateY) both want the sprite's
+    // `transform`, so they are composed here rather than overwriting each other.
+    const parts = [];
+    if (hop.y !== 0) parts.push(`translateY(${hop.y.toFixed(1)}px)`);
+    if (stretchApplied) parts.push(`skewX(${stretch.skew.toFixed(2)}deg) scale(${stretch.sx.toFixed(3)}, ${stretch.sy.toFixed(3)})`);
+    if (parts.length === 0) {
       if (hopApplied) {
         sprite.style.transform = "";
         hopApplied = false;
       }
       return;
     }
-    sprite.style.transform = `translateY(${hop.y.toFixed(1)}px)`;
+    sprite.style.transform = parts.join(" ");
     hopApplied = true;
   }
 
   // ---------------------------------------------------------------- pointer input
   function onPointerMove(e) {
     if (e.pointerType === "touch") return;
+    // Smoothed cursor velocity, used for the flick-startle and to tell "resting
+    // on her" apart from "passing over". Same damping as kuro.js.
+    const now = performance.now();
+    const dt = Math.max(1, now - pointer.t);
+    if (pointer.active) {
+      pointer.vx = pointer.vx * 0.5 + ((e.clientX - pointer.x) / dt) * 16 * 0.5;
+      pointer.vy = pointer.vy * 0.5 + ((e.clientY - pointer.y) / dt) * 16 * 0.5;
+    }
     pointer.x = e.clientX;
     pointer.y = e.clientY;
     pointer.active = true;
-    pointer.t = performance.now();
+    pointer.t = now;
     if (drag) {
       if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 4) drag.moved = true;
     } else {
       setHot(!idleOnly && hitTest(e.clientX, e.clientY)); // only catch clicks that land on cat pixels
+      if (!idleOnly && !drag) maybeStartle();
     }
   }
 
@@ -734,14 +877,33 @@ export function initDos(userOptions = {}) {
     } catch {
       /* capture is a nicety, dragging still works without it */
     }
-    drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: performance.now(), moved: false };
+    drag = {
+      id: e.pointerId,
+      x0: e.clientX,
+      y0: e.clientY,
+      t0: performance.now(),
+      moved: false,
+      // For the stretch/shake port: last position and time, smoothed velocity,
+      // and a counter of quick left-right reversals (three in a row = a wobble).
+      lastX: e.clientX,
+      lastY: e.clientY,
+      lastT: performance.now(),
+      vx: 0,
+      vy: 0,
+      flips: 0,
+      sign: 0,
+      flipAt: 0,
+      wobbleUntil: 0,
+      frame: 0,
+      frameAt: 0,
+    };
     running = false; // a chase in progress must not tug against the hand
-    wander = null;
     wallGoal = null;
     hop.y = 0;
     hop.vy = 0;
     resetIdle();
     idleTime = 0;
+    petTicks = 0;
     setSprite("scratchWallN", 0); // picked up: dangle by the paws straight away
     sprite.classList.add("is-dragging");
     document.documentElement.classList.add("dos-dragging");
@@ -760,18 +922,26 @@ export function initDos(userOptions = {}) {
       /* already released */
     }
     if (!d.moved && performance.now() - d.t0 < 400) {
-      // A quick click toggles following: she hops, then tags along (or goes back to playing).
-      hop.vy = -420;
+      // A quick click toggles between exactly two states: still where she was
+      // left (idle, napping, talking) and following the cursor. Turning follow
+      // off stops her on the spot; turning it on gives her a hop and she goes.
       if (following) {
-        setFollowing(false);
+        setFollowing(false); // stopInPlace cancels the hop, so she stays put
         say(pick(opts.stayMessages), 28);
       } else {
+        hop.vy = -420;
         setFollowing(true);
         say(pick(opts.followMessages), 28);
       }
     } else {
-      // Dropped: a small hop as he lands on his feet.
-      hop.vy = -200;
+      // Dropped somewhere: she settles on the spot with a springy squash-and-
+      // bounce back to rest, and stays wherever she was left. `stopInPlace`
+      // clears the movement flag, the wall goal and the hop velocity; free
+      // placement is preserved, she does not walk back anywhere.
+      settling = true;
+      stretch.vsx = stretch.vsy = stretch.vskew = 0;
+      idleTime = 0;
+      if (!following) stopInPlace();
       if (Math.random() < 0.6) say(pick(opts.releaseMessages), 24);
     }
     setHot(hitTest(pointer.x, pointer.y));
@@ -784,7 +954,6 @@ export function initDos(userOptions = {}) {
       setHot(false);
       pointer.active = false;
       following = false;
-      wander = null;
       wallGoal = null;
     }
   }
@@ -806,6 +975,47 @@ export function initDos(userOptions = {}) {
         const f = 1 - Math.exp(-dt * opts.dragFollow);
         x += (pointer.x - x) * f;
         y += (pointer.y + HOLD_Y - y) * f;
+        // Stretch toward the hand and wobble when shaken (ported from kuro.js).
+        const d = drag;
+        const el = Math.max(1, now - d.lastT);
+        d.vx = d.vx * 0.6 + ((pointer.x - d.lastX) / el) * 16 * 0.4;
+        d.vy = d.vy * 0.6 + ((pointer.y - d.lastY) / el) * 16 * 0.4;
+        d.lastX = pointer.x;
+        d.lastY = pointer.y;
+        d.lastT = now;
+        const sign = d.vx > 5 ? 1 : d.vx < -5 ? -1 : 0;
+        if (sign && sign !== d.sign) {
+          d.flips = d.sign && now - d.flipAt < 240 ? d.flips + 1 : 0;
+          d.sign = sign;
+          d.flipAt = now;
+          if (d.flips >= 3) {
+            d.wobbleUntil = now + HELD_WOBBLE;
+            d.flips = 0;
+          }
+        }
+        if (el > 60) {
+          d.vx *= 0.85;
+          d.vy *= 0.85;
+        }
+        const s = Math.min(0.55, Math.hypot(d.vx, d.vy) / 55);
+        stretch.sy += (1 + 0.08 + s - stretch.sy) * 0.3;
+        stretch.sx += (1 - s * 0.45 - stretch.sx) * 0.3;
+        let skewTarget = Math.max(-16, Math.min(16, -d.vx * 1.4));
+        if (d.wobbleUntil > now) skewTarget += Math.sin(now / 45) * 14 * ((d.wobbleUntil - now) / HELD_WOBBLE);
+        stretch.skew += (skewTarget - stretch.skew) * 0.3;
+        applyStretch();
+        if (now - d.frameAt > 140) {
+          d.frameAt = now;
+          d.frame += 1;
+          setSprite("scratchWallN", d.frame);
+        }
+      } else if (!settling) {
+        // Back at rest: return the sprite to a plain, unstretched frame.
+        stretch.vsx = stretch.vsy = stretch.vskew = 0;
+        stretch.sx += (1 - stretch.sx) * 0.3;
+        stretch.sy += (1 - stretch.sy) * 0.3;
+        stretch.skew += (0 - stretch.skew) * 0.3;
+        applyRestTransform();
       }
       clampToBounds();
     }
@@ -821,19 +1031,76 @@ export function initDos(userOptions = {}) {
       clampToBounds();
     }
 
+    if (settling) stepSettle();
+    checkPetting(dt);
     stepHop(dt);
     applyHop();
     root.style.transform = `translate3d(${Math.round(x - S / 2)}px, ${Math.round(y - S / 2)}px, 0)`;
   }
 
-  function start() {
+  /** Clears the stretch/skew once it has visually converged, so the hop offset can own the transform. */
+  function applyRestTransform() {
+    const done =
+      Math.abs(stretch.sx - 1) < 0.004 &&
+      Math.abs(stretch.sy - 1) < 0.004 &&
+      Math.abs(stretch.skew) < 0.2;
+    if (done && (stretchApplied || stretch.skew !== 0)) {
+      stretch.sx = stretch.sy = 1;
+      stretch.skew = 0;
+      stretchApplied = false;
+    }
+  }
+
+  /** Damped spring back to rest after a drop: a squash-and-bounce settle. */
+  function stepSettle() {
+    const k = 0.2;
+    const damp = 0.72;
+    stretch.vsx = (stretch.vsx + (1 - stretch.sx) * k) * damp;
+    stretch.vsy = (stretch.vsy + (1 - stretch.sy) * k) * damp;
+    stretch.vskew = (stretch.vskew + (0 - stretch.skew) * k) * damp;
+    stretch.sx += stretch.vsx;
+    stretch.sy += stretch.vsy;
+    stretch.skew += stretch.vskew;
+    applyStretch();
+    if (
+      Math.abs(stretch.sx - 1) < 0.004 &&
+      Math.abs(stretch.sy - 1) < 0.004 &&
+      Math.abs(stretch.skew) < 0.2 &&
+      Math.abs(stretch.vsy) < 0.004
+    ) {
+      stretch.sx = stretch.sy = 1;
+      stretch.skew = 0;
+      stretchApplied = false;
+      settling = false;
+    }
+  }
+
+  /**
+   * Puts her at rest and only then reveals her.
+   *
+   * `x` and `y` both start at 0, which is the top-left of the viewport, so
+   * anything that un-hides the root before a real position is chosen puts her
+   * visibly in the corner. The launcher is mounted by the chat widget, so on a
+   * cold load `[data-dos-home]` can legitimately not be there on the first read:
+   * retry briefly, and only fall back to the corner once it is clear the perch
+   * is not coming.
+   */
+  function placeAtRest(attempt) {
     if (destroyed) return;
-    resolveContainer();
     resolveHome();
     refreshBounds();
-    const c = restPosition();
-    x = c.x;
-    y = c.y;
+    if (home) {
+      x = home.x;
+      y = home.y;
+    } else if (attempt < HOME_WAIT_TRIES) {
+      restTimer = setTimeout(() => placeAtRest(attempt + 1), HOME_WAIT_MS);
+      return;
+    } else {
+      const c = cornerPosition();
+      x = c.x;
+      y = c.y;
+    }
+    clampToBounds();
     setSprite("idle", 0);
     started = true;
     root.hidden = false;
@@ -842,10 +1109,17 @@ export function initDos(userOptions = {}) {
     raf = requestAnimationFrame(frame);
   }
 
+  function start() {
+    if (destroyed) return;
+    resolveContainer();
+    placeAtRest(0);
+  }
+
   function destroy() {
     if (destroyed) return;
     destroyed = true;
     cancelAnimationFrame(raf);
+    clearTimeout(restTimer);
     ac.abort();
     document.documentElement.classList.remove("dos-dragging");
     root.remove();

@@ -136,9 +136,33 @@
   border-left-color: var(--dos-bubble-bg);
 }
 
+/* Hearts that float up out of her when the cursor rests on her long enough.
+   Ported from Vurios/portfolio (oneko.js, MIT). Fixed so they cannot be
+   selected, and pointer-events: none so they never intercept a click. */
+.dos-heart {
+  position: fixed;
+  z-index: 46;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  background: var(--gray-400, #a1a1aa);
+  /* A heart, drawn with two circles and a rotated square. */
+  clip-path: path("M5 9 C5 9 0 5.5 0 2.75 A2.75 2.75 0 0 1 5 2 A2.75 2.75 0 0 1 10 2.75 C10 5.5 5 9 5 9 Z");
+  animation: dos-heart-rise 1.1s ease-out forwards;
+}
+
+@keyframes dos-heart-rise {
+  0% { transform: translateY(0) scale(0.5); opacity: 0; }
+  20% { opacity: 0.9; }
+  100% { transform: translateY(-34px) scale(1); opacity: 0; }
+}
+
 /* dos.js already refuses to start with reduced motion; this covers the CSS side too. */
 @media (prefers-reduced-motion: reduce), print {
-  .dos {
+  .dos,
+  .dos-heart {
     display: none !important;
   }
 }
