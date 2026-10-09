@@ -38,7 +38,17 @@ function applyTheme(choice: ThemeChoice) {
   else root.setAttribute("data-theme", choice);
 }
 
-/** Tells the rest of the page that a theme transition is in flight. */
+/**
+ * Tells the rest of the page that a theme transition is in flight.
+ *
+ * The window flag is what the Dos pet reads to hold her sprite still. The class
+ * is the styling half: theme.css suppresses its colour crossfade while it is on
+ * the root, so the circular clip-path reveal is the only thing animating and the
+ * two do not overlap and muddy each other.
+ *
+ * Cleared on both paths -- the `finished` promise and a timer -- because if the
+ * flag were ever left set, Dos would stay frozen for the rest of the session.
+ */
 function setTransitioning(on: boolean) {
   window.__themeTransitioning = on;
   document.documentElement.classList.toggle("theme-transitioning", on);
@@ -88,21 +98,69 @@ interface ThemeToggleProps {
   compact?: boolean;
 }
 
+/**
+ * The choice a compact toggle should move to, given what is active now.
+ *
+ * `system` has to stay reachable or it is lost for good: it is the only value
+ * that leaves `data-theme` off the root, and `index.html` only pins an explicit
+ * light/dark from storage. A compact button that only ever writes "light" or
+ * "dark" therefore lets one click retire the OS preference permanently, and the
+ * page stops following the system from then on. So it cycles all three.
+ */
+function nextCompactChoice(choice: ThemeChoice, isDark: boolean): ThemeChoice {
+  if (choice === "system") {
+    // Resolve "system" to what is on screen first, so the first click is a
+    // visible change rather than a no-op; "system" becomes reachable on the
+    // click after that.
+    return isDark ? "light" : "dark";
+  }
+  if (choice === "dark") return "system";
+  return "dark";
+}
+
 export default function ThemeToggle({ className = "", compact = false }: ThemeToggleProps) {
   const [choice, setChoice] = useState<ThemeChoice>("system");
   const [systemDark, setSystemDark] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "light" || stored === "dark" || stored === "system") {
-      setChoice(stored);
-    }
+    /**
+     * Reads the truth off the document rather than off localStorage.
+     *
+     * The attribute is what actually decides the rendering, and `index.html`'s
+     * bootstrap has already set it before React mounts. Reading storage instead
+     * would let the two disagree -- storage saying "dark" while the root carries
+     * no attribute (system, light OS) renders the button pressed for a theme that
+     * is not on screen, and the first click then jumps somewhere unexpected.
+     */
+    const readAppliedTheme = (): ThemeChoice => {
+      const attr = document.documentElement.getAttribute("data-theme");
+      if (attr === "light" || attr === "dark") return attr;
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored === "light" || stored === "dark") return stored;
+      return "system";
+    };
+
+    setChoice(readAppliedTheme());
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const updateSystemTheme = () => setSystemDark(mediaQuery.matches);
+    const updateSystemTheme = () => {
+      setSystemDark(mediaQuery.matches);
+      // Only follow the OS while "system" is the active choice; otherwise the
+      // OS flipping would fight the visitor's explicit pick.
+      if (readAppliedTheme() === "system") setChoice("system");
+    };
     updateSystemTheme();
     mediaQuery.addEventListener("change", updateSystemTheme);
-    return () => mediaQuery.removeEventListener("change", updateSystemTheme);
+
+    // Another tab changing the theme should not leave this one showing a stale
+    // pressed state, so re-read when the tab regains focus.
+    const onFocus = () => setChoice(readAppliedTheme());
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateSystemTheme);
+      window.removeEventListener("focus", onFocus);
+    };
   }, []);
 
   const select = (next: ThemeChoice, origin: { x: number; y: number }) => {
@@ -120,12 +178,14 @@ export default function ThemeToggle({ className = "", compact = false }: ThemeTo
   const isDark = choice === "dark" || (choice === "system" && systemDark);
 
   if (compact) {
-    const Icon = isDark ? Moon : Sun;
+    const Icon = choice === "system" ? Monitor : isDark ? Moon : Sun;
 
     return (
       <button
         type="button"
-        onClick={(event: MouseEvent<HTMLButtonElement>) => select(isDark ? "light" : "dark", originFrom(event))}
+        onClick={(event: MouseEvent<HTMLButtonElement>) =>
+          select(nextCompactChoice(choice, isDark), originFrom(event))
+        }
         aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
         aria-pressed={isDark}
         title={isDark ? "Switch to light theme" : "Switch to dark theme"}
