@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useLocation } from "react-router-dom";
 import { MessageCircle, Paperclip, RotateCcw, Send, X } from "lucide-react";
 import { PROFILE } from "@/content/profile";
@@ -19,6 +19,11 @@ import {
 import TypingIndicator from "@/components/chat/TypingIndicator";
 import ReactionBar from "@/components/chat/ReactionBar";
 import { useTypingSignal } from "@/lib/useTypingSignal";
+import "@/components/chat/chat-ux.css";
+import ChatText from "@/components/chat/ChatText";
+import ChatTextarea from "@/components/chat/ChatTextarea";
+import ChatNotice from "@/components/chat/ChatNotice";
+import { useStickToBottom } from "@/lib/useStickToBottom";
 
 interface MessageAttachment {
   name: string;
@@ -541,9 +546,13 @@ export default function ChatWithIan() {
   const [adminTyping, setAdminTyping] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [sendingReaction, setSendingReaction] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const { ref: scrollRef, onScroll, showJump, scrollToBottom } = useStickToBottom<HTMLDivElement>(
+    [messages, loading, adminTyping],
+    { streaming: loading }
+  );
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const wasOpenRef = useRef(false);
 
@@ -551,6 +560,15 @@ export default function ChatWithIan() {
     if (wasOpenRef.current && !open) triggerRef.current?.focus();
     wasOpenRef.current = open;
   }, [open]);
+
+  // A mouse or trackpad visitor is already at the keyboard once they open the
+  // panel, so putting the caret in the box saves a click. A touch visitor would
+  // have the on-screen keyboard cover half the panel, so it is left alone.
+  useEffect(() => {
+    if (!open || !contact) return;
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    inputRef.current?.focus();
+  }, [contact, open]);
   // Held in a ref rather than state: the broadcast effect must not re-subscribe
   // every time the composer text changes.
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
@@ -782,14 +800,6 @@ export default function ChatWithIan() {
   useEffect(() => {
     if (historyLoaded && session) saveHistory(session.visitorId, messages);
   }, [historyLoaded, messages, session]);
-
-  useEffect(() => {
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: reduced ? "auto" : "smooth",
-    });
-  }, [messages, loading, adminTyping]);
 
   /**
    * Reports the current route to the admin's visitor panel.
@@ -1060,6 +1070,10 @@ export default function ChatWithIan() {
     // attributed to a person rather than an anonymous visitor id.
     if ((!text && attachments.length === 0) || loading || !session || !contact) return;
 
+    // Their own message should always bring them to the bottom, even if they had
+    // scrolled up reading something earlier.
+    scrollToBottom();
+
     // The model reads text, so an attachment travels as its filename. That line
     // goes into the persisted body, which means the admin sees the reference
     // too -- the honest version of "I sent you a screenshot".
@@ -1238,13 +1252,6 @@ export default function ChatWithIan() {
     }
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      void send();
-    }
-  };
-
   /**
    * Pills are hidden as soon as the visitor has asked anything, because by then
    * they are a distraction from the answer they are waiting for.
@@ -1371,6 +1378,7 @@ export default function ChatWithIan() {
             <>
               <div
                 ref={scrollRef}
+                onScroll={onScroll}
                 className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden px-4 py-4"
                 aria-live="polite"
                 aria-label="Chat messages"
@@ -1451,16 +1459,35 @@ export default function ChatWithIan() {
                           />
                         )}
                         <div className="min-w-0 max-w-[80%]">
-                          <p
-                            className="whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed"
-                            style={{
-                              backgroundColor: isVisitor ? "var(--ink)" : "var(--gray-100)",
-                              color: isVisitor ? "var(--bg)" : "var(--ink)",
-                            }}
-                          >
-                            {message.text || (isStreaming ? "thinking…" : "")}
-                            {isStreaming && message.text && <span className="ml-0.5 animate-pulse">▍</span>}
-                          </p>
+                          {/* Visitor turns stay plain text: what they typed is
+                              exactly what is shown back to them. Ian's turns are
+                              rendered, because a reply comes back as markdown. */}
+                          {isVisitor ? (
+                            <p
+                              className="whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed"
+                              style={{
+                                backgroundColor: isVisitor ? "var(--ink)" : "var(--gray-100)",
+                                color: isVisitor ? "var(--bg)" : "var(--ink)",
+                              }}
+                            >
+                              {message.text || (isStreaming ? "thinking…" : "")}
+                              {isStreaming && message.text && <span className="ml-0.5 animate-pulse">▍</span>}
+                            </p>
+                          ) : (
+                            <div
+                              className="break-words rounded-xl px-3 py-2 text-sm leading-relaxed"
+                              style={{
+                                backgroundColor: isVisitor ? "var(--ink)" : "var(--gray-100)",
+                                color: isVisitor ? "var(--bg)" : "var(--ink)",
+                              }}
+                            >
+                              {message.text ? (
+                                <ChatText text={message.text} caret={isStreaming} />
+                              ) : (
+                                isStreaming ? "thinking…" : ""
+                              )}
+                            </div>
+                          )}
                           {message.attachments && message.attachments.length > 0 && (
                             <ul className="mt-1.5 flex flex-wrap justify-end gap-1.5">
                               {message.attachments.map((file) => (
@@ -1479,7 +1506,7 @@ export default function ChatWithIan() {
                                     ) : (
                                       <Paperclip size={12} strokeWidth={1.8} aria-hidden="true" />
                                     )}
-                                    <span className="text-[10px] leading-tight" style={{ fontFamily: "var(--font-mono)" }}>
+                                    <span className="text-[11px] leading-tight" style={{ fontFamily: "var(--font-mono)" }}>
                                       {file.name}
                                       <span style={{ color: "var(--gray-400)" }}> · {formatBytes(file.size)}</span>
                                     </span>
@@ -1545,18 +1572,25 @@ export default function ChatWithIan() {
                 )}
 
                 {error && (
-                  <p className="text-xs" role="alert" style={{ color: "var(--gray-500)" }}>
-                    {error}
-                  </p>
+                  <ChatNotice message={error} onDismiss={() => setError(null)} />
+                )}
+
+                {/* Offered only when the reader has scrolled away from the
+                    bottom, which is the only time "new messages" means
+                    anything to them. */}
+                {showJump && (
+                  <button type="button" className="chat-jump" onClick={() => scrollToBottom()}>
+                    new messages ↓
+                  </button>
                 )}
               </div>
 
               {/* shrink-0 keeps the composer from being squeezed when the
-                  thread is long. h-9 on the input matches the send button
-                  exactly -- its intrinsic height was 37px (14px text + py-2),
-                  so the two never lined up. */}
+                  thread is long. items-end (not items-center) so the growing
+                  message box sits on the same baseline as the buttons beside it
+                  rather than floating mid-row once it is more than one line. */}
               <div
-                className="flex shrink-0 items-center gap-2 p-3"
+                className="flex shrink-0 items-end gap-2 p-3"
                 style={{ borderTop: "1px solid var(--gray-200)" }}
               >
                 <input
@@ -1580,17 +1614,15 @@ export default function ChatWithIan() {
                 >
                   <Paperclip size={15} strokeWidth={1.8} />
                 </button>
-                <input
-                  type="text"
+                <ChatTextarea
+                  ref={inputRef}
                   value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask about my projects, stack..."
-                  aria-label="Message"
+                  onChange={setInput}
+                  onSend={() => void send()}
                   maxLength={600}
-                  disabled={loading || !session}
-                  className="h-9 min-w-0 flex-1 rounded-lg border border-[var(--gray-300)] px-3 text-sm outline-none transition-colors chat-input focus:border-[var(--ink)] disabled:opacity-50"
-                  style={{ backgroundColor: "var(--gray-100)", color: "var(--ink)" }}
+                  placeholder="Ask about my projects, stack..."
+                  ariaLabel="Message"
+                  disabled={!session}
                 />
                 <button
                   type="button"
@@ -1611,9 +1643,9 @@ export default function ChatWithIan() {
               {(pendingFiles.length > 0 || attachmentError) && (
                 <div className="shrink-0 px-3 pb-2">
                   {attachmentError && (
-                    <p className="mb-1.5 text-[11px] leading-relaxed" role="alert" style={{ color: "var(--gray-500)" }}>
-                      {attachmentError}
-                    </p>
+                    <div className="mb-1.5">
+                      <ChatNotice message={attachmentError} onDismiss={() => setAttachmentError(null)} />
+                    </div>
                   )}
                   {pendingFiles.length > 0 && (
                     <>
@@ -1635,7 +1667,7 @@ export default function ChatWithIan() {
                               <Paperclip size={12} strokeWidth={1.8} aria-hidden="true" className="text-[var(--gray-500)]" />
                             )}
                             <span
-                              className="max-w-[9rem] truncate text-[10px] leading-tight"
+                              className="max-w-[9rem] truncate text-[11px] leading-tight"
                               style={{ fontFamily: "var(--font-mono)", color: "var(--gray-500)" }}
                             >
                               {file.name}
@@ -1652,7 +1684,7 @@ export default function ChatWithIan() {
                           </li>
                         ))}
                       </ul>
-                      <p className="mt-1.5 text-[10px] leading-relaxed" style={{ color: "var(--gray-400)" }}>
+                      <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: "var(--gray-500)" }}>
                         I read text only, so {PROFILE.goesBy} will see the file name but not the file itself.
                       </p>
                     </>
@@ -1719,11 +1751,7 @@ export default function ChatWithIan() {
                 />
               </div>
 
-              {contactError && (
-                <p className="text-xs" role="alert" style={{ color: "#dc2626" }}>
-                  {contactError}
-                </p>
-              )}
+              {contactError && <ChatNotice message={contactError} />}
 
               <button
                 type="submit"
