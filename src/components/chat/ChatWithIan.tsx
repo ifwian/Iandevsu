@@ -906,8 +906,14 @@ export default function ChatWithIan() {
     if (contact && authSettled && session) void announceVisit(session, contact, location.pathname);
   };
 
-  const submitContact = () => {
-    const result = validateContact(nameDraft, emailDraft);
+  /**
+   * `nameOverride` is the guest path: the visitor skipped the form entirely, so
+   * their name comes from the button rather than the field, and no email is
+   * claimed on their behalf. Blank rather than absent, because the admin view
+   * renders the stored string directly.
+   */
+  const submitContact = (nameOverride?: string) => {
+    const result = validateContact(nameOverride ?? nameDraft, nameOverride ? "" : emailDraft);
     if ("error" in result) {
       setContactError(result.error);
       return;
@@ -1762,6 +1768,18 @@ export default function ChatWithIan() {
                 style={{ backgroundColor: "var(--ink)", color: "var(--bg)" }}
               >
                 start chatting
+              </button>
+
+              {/* type="button" so it does not submit the form behind it. Sized
+                  and coloured like the privacy note below: asking for a name is
+                  a courtesy, not a gate, and the way out should not shout. */}
+              <button
+                type="button"
+                onClick={() => submitContact("Guest")}
+                className="text-[11px] leading-relaxed transition-opacity hover:opacity-70"
+                style={{ color: "var(--gray-400)" }}
+              >
+                or continue as guest
               </button>
 
               {/* mt-auto pushes this to the bottom of the panel. The form is a
