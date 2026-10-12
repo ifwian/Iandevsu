@@ -13,3 +13,16 @@ api keys.txt
 # to come after `.env*`, which would otherwise match it.
 !.env.example
 dist/
+
+# Local scratch and one-off data exports. The *_rows.csv files are dumps of the
+# live chat tables -- they carry visitor names, emails and message bodies, so
+# they must never reach the public repo.
+*_rows.csv
+tmp_*.html
+projects-template.zip
+# Stray copies left at the repo root / components dir by earlier ports. The real
+# components are src/components/chat/ChatText.tsx and src/components/ui/Stack.tsx.
+/ChatText.tsx
+/src/components/Stack.jsx
+/src/components/Stack.css
+/src/components/Stack.d.ts

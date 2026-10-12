@@ -1,0 +1,102 @@
+/* ---------- Stack ----------
+   React Bits' card stack. The layout contract is the whole file:
+
+     .stackContainer   perspective   -- the shared 3D context
+     .cardRotate       position      -- one absolutely placed slot per card
+     .card             the plate     -- clipped to its own radius
+
+   `perspective` is on the container and NOT on the children, which is the
+   same separation `DepthCarousel` needed for the same reason: an element with
+   `overflow` other than `visible` renders as if its `transform-style` were
+   `flat`, so a clipping box and a 3D box cannot be the same element. Here
+   only `.card` clips, and `.card` is the element being transformed rather
+   than one containing a 3D child, so its own `rotateZ`/`scale` survive.
+
+   The container sets `height: 100%` on purpose even though it looks inert.
+   Against an auto-height parent a percentage height resolves to `auto`, which
+   is what lets a caller put `aspect-ratio` on this element and have it decide
+   the height. Hardcoding a pixel height here instead is what stops this from
+   scaling on a phone.
+
+   No `overflow` on `.stackContainer` or `.cardRotate`. The fan rotates around
+   a 90%/90% origin, which throws the top corner of the back cards outside the
+   box -- 50-70px at the card sizes this is used at -- and clipping them is
+   exactly what the section shell already declines to do. */
+
+.stackContainer {
+  /* The plate is dark in BOTH themes, which no shared token can express: the
+     whole grayscale ramp inverts at `[data-theme="dark"]`, so every token that
+     is a dark fill on the light theme is a near-white fill on the dark one.
+     A dark photo plate on a white page is the intent, and it is the same
+     plate either way. Scoped here rather than added to `:root` so it stays
+     this component's business. */
+  --stack-plate: #0a0a0c;
+  --stack-plate-raised: #15151a;
+  /* The brief's `border-white/10`. Hardcoded as white rather than `--ink`
+     because `--ink` inverts too, and the border has to stay a hairline on a
+     dark plate in both themes. */
+  --stack-plate-line: rgb(255 255 255 / 0.1);
+  --stack-plate-ink: rgb(255 255 255 / 0.94);
+  --stack-plate-ink-dim: rgb(255 255 255 / 0.55);
+  /* A neutral black rather than `var(--shadow-*)`, which lightens on the dark
+     theme -- exactly backwards for a dark plate. */
+  --stack-plate-shadow: 0 18px 38px -20px rgb(0 0 0 / 0.55);
+
+  position: relative;
+  width: 100%;
+  height: 100%;
+  perspective: 600px;
+}
+
+.cardRotate {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+}
+
+/* Click-only mode (mobile, reduced motion). The wrapper still has to be
+   absolute and full-size -- it is the card's containing block -- but there is
+   nothing to drag, so it must not advertise a drag. */
+.cardStatic {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+
+.card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  appearance: none;
+  border: 1px solid var(--stack-plate-line);
+  border-radius: 14px;
+  overflow: hidden;
+  background-color: var(--stack-plate);
+  box-shadow: var(--stack-plate-shadow);
+  cursor: inherit;
+}
+
+/* The photo is not the control -- the plate is. Letting the image own the
+   pointer would also mean a long-press starts a native image drag on touch,
+   and the user would leave the page holding a copy of their own portrait. */
+.card img {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* `theme.css` paints one ink ring for keyboard focus on every `button`, which
+   is invisible here: `--ink` is near-black on the light theme and the plate is
+   dark there too. The ring has to be light against the plate in both themes,
+   so it is redefined rather than inherited. */
+.card:focus-visible {
+  outline: 2px solid var(--stack-plate-ink);
+  outline-offset: 3px;
+}
