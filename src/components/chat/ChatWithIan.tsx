@@ -473,6 +473,24 @@ async function notifyChatStarted(session: ChatSession, contact: VisitorContact):
   }
 }
 
+/**
+ * Whether this thread has already been announced to the inbox.
+ *
+ * `notifyChatStarted` writes the very same sessionStorage key, but only for its
+ * own request -- so nothing stopped a *second* announce from posting the
+ * conversation, and its "Opened Chat" activity row, all over again. Reading the
+ * key here is what makes `announceVisit` idempotent for real rather than just
+ * for its first half. Unreadable storage falls back to announcing, i.e. the
+ * behaviour from before the guard existed.
+ */
+function isVisitAnnounced(visitorId: string): boolean {
+  try {
+    return Boolean(sessionStorage.getItem(`${START_NOTIFIED_KEY}:${visitorId}`));
+  } catch {
+    return false;
+  }
+}
+
 /** Broadcasts which page the visitor is on. Failures are never surfaced. */
 async function reportActivity(
   session: ChatSession,
@@ -532,6 +550,16 @@ export default function ChatWithIan() {
    * early announce permanently writes a row nobody can claim.
    */
   const [authSettled, setAuthSettled] = useState(false);
+  /**
+   * True when the wait is over *and* it ended badly: Supabase is unconfigured,
+   * the anonymous sign-in was rejected, or the call threw.
+   *
+   * Deliberately separate from `authSettled`, which only says the token attempt
+   * has finished. Collapsing the two would make "still trying" and "no token,
+   * and none coming" look the same, which is what left this failure undiagnosable
+   * from the outside: the widget simply never got a token and said nothing.
+   */
+  const [authFailed, setAuthFailed] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   // Pre-chat contact capture. `null` contact means the form is still pending.
   const [contact, setContact] = useState<VisitorContact | null>(() => getStoredContact());
@@ -589,6 +617,14 @@ export default function ChatWithIan() {
    * polling effect, so it is never callable once that effect has torn down.
    */
   const pollRef = useRef<() => void>(() => undefined);
+  /**
+   * The anonymous sign-in attempt, published so the retry notice can re-run it.
+   *
+   * Same contract as `pollRef`: assigned and cleared inside its own effect, so
+   * it is never callable once that effect has torn down. A ref rather than shared
+   * state so pressing "Try again" cannot re-render or re-subscribe anything.
+   */
+  const initializeRef = useRef<() => void>(() => undefined);
   const location = useLocation();
 
   useEffect(() => {
@@ -606,15 +642,34 @@ export default function ChatWithIan() {
           let authSession = sessionData.session;
           if (!authSession) {
             const { data: anonymousData, error } = await supabase.auth.signInAnonymously();
-            if (!error) authSession = anonymousData.session;
+            if (error) {
+              // This used to fall through in silence, which is the whole reason
+              // the failure was so hard to chase: from the outside the widget
+              // just never got a token. Only `message` and `status` are logged,
+              // because that is all of the AuthError that is safe to print.
+              console.warn(
+                "[chat] anonymous sign-in failed:",
+                error.message,
+                "status:",
+                error.status
+              );
+            } else {
+              authSession = anonymousData.session;
+            }
           }
           if (authSession) {
             nextSession.accessToken = authSession.access_token;
             nextSession.authUserId = authSession.user.id;
           }
-        } catch {
+        } catch (error) {
           nextSession.accessToken = undefined;
           nextSession.authUserId = undefined;
+          // Same silence as above, one level up: a thrown promise instead of a
+          // returned error. The message is the only diagnostic worth having.
+          console.warn(
+            "[chat] anonymous sign-in threw:",
+            error instanceof Error ? error.message : "unknown"
+          );
         }
       }
 
@@ -626,12 +681,21 @@ export default function ChatWithIan() {
       // Whether or not a token was obtainable, the wait is over -- the visit can
       // now be announced without stranding the conversation unowned.
       setAuthSettled(true);
+      // ...but "the wait is over" is not "it worked". A missing token is not a
+      // degraded chat, it is an unusable one: the conversation row would be
+      // written with a null `visitor_auth_id`, which nothing ever backfills, so
+      // the visitor would be locked out of admin replies for the rest of the
+      // thread. `supabase` being null lands here too, having skipped the block
+      // above entirely, and it means exactly the same thing.
+      setAuthFailed(!nextSession.accessToken);
     };
 
-    void initialize();
+    initializeRef.current = () => void initialize();
+    initializeRef.current();
     return () => {
       active = false;
       abortRef.current?.abort();
+      initializeRef.current = () => undefined;
     };
   }, []);
 
@@ -888,14 +952,39 @@ export default function ChatWithIan() {
    * conversation and is a no-op when there is none, so firing it alongside
    * `chat_started` races the row's creation and the entry is silently dropped.
    * The very first "Opened Chat" line is the one worth having, so it waits.
+   *
+   * Guarded, because three different callers can reach this and a successful
+   * retry produces a *new* `session` object, which re-fires the effect below.
+   * The guard is the same sessionStorage key `notifyChatStarted` writes, so the
+   * pair runs at most once per thread: without it a retry added a second
+   * "Opened Chat" row to `visitor_activity` every time it was pressed.
    */
   const announceVisit = useCallback(
     async (activeSession: ChatSession, activeContact: VisitorContact, page: string) => {
+      if (typeof window === "undefined") return;
+      if (isVisitAnnounced(activeSession.visitorId)) return;
       await notifyChatStarted(activeSession, activeContact);
-      await reportActivity(activeSession, activeContact, page, "chat");
+      // Re-read rather than assume: `notifyChatStarted` writes the key only when
+      // the request came back ok, so this is also where a failed start is left
+      // retryable by the next announce instead of being recorded as done.
+      if (isVisitAnnounced(activeSession.visitorId)) {
+        await reportActivity(activeSession, activeContact, page, "chat");
+      }
     },
     []
   );
+
+  /**
+   * Re-runs the anonymous sign-in.
+   *
+   * Clears the failure first so the notice disappears the moment it is pressed,
+   * rather than after the round trip; `initialize` sets it again if this attempt
+   * fails too, which is the difference between "retrying" and "broken".
+   */
+  const retryAuth = () => {
+    setAuthFailed(false);
+    void initializeRef.current();
+  };
 
   const handleOpen = () => {
     setOpen(true);
@@ -1389,6 +1478,16 @@ export default function ChatWithIan() {
                 aria-live="polite"
                 aria-label="Chat messages"
               >
+                {/* First thing in the thread, so it is the first thing read:
+                    without a session nothing below it can be sent. Gated on
+                    `authSettled` so it never flashes during the round trip. */}
+                {open && authSettled && authFailed && (
+                  <ChatNotice
+                    message="I couldn't start a secure chat session, so messages can't be sent right now."
+                    action={{ label: "Try again", onClick: retryAuth }}
+                  />
+                )}
+
                 {messages.map((message, index) => {
                   const isStreaming =
                     loading && index === messages.length - 1 && message.role === "model" && message.source !== "system";
@@ -1626,14 +1725,23 @@ export default function ChatWithIan() {
                   onChange={setInput}
                   onSend={() => void send()}
                   maxLength={600}
-                  placeholder="Ask about my projects, stack..."
+                  placeholder={
+                    authFailed
+                      ? "Chat is unavailable right now"
+                      : "Ask about my projects, stack..."
+                  }
                   ariaLabel="Message"
-                  disabled={!session}
+                  disabled={!session || authFailed}
                 />
                 <button
                   type="button"
                   onClick={() => void send()}
-                  disabled={loading || (!input.trim() && pendingFiles.length === 0) || !session}
+                  disabled={
+                    loading ||
+                    (!input.trim() && pendingFiles.length === 0) ||
+                    !session ||
+                    authFailed
+                  }
                   aria-label="Send message"
                   className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg disabled:opacity-40"
                   style={{ backgroundColor: "var(--ink)", color: "var(--bg)" }}

@@ -194,6 +194,23 @@
   color: var(--ink);
 }
 
+/* The one thing the visitor can do about it, e.g. "Try again". */
+.chat-notice-action {
+  flex: none;
+  padding: 0 0.45rem;
+  border: 1px solid var(--ink);
+  border-radius: 0.25rem;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.chat-notice-action:hover {
+  background-color: var(--ink);
+  color: var(--bg);
+}
+
 /* ---------- "New messages" button (useStickToBottom) ---------- */
 .chat-jump {
   position: sticky;
