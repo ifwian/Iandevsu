@@ -17,6 +17,10 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/api";
 import { useTypingSignal } from "@/lib/useTypingSignal";
+import "@/components/chat/chat-ux.css";
+import { useUnreadTitle } from "@/lib/useUnreadTitle";
+import { useReplyDrafts } from "@/lib/useReplyDrafts";
+import { useInboxShortcuts } from "@/lib/useInboxShortcuts";
 import {
   CONVERSATION_STATUSES,
   formatClock,
@@ -221,12 +225,21 @@ export default function ChatInboxPage() {
   const [authReady, setAuthReady] = useState(true);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState("");
+  /**
+   * The draft belongs to the conversation it was typed in, not to the page.
+   *
+   * It used to be one string shared by every thread: switching conversations
+   * either carried the half-typed text over to the next visitor -- where
+   * `sendReply` would post it to them -- or threw it away. Keying it here means
+   * nothing has to be saved or restored on selection, and switching away and
+   * back leaves the text exactly where it was.
+   */
+  const { reply, setReply, clearReply, hasDraft } = useReplyDrafts(selectedId);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [activity, setActivity] = useState<VisitorActivity[]>([]);
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [visitor, setVisitor] = useState<VisitorInfo | null>(null);
-  const [reply, setReply] = useState("");
   const [query, setQuery] = useState("");
   // The value actually sent to the server. `query` updates on every keystroke
   // for instant local filtering; this trails it so typing does not fire a
@@ -317,6 +330,11 @@ export default function ChatInboxPage() {
     () => conversations.reduce((sum, conversation) => sum + unreadOf(conversation), 0),
     [conversations]
   );
+
+  // This page lives in a background tab all day, so the count belongs where the
+  // eye already is. The hook restores the previous title on unmount, so it
+  // never leaks onto the portfolio's own tab.
+  useUnreadTitle(totalUnread);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), SEARCH_DEBOUNCE_MS);
@@ -436,16 +454,14 @@ export default function ChatInboxPage() {
    * The one way to change the open thread, so per-thread UI state cannot
    * outlive the thread it belongs to.
    *
-   * The reply composer and the notes box both hold their draft in state that
-   * is not keyed by conversation, and both stay mounted across a switch. A
-   * half-typed reply to one visitor was therefore still in the box -- and
-   * `sendReply` reads `selectedId` at send time -- so it posted to whoever was
-   * selected next. Same for the notes draft, which `InternalNotes` also keeps
-   * in an unkeyed instance.
+   * The reply draft deliberately does NOT get cleared here. It is keyed by
+   * conversation id in `useReplyDrafts`, so wiping it on selection would throw
+   * away the admin's half-typed reply to the visitor they just left -- the
+   * exact failure this hook exists to remove. It is cleared when it is sent,
+   * and nowhere else.
    */
   const selectConversation = (conversationId: string) => {
     setSelectedId(conversationId);
-    setReply("");
     setNoteError(null);
     setConfirmDeleteId(null);
     // Below `lg` only one pane is mounted, so opening a thread from the list has
@@ -453,6 +469,49 @@ export default function ChatInboxPage() {
     // together and this state is not read.
     setMobilePane("thread");
   };
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Moves the selection through the list the admin can actually see.
+   *
+   * Deliberately walking `visibleConversations` and not `conversations`: with a
+   * search or status filter on, stepping through the full list would usually
+   * land on a conversation that is filtered off screen, so the thread would
+   * swap while the list appeared not to move.
+   *
+   * At either end it does nothing rather than wrapping, so leaning on `j` at
+   * the bottom of the list is inert instead of cycling back to the top.
+   */
+  const stepSelection = (offset: 1 | -1) => {
+    if (visibleConversations.length === 0) return;
+    const current = visibleConversations.findIndex((conversation) => conversation.id === selectedId);
+    // Nothing selected, or the selection is filtered out of view: enter from
+    // the near end so the first press lands somewhere actually visible.
+    const from = current === -1 ? (offset === 1 ? -1 : 0) : current;
+    const next = from + offset;
+    if (next < 0 || next >= visibleConversations.length) return;
+    selectConversation(visibleConversations[next].id);
+  };
+
+  const focusSearch = () => {
+    setMobilePane("list");
+    const field = searchInputRef.current;
+    field?.focus();
+    // Below `lg` the drawer is a separate pane, so the field may be off screen
+    // and unfocusable until the pane state has rendered. One retry on the next
+    // frame covers that without making the common case wait for it.
+    if (field && document.activeElement !== field) {
+      window.requestAnimationFrame(() => field.focus());
+    }
+  };
+
+  useInboxShortcuts({
+    onNext: () => stepSelection(1),
+    onPrev: () => stepSelection(-1),
+    onSearch: focusSearch,
+    enabled: Boolean(session),
+  });
 
   /**
    * Loads everything about the open thread in one request: transcript, notes,
@@ -697,13 +756,17 @@ export default function ChatInboxPage() {
   const sendReply = async () => {
     const text = reply.trim();
     if (!token || !selectedId || !text || sending) return;
+    // Captured before the request goes out. The draft is keyed by conversation,
+    // so the one to clear is the one this text was typed for -- not whichever
+    // thread happens to be open when the server confirms.
+    const sendId = selectedId;
     setSending(true);
     try {
       await request(apiUrl("/api/chat"), {
         method: "POST",
         body: JSON.stringify({ event: "admin_reply", conversationId: selectedId, text }),
       });
-      setReply("");
+      clearReply(sendId);
       await loadMessages(selectedId);
       await loadConversations();
     } catch (caughtError) {
@@ -1065,6 +1128,7 @@ export default function ChatInboxPage() {
                     className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--gray-400)]"
                   />
                   <input
+                    ref={searchInputRef}
                     type="search"
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
@@ -1102,6 +1166,11 @@ export default function ChatInboxPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Discoverability for the shortcuts. They are suppressed
+                    while any field has focus, so this is the only place they
+                    are ever written down. */}
+                <p className="inbox-hint mt-2">j / k move · / search</p>
               </div>
 
               {/* Only the list scrolls; the search field and status chips stay
@@ -1150,6 +1219,12 @@ export default function ChatInboxPage() {
                           <span className="chat-unread-badge" title={`${unread} unread`}>
                             {unread > 99 ? "99+" : unread}
                           </span>
+                        )}
+                        {/* A reply written but not sent. Hidden on the open
+                            thread: the text is already in the composer there,
+                            so the badge would only repeat it. */}
+                        {hasDraft(conversation.id) && conversation.id !== selectedId && (
+                          <span className="inbox-draft">draft</span>
                         )}
                         <span className="inbox-row-time" title={formatFull(conversation.last_message_at)}>
                           {formatRelative(conversation.last_message_at)}

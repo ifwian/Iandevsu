@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useLocation } from "react-router-dom";
 import { MessageCircle, Paperclip, RotateCcw, Send, X } from "lucide-react";
 import { PROFILE } from "@/content/profile";
@@ -19,6 +19,11 @@ import {
 import TypingIndicator from "@/components/chat/TypingIndicator";
 import ReactionBar from "@/components/chat/ReactionBar";
 import { useTypingSignal } from "@/lib/useTypingSignal";
+import "@/components/chat/chat-ux.css";
+import ChatText from "@/components/chat/ChatText";
+import ChatTextarea from "@/components/chat/ChatTextarea";
+import ChatNotice from "@/components/chat/ChatNotice";
+import { useStickToBottom } from "@/lib/useStickToBottom";
 
 interface MessageAttachment {
   name: string;
@@ -468,6 +473,24 @@ async function notifyChatStarted(session: ChatSession, contact: VisitorContact):
   }
 }
 
+/**
+ * Whether this thread has already been announced to the inbox.
+ *
+ * `notifyChatStarted` writes the very same sessionStorage key, but only for its
+ * own request -- so nothing stopped a *second* announce from posting the
+ * conversation, and its "Opened Chat" activity row, all over again. Reading the
+ * key here is what makes `announceVisit` idempotent for real rather than just
+ * for its first half. Unreadable storage falls back to announcing, i.e. the
+ * behaviour from before the guard existed.
+ */
+function isVisitAnnounced(visitorId: string): boolean {
+  try {
+    return Boolean(sessionStorage.getItem(`${START_NOTIFIED_KEY}:${visitorId}`));
+  } catch {
+    return false;
+  }
+}
+
 /** Broadcasts which page the visitor is on. Failures are never surfaced. */
 async function reportActivity(
   session: ChatSession,
@@ -527,6 +550,16 @@ export default function ChatWithIan() {
    * early announce permanently writes a row nobody can claim.
    */
   const [authSettled, setAuthSettled] = useState(false);
+  /**
+   * True when the wait is over *and* it ended badly: Supabase is unconfigured,
+   * the anonymous sign-in was rejected, or the call threw.
+   *
+   * Deliberately separate from `authSettled`, which only says the token attempt
+   * has finished. Collapsing the two would make "still trying" and "no token,
+   * and none coming" look the same, which is what left this failure undiagnosable
+   * from the outside: the widget simply never got a token and said nothing.
+   */
+  const [authFailed, setAuthFailed] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   // Pre-chat contact capture. `null` contact means the form is still pending.
   const [contact, setContact] = useState<VisitorContact | null>(() => getStoredContact());
@@ -541,9 +574,13 @@ export default function ChatWithIan() {
   const [adminTyping, setAdminTyping] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [sendingReaction, setSendingReaction] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const { ref: scrollRef, onScroll, showJump, scrollToBottom } = useStickToBottom<HTMLDivElement>(
+    [messages, loading, adminTyping],
+    { streaming: loading }
+  );
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const wasOpenRef = useRef(false);
 
@@ -551,6 +588,15 @@ export default function ChatWithIan() {
     if (wasOpenRef.current && !open) triggerRef.current?.focus();
     wasOpenRef.current = open;
   }, [open]);
+
+  // A mouse or trackpad visitor is already at the keyboard once they open the
+  // panel, so putting the caret in the box saves a click. A touch visitor would
+  // have the on-screen keyboard cover half the panel, so it is left alone.
+  useEffect(() => {
+    if (!open || !contact) return;
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    inputRef.current?.focus();
+  }, [contact, open]);
   // Held in a ref rather than state: the broadcast effect must not re-subscribe
   // every time the composer text changes.
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
@@ -571,6 +617,14 @@ export default function ChatWithIan() {
    * polling effect, so it is never callable once that effect has torn down.
    */
   const pollRef = useRef<() => void>(() => undefined);
+  /**
+   * The anonymous sign-in attempt, published so the retry notice can re-run it.
+   *
+   * Same contract as `pollRef`: assigned and cleared inside its own effect, so
+   * it is never callable once that effect has torn down. A ref rather than shared
+   * state so pressing "Try again" cannot re-render or re-subscribe anything.
+   */
+  const initializeRef = useRef<() => void>(() => undefined);
   const location = useLocation();
 
   useEffect(() => {
@@ -588,15 +642,34 @@ export default function ChatWithIan() {
           let authSession = sessionData.session;
           if (!authSession) {
             const { data: anonymousData, error } = await supabase.auth.signInAnonymously();
-            if (!error) authSession = anonymousData.session;
+            if (error) {
+              // This used to fall through in silence, which is the whole reason
+              // the failure was so hard to chase: from the outside the widget
+              // just never got a token. Only `message` and `status` are logged,
+              // because that is all of the AuthError that is safe to print.
+              console.warn(
+                "[chat] anonymous sign-in failed:",
+                error.message,
+                "status:",
+                error.status
+              );
+            } else {
+              authSession = anonymousData.session;
+            }
           }
           if (authSession) {
             nextSession.accessToken = authSession.access_token;
             nextSession.authUserId = authSession.user.id;
           }
-        } catch {
+        } catch (error) {
           nextSession.accessToken = undefined;
           nextSession.authUserId = undefined;
+          // Same silence as above, one level up: a thrown promise instead of a
+          // returned error. The message is the only diagnostic worth having.
+          console.warn(
+            "[chat] anonymous sign-in threw:",
+            error instanceof Error ? error.message : "unknown"
+          );
         }
       }
 
@@ -608,12 +681,21 @@ export default function ChatWithIan() {
       // Whether or not a token was obtainable, the wait is over -- the visit can
       // now be announced without stranding the conversation unowned.
       setAuthSettled(true);
+      // ...but "the wait is over" is not "it worked". A missing token is not a
+      // degraded chat, it is an unusable one: the conversation row would be
+      // written with a null `visitor_auth_id`, which nothing ever backfills, so
+      // the visitor would be locked out of admin replies for the rest of the
+      // thread. `supabase` being null lands here too, having skipped the block
+      // above entirely, and it means exactly the same thing.
+      setAuthFailed(!nextSession.accessToken);
     };
 
-    void initialize();
+    initializeRef.current = () => void initialize();
+    initializeRef.current();
     return () => {
       active = false;
       abortRef.current?.abort();
+      initializeRef.current = () => undefined;
     };
   }, []);
 
@@ -783,14 +865,6 @@ export default function ChatWithIan() {
     if (historyLoaded && session) saveHistory(session.visitorId, messages);
   }, [historyLoaded, messages, session]);
 
-  useEffect(() => {
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: reduced ? "auto" : "smooth",
-    });
-  }, [messages, loading, adminTyping]);
-
   /**
    * Reports the current route to the admin's visitor panel.
    *
@@ -878,14 +952,39 @@ export default function ChatWithIan() {
    * conversation and is a no-op when there is none, so firing it alongside
    * `chat_started` races the row's creation and the entry is silently dropped.
    * The very first "Opened Chat" line is the one worth having, so it waits.
+   *
+   * Guarded, because three different callers can reach this and a successful
+   * retry produces a *new* `session` object, which re-fires the effect below.
+   * The guard is the same sessionStorage key `notifyChatStarted` writes, so the
+   * pair runs at most once per thread: without it a retry added a second
+   * "Opened Chat" row to `visitor_activity` every time it was pressed.
    */
   const announceVisit = useCallback(
     async (activeSession: ChatSession, activeContact: VisitorContact, page: string) => {
+      if (typeof window === "undefined") return;
+      if (isVisitAnnounced(activeSession.visitorId)) return;
       await notifyChatStarted(activeSession, activeContact);
-      await reportActivity(activeSession, activeContact, page, "chat");
+      // Re-read rather than assume: `notifyChatStarted` writes the key only when
+      // the request came back ok, so this is also where a failed start is left
+      // retryable by the next announce instead of being recorded as done.
+      if (isVisitAnnounced(activeSession.visitorId)) {
+        await reportActivity(activeSession, activeContact, page, "chat");
+      }
     },
     []
   );
+
+  /**
+   * Re-runs the anonymous sign-in.
+   *
+   * Clears the failure first so the notice disappears the moment it is pressed,
+   * rather than after the round trip; `initialize` sets it again if this attempt
+   * fails too, which is the difference between "retrying" and "broken".
+   */
+  const retryAuth = () => {
+    setAuthFailed(false);
+    void initializeRef.current();
+  };
 
   const handleOpen = () => {
     setOpen(true);
@@ -896,8 +995,14 @@ export default function ChatWithIan() {
     if (contact && authSettled && session) void announceVisit(session, contact, location.pathname);
   };
 
-  const submitContact = () => {
-    const result = validateContact(nameDraft, emailDraft);
+  /**
+   * `nameOverride` is the guest path: the visitor skipped the form entirely, so
+   * their name comes from the button rather than the field, and no email is
+   * claimed on their behalf. Blank rather than absent, because the admin view
+   * renders the stored string directly.
+   */
+  const submitContact = (nameOverride?: string) => {
+    const result = validateContact(nameOverride ?? nameDraft, nameOverride ? "" : emailDraft);
     if ("error" in result) {
       setContactError(result.error);
       return;
@@ -1059,6 +1164,10 @@ export default function ChatWithIan() {
     // Contact must be captured before the first message so the transcript is
     // attributed to a person rather than an anonymous visitor id.
     if ((!text && attachments.length === 0) || loading || !session || !contact) return;
+
+    // Their own message should always bring them to the bottom, even if they had
+    // scrolled up reading something earlier.
+    scrollToBottom();
 
     // The model reads text, so an attachment travels as its filename. That line
     // goes into the persisted body, which means the admin sees the reference
@@ -1238,13 +1347,6 @@ export default function ChatWithIan() {
     }
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      void send();
-    }
-  };
-
   /**
    * Pills are hidden as soon as the visitor has asked anything, because by then
    * they are a distraction from the answer they are waiting for.
@@ -1371,10 +1473,21 @@ export default function ChatWithIan() {
             <>
               <div
                 ref={scrollRef}
+                onScroll={onScroll}
                 className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden px-4 py-4"
                 aria-live="polite"
                 aria-label="Chat messages"
               >
+                {/* First thing in the thread, so it is the first thing read:
+                    without a session nothing below it can be sent. Gated on
+                    `authSettled` so it never flashes during the round trip. */}
+                {open && authSettled && authFailed && (
+                  <ChatNotice
+                    message="I couldn't start a secure chat session, so messages can't be sent right now."
+                    action={{ label: "Try again", onClick: retryAuth }}
+                  />
+                )}
+
                 {messages.map((message, index) => {
                   const isStreaming =
                     loading && index === messages.length - 1 && message.role === "model" && message.source !== "system";
@@ -1451,16 +1564,35 @@ export default function ChatWithIan() {
                           />
                         )}
                         <div className="min-w-0 max-w-[80%]">
-                          <p
-                            className="whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed"
-                            style={{
-                              backgroundColor: isVisitor ? "var(--ink)" : "var(--gray-100)",
-                              color: isVisitor ? "var(--bg)" : "var(--ink)",
-                            }}
-                          >
-                            {message.text || (isStreaming ? "thinking…" : "")}
-                            {isStreaming && message.text && <span className="ml-0.5 animate-pulse">▍</span>}
-                          </p>
+                          {/* Visitor turns stay plain text: what they typed is
+                              exactly what is shown back to them. Ian's turns are
+                              rendered, because a reply comes back as markdown. */}
+                          {isVisitor ? (
+                            <p
+                              className="whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed"
+                              style={{
+                                backgroundColor: isVisitor ? "var(--ink)" : "var(--gray-100)",
+                                color: isVisitor ? "var(--bg)" : "var(--ink)",
+                              }}
+                            >
+                              {message.text || (isStreaming ? "thinking…" : "")}
+                              {isStreaming && message.text && <span className="ml-0.5 animate-pulse">▍</span>}
+                            </p>
+                          ) : (
+                            <div
+                              className="break-words rounded-xl px-3 py-2 text-sm leading-relaxed"
+                              style={{
+                                backgroundColor: isVisitor ? "var(--ink)" : "var(--gray-100)",
+                                color: isVisitor ? "var(--bg)" : "var(--ink)",
+                              }}
+                            >
+                              {message.text ? (
+                                <ChatText text={message.text} caret={isStreaming} />
+                              ) : (
+                                isStreaming ? "thinking…" : ""
+                              )}
+                            </div>
+                          )}
                           {message.attachments && message.attachments.length > 0 && (
                             <ul className="mt-1.5 flex flex-wrap justify-end gap-1.5">
                               {message.attachments.map((file) => (
@@ -1479,7 +1611,7 @@ export default function ChatWithIan() {
                                     ) : (
                                       <Paperclip size={12} strokeWidth={1.8} aria-hidden="true" />
                                     )}
-                                    <span className="text-[10px] leading-tight" style={{ fontFamily: "var(--font-mono)" }}>
+                                    <span className="text-[11px] leading-tight" style={{ fontFamily: "var(--font-mono)" }}>
                                       {file.name}
                                       <span style={{ color: "var(--gray-400)" }}> · {formatBytes(file.size)}</span>
                                     </span>
@@ -1545,18 +1677,25 @@ export default function ChatWithIan() {
                 )}
 
                 {error && (
-                  <p className="text-xs" role="alert" style={{ color: "var(--gray-500)" }}>
-                    {error}
-                  </p>
+                  <ChatNotice message={error} onDismiss={() => setError(null)} />
+                )}
+
+                {/* Offered only when the reader has scrolled away from the
+                    bottom, which is the only time "new messages" means
+                    anything to them. */}
+                {showJump && (
+                  <button type="button" className="chat-jump" onClick={() => scrollToBottom()}>
+                    new messages ↓
+                  </button>
                 )}
               </div>
 
               {/* shrink-0 keeps the composer from being squeezed when the
-                  thread is long. h-9 on the input matches the send button
-                  exactly -- its intrinsic height was 37px (14px text + py-2),
-                  so the two never lined up. */}
+                  thread is long. items-end (not items-center) so the growing
+                  message box sits on the same baseline as the buttons beside it
+                  rather than floating mid-row once it is more than one line. */}
               <div
-                className="flex shrink-0 items-center gap-2 p-3"
+                className="flex shrink-0 items-end gap-2 p-3"
                 style={{ borderTop: "1px solid var(--gray-200)" }}
               >
                 <input
@@ -1580,22 +1719,29 @@ export default function ChatWithIan() {
                 >
                   <Paperclip size={15} strokeWidth={1.8} />
                 </button>
-                <input
-                  type="text"
+                <ChatTextarea
+                  ref={inputRef}
                   value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask about my projects, stack..."
-                  aria-label="Message"
+                  onChange={setInput}
+                  onSend={() => void send()}
                   maxLength={600}
-                  disabled={loading || !session}
-                  className="h-9 min-w-0 flex-1 rounded-lg border border-[var(--gray-300)] px-3 text-sm outline-none transition-colors chat-input focus:border-[var(--ink)] disabled:opacity-50"
-                  style={{ backgroundColor: "var(--gray-100)", color: "var(--ink)" }}
+                  placeholder={
+                    authFailed
+                      ? "Chat is unavailable right now"
+                      : "Ask about my projects, stack..."
+                  }
+                  ariaLabel="Message"
+                  disabled={!session || authFailed}
                 />
                 <button
                   type="button"
                   onClick={() => void send()}
-                  disabled={loading || (!input.trim() && pendingFiles.length === 0) || !session}
+                  disabled={
+                    loading ||
+                    (!input.trim() && pendingFiles.length === 0) ||
+                    !session ||
+                    authFailed
+                  }
                   aria-label="Send message"
                   className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg disabled:opacity-40"
                   style={{ backgroundColor: "var(--ink)", color: "var(--bg)" }}
@@ -1611,9 +1757,9 @@ export default function ChatWithIan() {
               {(pendingFiles.length > 0 || attachmentError) && (
                 <div className="shrink-0 px-3 pb-2">
                   {attachmentError && (
-                    <p className="mb-1.5 text-[11px] leading-relaxed" role="alert" style={{ color: "var(--gray-500)" }}>
-                      {attachmentError}
-                    </p>
+                    <div className="mb-1.5">
+                      <ChatNotice message={attachmentError} onDismiss={() => setAttachmentError(null)} />
+                    </div>
                   )}
                   {pendingFiles.length > 0 && (
                     <>
@@ -1635,7 +1781,7 @@ export default function ChatWithIan() {
                               <Paperclip size={12} strokeWidth={1.8} aria-hidden="true" className="text-[var(--gray-500)]" />
                             )}
                             <span
-                              className="max-w-[9rem] truncate text-[10px] leading-tight"
+                              className="max-w-[9rem] truncate text-[11px] leading-tight"
                               style={{ fontFamily: "var(--font-mono)", color: "var(--gray-500)" }}
                             >
                               {file.name}
@@ -1652,7 +1798,7 @@ export default function ChatWithIan() {
                           </li>
                         ))}
                       </ul>
-                      <p className="mt-1.5 text-[10px] leading-relaxed" style={{ color: "var(--gray-400)" }}>
+                      <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: "var(--gray-500)" }}>
                         I read text only, so {PROFILE.goesBy} will see the file name but not the file itself.
                       </p>
                     </>
@@ -1719,11 +1865,7 @@ export default function ChatWithIan() {
                 />
               </div>
 
-              {contactError && (
-                <p className="text-xs" role="alert" style={{ color: "#dc2626" }}>
-                  {contactError}
-                </p>
-              )}
+              {contactError && <ChatNotice message={contactError} />}
 
               <button
                 type="submit"
@@ -1734,6 +1876,18 @@ export default function ChatWithIan() {
                 style={{ backgroundColor: "var(--ink)", color: "var(--bg)" }}
               >
                 start chatting
+              </button>
+
+              {/* type="button" so it does not submit the form behind it. Sized
+                  and coloured like the privacy note below: asking for a name is
+                  a courtesy, not a gate, and the way out should not shout. */}
+              <button
+                type="button"
+                onClick={() => submitContact("Guest")}
+                className="text-[11px] leading-relaxed transition-opacity hover:opacity-70"
+                style={{ color: "var(--gray-400)" }}
+              >
+                or continue as guest
               </button>
 
               {/* mt-auto pushes this to the bottom of the panel. The form is a
