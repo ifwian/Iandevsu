@@ -80,7 +80,7 @@ Set these in `.env.local` for local development and in the Vercel project settin
 | `SUPABASE_ANON_KEY` | for persistence | Used to verify visitor sessions |
 | `VITE_SUPABASE_URL` | for persistence | Supabase URL exposed to the browser |
 | `VITE_SUPABASE_ANON_KEY` | for persistence | Anon key exposed to the browser |
-| `CHAT_ADMIN_PASSWORD` | on every deployment | Admin inbox password; the inbox returns 503 on a deployment without it |
+| `CHAT_ADMIN_PASSWORD` | yes (inbox, everywhere) | Admin inbox password; set it in `.env.local` for local development too, since there is no fallback value and the inbox returns 503 without it |
 | `CHAT_NOTIFICATION_EMAIL` | no | Where new-chat notifications go |
 | `RESEND_API_KEY` | no | Sends notification emails via Resend |
 | `CHAT_NOTIFICATION_FROM` | no | Sender address for notification emails |
