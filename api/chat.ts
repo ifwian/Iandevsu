@@ -859,21 +859,6 @@ async function getSupabaseUserId(req: VercelRequest): Promise<string | null> {
  * configure and rotating the password invalidates every existing session.
  * ------------------------------------------------------------------------ */
 
-/**
- * The local-only fallback password.
- *
- * It is a constant in the repository and therefore public to anyone who reads
- * it, so it must never be reachable from a deployment. `getAdminPassword`
- * enforces that: it returns this only when `isDeployed()` and `isProduction()`
- * are both false, i.e. a dev server on the developer's own machine. Preview
- * deployments are covered by `isDeployed()` precisely because they have public
- * URLs while not being production.
- *
- * `marianne_` is a weak password and that is acceptable here only because of
- * that gate. The moment it stops being true, set CHAT_ADMIN_PASSWORD and treat
- * the constant as dead.
- */
-const DEV_ADMIN_PASSWORD = "marianne_";
 const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const ADMIN_LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const ADMIN_LOGIN_MAX_ATTEMPTS = 8;
@@ -895,25 +880,31 @@ function isProduction(): boolean {
  *
  * This is deliberately separate from isProduction: a preview deployment is not
  * production, but it is very much *not* the developer's own machine. It has a
- * public URL, so treating it as a place where a committed fallback password may
- * be used would hand every visitor who has read this repository full access to
- * the inbox.
+ * public URL, so anything that relaxes admin protections has to stay keyed to
+ * production alone.
  */
 function isDeployed(): boolean {
   return Boolean(process.env.VERCEL_ENV || process.env.VERCEL || process.env.CI);
 }
 
 /**
- * Returns the configured admin password, or the development-only default.
- * Deliberately returns null on any deployment when unset: a hardcoded fallback
- * that ships to prod would be a publicly known admin password sitting in the
- * git history and the deployed bundle -- and preview deployments have public
- * URLs, so "not production" is not a safe place to leave it enabled.
+ * The configured admin password, or null when CHAT_ADMIN_PASSWORD is unset.
+ *
+ * There is deliberately no fallback value in any environment. A constant held in
+ * the repository is public to anyone who can read it, so there is no safe place
+ * to keep one: the old development-only default was returned whenever neither
+ * `isDeployed()` nor `isProduction()` was true, which meant it was the live
+ * admin password on any host that set none of VERCEL_ENV, VERCEL, CI or
+ * NODE_ENV -- and its value was written out in a source comment as well.
+ *
+ * Both callers already treat null as "not configured": `admin_login` answers 503
+ * and `verifyAdminSession` fails closed. So removing the fallback preserves the
+ * deployed behaviour exactly -- on Vercel this already returned null whenever the
+ * variable was unset -- and only changes a local dev server, which now has to set
+ * CHAT_ADMIN_PASSWORD like every other environment.
  */
 function getAdminPassword(): string | null {
-  const configured = process.env.CHAT_ADMIN_PASSWORD?.trim();
-  if (configured) return configured;
-  return isDeployed() || isProduction() ? null : DEV_ADMIN_PASSWORD;
+  return process.env.CHAT_ADMIN_PASSWORD?.trim() || null;
 }
 
 function safeEquals(a: string, b: string): boolean {
@@ -991,7 +982,7 @@ function signAdminSession(expiresAt: number, password: string): string {
  * password with no brake in front of it is guessable at whatever rate the
  * network allows. Relaxing that permanently to solve a local annoyance would
  * hand the inbox to anyone who reads this repository -- and this repository is
- * public, since the fallback password and the endpoint path are both in it.
+ * public, since the endpoint path is in it.
  * So the brake is lifted exactly where it protects nobody and kept everywhere
  * it protects something.
  *
