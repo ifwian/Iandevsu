@@ -346,11 +346,13 @@
   }
 }
 
-/* One cell. Padding, the vertical centring that keeps shorter cells level
-   with their neighbours in the same row, and the hover tint the strip has
-   always carried (colour only, so no reduced-motion guard -- the
+/* One cell, identical in all four: `position: relative` for the arrow in the
+   top-right, padding, the vertical centring that keeps shorter cells level
+   with their neighbours in the same grid row, and the hover tint the strip
+   has always carried (colour only, so no reduced-motion guard -- the
    `.terminal-pill` note). */
 #home .hero-stat {
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -360,6 +362,70 @@
 
 #home .hero-stat:hover {
   background-color: var(--gray-100);
+}
+
+/* The value: one line, never wrapped. 18px on a phone, 20px from 720px up;
+   `font-weight: 600` because that is the heaviest Geist Mono the page loads
+   (400/500/600 -- see index.html), so a "bold" 700 here would be a
+   synthesised smudge rather than the face's own weight. The `padding-right`
+   reserves the top-right corner for the arrow, so a value that runs the full
+   width of its cell ellipsises before it can collide with it. */
+#home .hero-stat-value {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-right: 1rem;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+@media (min-width: 720px) {
+  #home .hero-stat-value {
+    font-size: 20px;
+  }
+}
+
+/* The text span carries the ellipsis: the flex row is shrinkable, the text is
+   the one string that can outgrow its cell (a long project title), and
+   truncation has to happen inside the value line rather than as a wrap onto
+   the label's line. */
+#home .hero-stat-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The label: 13px, sentence case as stored, `--gray-500` -- the same register
+   in every cell, status included. The metric labels used to take ink, which
+   made the four labels read as four different weights of statement; the
+   value above them is what the strip is saying, the label is what it is
+   about. */
+#home .hero-stat-label {
+  margin-top: 0.5rem;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+/* The ↗ that marks a cell as a link, in the top-right of all four -- the one
+   position that reads as an affordance on a card rather than as punctuation
+   after the value, and the one position a full-width value cannot reach. */
+#home .hero-stat-arrow {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--gray-400);
+  transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#home .hero-stat:hover .hero-stat-arrow {
+  color: var(--ink);
 }
 
 /* ---------- One hairline ----------

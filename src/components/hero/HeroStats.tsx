@@ -6,19 +6,21 @@ import { getProjectStats } from "@/lib/projectStats";
  * The hero's stat strip: four cells along the bottom of the terminal window.
  *
  * The strip is part of the window, so it sits inside the frame against its
- * bottom edge with no `mt-12` -- as a footer of the same card rather than a
- * separate band below it.
+ * bottom edge -- a footer of the same card rather than a separate band below
+ * it.
  *
- * Three cells are metrics and one is a status, and all four are links, because
- * all four have somewhere worth going. The status cell points at the projects
- * section, where the thing it names can actually be seen, and its mark is the
- * pulsing dot rather than the ↗: what it says is "this is happening", not
- * "here is a number".
+ * Every cell has the same shape now: one line of value (never wrapped -- the
+ * cells are equal by contract, so a value that outgrows its cell ellipsises
+ * rather than pushing its neighbours), a label under it, and the ↗ at the
+ * top-right that marks the cell as a link. All four are links, because all
+ * four have somewhere worth going. The status cell's one extra mark is the
+ * pulsing dot in front of the value -- the dot is the whole difference
+ * between it and its neighbours.
  */
 
 /**
- * One cell of the strip. `pulse` swaps the ↗ for the indicator light;
- * `external` adds the new-tab targets.
+ * One cell of the strip. `pulse` adds the indicator light in front of the
+ * value; `external` adds the new-tab targets.
  */
 interface StatItem {
   label: string;
@@ -45,9 +47,11 @@ export default function HeroStats() {
     // The status cell: the project comes from the list, so the strip cannot
     // name something the section does not show; the link goes to the
     // project's own page when it has one, and to the section otherwise.
+    // "Nothing yet" is a guard for the empty-list case -- with the current
+    // list the cell always names a project.
     {
-      label: "Current focus",
-      value: building ? `Building: ${building.title}` : "Building",
+      label: "Now building",
+      value: building ? building.title : "Nothing yet",
       href: building ? building.anchor : "#projects",
       pulse: true,
     },
@@ -55,82 +59,50 @@ export default function HeroStats() {
 
   return (
     <div className="hero-stats">
-      {stats.map((stat) => {
-        // The grid, the hairlines between cells and the hover tint are all in
-        // hero.css (`.hero-stats`, `.hero-stat`), where the strip's 720px step
-        // lives -- the same breakpoint the card layout changes at, and one
-        // pair of values the two cannot disagree about.
-        const linkClass = "hero-stat group";
+      {stats.map((stat) => (
+        <a
+          key={stat.label}
+          href={stat.href}
+          target={stat.external ? "_blank" : undefined}
+          rel={stat.external ? "noopener noreferrer" : undefined}
+          className="hero-stat"
+        >
+          <span className="hero-stat-arrow" aria-hidden="true">
+            ↗
+          </span>
 
-        // The status cell: a pulsing dot immediately left of the project.
-        //
-        // `--ink`, not `--status-active`. That green was the sanctioned
-        // exception to the monochrome rule, but the exception exists for the
-        // chat inbox, where four triage states have to be told apart at a
-        // glance down a column of fifty rows. This cell is one fixed,
-        // permanently-pulsing dot next to one line of text -- there is no
-        // state to disambiguate and no scan to speed up, so a hue here was
-        // decoration spending the one accent the palette has. The pulse still
-        // carries "this is live"; it no longer costs a colour to say it, and
-        // the ping is kept rather than dropped for the same reason.
-        if (stat.pulse) {
-          return (
-            <a
-              key={stat.label}
-              href={stat.href}
-              className={linkClass}
-              style={{ fontFamily: "var(--font-mono)" }}
-            >
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
-                  <span
-                    className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-                    style={{ backgroundColor: "var(--ink)" }}
-                  />
-                  <span
-                    className="relative inline-flex h-2 w-2 rounded-full"
-                    style={{ backgroundColor: "var(--ink)" }}
-                  />
-                </span>
-                <span className="text-base font-semibold tracking-tight text-[var(--ink)] sm:text-lg">
-                  {stat.value}
-                </span>
-              </div>
-              <span className="mt-1 text-[13px] font-normal text-[var(--gray-500)]">
-                {stat.label}
-              </span>
-            </a>
-          );
-        }
+          <span className="hero-stat-value">
+            {/* The status cell's indicator: a pulsing dot immediately left of
+                the project name.
 
-        return (
-          <a
-            key={stat.label}
-            href={stat.href}
-            target={stat.external ? "_blank" : undefined}
-            rel={stat.external ? "noopener noreferrer" : undefined}
-            className={linkClass}
-          >
-            <div
-              className="flex items-baseline gap-1"
-              style={{ fontFamily: "var(--font-mono)" }}
-            >
-              <span className="text-base font-semibold tracking-tight text-[var(--ink)] sm:text-lg">
-                {stat.value}
+                `--ink`, not `--status-active`. That green was the sanctioned
+                exception to the monochrome rule, but the exception exists for
+                the chat inbox, where four triage states have to be told apart
+                at a glance down a column of fifty rows. This cell is one
+                fixed, permanently-pulsing dot next to one line of text --
+                there is no state to disambiguate and no scan to speed up, so
+                a hue here was decoration spending the one accent the palette
+                has. The pulse still carries "this is live"; it no longer
+                costs a colour to say it, and the ping is kept rather than
+                dropped for the same reason. */}
+            {stat.pulse ? (
+              <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
+                <span
+                  className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
+                  style={{ backgroundColor: "var(--ink)" }}
+                />
+                <span
+                  className="relative inline-flex h-2 w-2 rounded-full"
+                  style={{ backgroundColor: "var(--ink)" }}
+                />
               </span>
-              <span className="text-[11px] text-[var(--gray-400)] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[var(--ink)]">
-                ↗
-              </span>
-            </div>
-            <span
-              className="mt-1 text-[13px] font-normal text-[var(--ink)]"
-              style={{ fontFamily: "var(--font-mono)" }}
-            >
-              {stat.label}
-            </span>
-          </a>
-        );
-      })}
+            ) : null}
+            <span className="hero-stat-text">{stat.value}</span>
+          </span>
+
+          <span className="hero-stat-label">{stat.label}</span>
+        </a>
+      ))}
     </div>
   );
 }
