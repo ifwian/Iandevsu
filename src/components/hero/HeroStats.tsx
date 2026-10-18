@@ -54,19 +54,13 @@ export default function HeroStats() {
   ];
 
   return (
-    <div className="relative grid grid-cols-2 border-t border-[var(--gray-200)] sm:grid-cols-4">
-      {stats.map((stat, index) => {
-        // Border logic is shared so the status cell keeps the same grid rhythm
-        // as the metric cells.
-        const cellClass = `flex flex-col justify-center px-4 py-4 ${
-          index !== 0 ? "sm:border-l sm:border-[var(--gray-200)]" : ""
-        } ${
-          index % 2 === 1 ? "border-l border-[var(--gray-200)]" : ""
-        } ${
-          index >= 2 ? "border-t border-[var(--gray-200)] sm:border-t-0" : ""
-        }`;
-
-        const linkClass = `group cursor-pointer transition-colors hover:bg-[var(--gray-100)] ${cellClass}`;
+    <div className="hero-stats">
+      {stats.map((stat) => {
+        // The grid, the hairlines between cells and the hover tint are all in
+        // hero.css (`.hero-stats`, `.hero-stat`), where the strip's 720px step
+        // lives -- the same breakpoint the card layout changes at, and one
+        // pair of values the two cannot disagree about.
+        const linkClass = "hero-stat group";
 
         // The status cell: a pulsing dot immediately left of the project.
         //

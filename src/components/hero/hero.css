@@ -9,11 +9,100 @@
  * changed for the hero's sake has to be changed where only the hero can see
  * it.
  *
- * The scope is `#home`, the hero section's own id: `#home .hero-role`
- * outranks theme.css's `.hero-subtitle` whatever order the two files are
+ * The scope is `#home`, the hero section's own id: `#home .hero-titlebar`
+ * outranks theme.css's `.hero-titlebar` whatever order the two files are
  * injected in, and every rule stays inside the one section it was written
  * for.
  */
+
+/* ---------- Card layout ----------
+ * One row from 720px up: a fixed 240px portrait column beside a content
+ * column that takes the rest, 40px apart, both starting at the same top edge
+ * (`align-items: flex-start`) -- the portrait is top-aligned with the eyebrow,
+ * not centred against the column beside it. Below 720px the same wrapper is a
+ * single column with the portrait first, capped at 200px and left-aligned
+ * above the eyebrow. The 720px step is the card's own: `md` is 768px and `sm`
+ * is 640px, and neither is where the portrait stops fitting beside the copy.
+ */
+
+/* The card's one inner inset, 32px at every width. */
+#home .hero-body {
+  position: relative;
+  padding: 32px;
+}
+
+/* The titlebar correction: theme.css steps its horizontal padding against a
+   body that no longer steps (1.25/1.5/2rem at 0/640/1024). One value matching
+   the body's 32px keeps the invariant that rule was written for -- the path
+   and the name beneath it stay on one left edge. 13px rather than the sheet's
+   11px: the card's floor is 13px, and the path is the one real string in the
+   chrome. */
+#home .hero-titlebar {
+  padding: 0.5rem 32px;
+  font-size: 13px;
+}
+
+#home .hero-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+/* The content column: `min-width: 0` so long copy shrinks inside it instead
+   of stretching the card, full width while stacked, `flex: 1` beside the
+   portrait. */
+#home .hero-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  width: 100%;
+}
+
+/* The portrait column: capped at 200px and flush left in the stacked layout;
+   a fixed 240px from 720px up. `align-items: center` is only for the caption
+   below the image -- the image itself is `w-full`. */
+#home .hero-portrait-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 200px;
+}
+
+@media (min-width: 720px) {
+  #home .hero-layout {
+    flex-direction: row;
+    gap: 40px;
+  }
+
+  #home .hero-column {
+    flex: 1;
+    width: auto;
+  }
+
+  #home .hero-portrait-col {
+    width: 240px;
+    max-width: none;
+    flex-shrink: 0;
+  }
+}
+
+/* One hairline around the portrait. theme.css drew its edge twice -- a 1px
+   border plus a 1px `--bg` ring in the first box-shadow, and a wider ink glow
+   on hover. On a 240px picture the doubled edge reads as a smudged frame, so
+   the border stays, the rings go, and the hover keeps its feedback (the
+   border steps to ink). The reveal itself is the component's, untouched. */
+#home .hero-portrait {
+  border: 1px solid var(--gray-300);
+  box-shadow: none;
+}
+
+#home .hero-portrait:hover {
+  border-color: var(--ink);
+  box-shadow: none;
+}
 
 /* ---------- The content column's rhythm ----------
  * role -> name 8px, name -> pitch 16px, pitch -> builds 24px, builds -> quote
@@ -78,24 +167,18 @@
 }
 
 /* The action row: the primary step, then the three social marks, on one line
-   that wraps as a unit when the column narrows. 12px between the items;
-   the 32px above it is the last step of the column's rhythm. Centred while
-   the column itself is centred on a phone, flush left from `md` up, matching
-   what the intro above it does at each width. */
+   that wraps as a unit when the column narrows. 12px between the items; the
+   32px above it is the last step of the column's rhythm. Flush left, matching
+   the copy above it -- the row is the first thing under a left-aligned
+   column, not a centred island. */
 #home .hero-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
   width: 100%;
-  justify-content: center;
+  justify-content: flex-start;
   margin-top: 2rem;
-}
-
-@media (min-width: 768px) {
-  #home .hero-actions {
-    justify-content: flex-start;
-  }
 }
 
 /* The primary action. Filled, unlike everything else in the row: inverted
@@ -138,8 +221,8 @@
   outline-offset: 2px;
 }
 
-/* The arrow takes one step down toward what it points at, the same 2px nudge
-   the portrait arrow and the chips use. Guarded, because it is a transform. */
+/* The arrow takes one step down toward what it points at -- the row's one
+   nudge, guarded because it is a transform. */
 #home .hero-action-primary .hero-action-arrow {
   transition: transform 0.2s var(--ease-out);
 }
@@ -189,7 +272,12 @@
   outline-offset: 2px;
 }
 
-/* ---------- Portrait hint, in two phrasings ----------
+/* ---------- Portrait caption, in two phrasings ----------
+ * The hint, moved from above the portrait to a caption under it, at 13px in
+ * `--gray-500` -- ordinary card text rather than the 10px tracked
+ * `--gray-400` whisper theme.css carried, which sat under the card's type
+ * floor and a step lighter than everything around it.
+ *
  * A pointer device hovers, a touch device taps, and "Hover or tap" on a phone
  * is half a sentence about an input the phone does not have. Both sentences
  * are in the markup; the media query picks. `(hover: none)` -- the primary
@@ -197,27 +285,81 @@
  * touchscreen still reports `hover: hover` and keeps the pair. No JavaScript,
  * so the right sentence is there in the first paint.
  */
-#home .hero-portrait-hint-touch {
+#home .hero-portrait-caption {
+  margin-top: 0.5rem;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gray-500);
+  text-align: center;
+}
+
+#home .hero-portrait-caption-touch {
   display: none;
 }
 
 @media (hover: none) {
-  #home .hero-portrait-hint-hover {
+  #home .hero-portrait-caption-hover {
     display: none;
   }
 
-  #home .hero-portrait-hint-touch {
+  #home .hero-portrait-caption-touch {
     display: inline;
   }
 }
 
-/* The hint is `white-space: nowrap` in theme.css -- it must not wrap and push
-   the arrow off the photograph -- so the longer sentence has to fit the
-   narrowest portrait column (176px at `w-44`) by other means. Tightening the
-   tracking from 0.1em to 0.04em buys roughly a tenth of the line's width at
-   the same 10px, which clears that column with margin to spare. */
-#home .hero-portrait-hint {
-  letter-spacing: 0.04em;
+/* ---------- The stat strip ----------
+ * Four cells in a 2x2 grid below 720px, one row of four above it -- the same
+ * step the card layout changes at. Declared with that step rather than as
+ * `sm:` utilities, because `sm` is 640px: four columns from there would each
+ * be under 200px at exactly the width where the strip's values are longest.
+ *
+ * The hairlines: in the 2x2 layout the even cells open a new row, so they
+ * take the left rule, and the cells from the third on take the top rule. From
+ * 720px up every cell but the first takes the left rule and the row rules go.
+ */
+#home .hero-stats {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--gray-200);
+}
+
+#home .hero-stats > :nth-child(even) {
+  border-left: 1px solid var(--gray-200);
+}
+
+#home .hero-stats > :nth-child(n + 3) {
+  border-top: 1px solid var(--gray-200);
+}
+
+@media (min-width: 720px) {
+  #home .hero-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  #home .hero-stats > :nth-child(n + 3) {
+    border-top: none;
+  }
+
+  #home .hero-stats > :not(:first-child) {
+    border-left: 1px solid var(--gray-200);
+  }
+}
+
+/* One cell. Padding, the vertical centring that keeps shorter cells level
+   with their neighbours in the same row, and the hover tint the strip has
+   always carried (colour only, so no reduced-motion guard -- the
+   `.terminal-pill` note). */
+#home .hero-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 1rem;
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#home .hero-stat:hover {
+  background-color: var(--gray-100);
 }
 
 /* ---------- One hairline ----------

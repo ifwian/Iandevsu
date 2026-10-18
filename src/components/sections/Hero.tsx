@@ -76,50 +76,37 @@ export default function Hero() {
           </div>
 
           {/* `relative` so the body and the stats paint above the frame's own
-              background.
-
-              `p-5 sm:p-6 lg:p-8` -- was `p-5 sm:p-7 lg:p-9`. The vertical step
-              at `lg` was 36px (2.25rem), which pushed the card's top and bottom
-              breathing past the 1.5-2rem every other bordered surface on the
-              site uses (`.section-shell-body` is 1.75rem/2rem) and left the hero
-              looking over-padded against the chrome around it. 2rem is the top
-              of the shared range; the horizontal step is matched by
-              `.hero-titlebar` so the bar's path and the name beneath it stay on
-              one left edge. */}
-          <div className="relative p-5 sm:p-6 lg:p-8">
-            {/* `items-center` is doing two different jobs on either side of `md`,
-                and that is exactly right rather than a compromise:
-
-                below md the row is `flex-col`, so the cross axis is horizontal
-                and this centres the portrait and the text column on the phone.
-                From md up it is `flex-row`, so the cross axis becomes vertical
-                and the same property centres the text against the portrait --
-                which is what `md:items-center` was added for originally.
-
-                So the hero is centred on a phone and left-aligned from tablet
-                up, where the two-column layout has a left edge worth aligning
-                to. */}
-            <div className="flex flex-col items-center gap-7 md:flex-row md:items-center md:gap-8">
+              background; both live in hero.css, where the card's one inner
+              inset (32px) is declared. The bar above is overridden to the
+              same 32px horizontally so the path and the name beneath it stay
+              on one left edge. */}
+          <div className="hero-body">
+            {/* One row from 720px up -- a fixed 240px portrait column beside
+                the content column, 40px apart and top-aligned -- stacked into
+                a single column below 720px, portrait first. The step lives in
+                hero.css because 720px is the card's own breakpoint: `md` is
+                768px and `sm` is 640px, and neither is where the portrait
+                stops fitting beside the copy. */}
+            <div className="hero-layout">
               <HeroPortrait />
 
-              {/* `w-full` with `items-center` + `text-center` below md: the
-                  column spans the frame, and its children shrink to their own
-                  width and centre within it, so the name, subtitle, quote,
-                  numbered list and social row all sit on the phone's centre
-                  line. `md:items-start md:text-left` restores the flush-left
-                  column at tablet and up, where it sits beside the portrait. */}
-              <div className="flex min-w-0 w-full flex-col items-center text-center md:max-w-md md:items-start md:text-left">
+              {/* `flex: 1` from 720px up, so the column takes everything the
+                  fixed portrait does not; below that it is the full width of
+                  the stacked column. Copy is left-aligned at every width --
+                  the portrait's left edge and the eyebrow's are the same
+                  line. */}
+              <div className="hero-column">
                 <HeroIntro />
 
                 <HeroBuilds />
 
                 <HeroActions />
+              </div>
+            </div>
           </div>
-          </div>
-        </div>
 
-        <HeroStats />
-      </div>
+          <HeroStats />
+        </div>
       </div>
     </section>
   );
