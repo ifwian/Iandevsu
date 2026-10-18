@@ -58,6 +58,14 @@ const ALPHA_MIN = 24; // alpha above this counts as "on the cat" for hit testing
 const GRAVITY = 2400; // px/s^2, for the little hop when he is poked or dropped
 
 /**
+ * Travel, in px, per walk-cycle pose swap. The gait is driven by distance
+ * travelled, not by the logic tick: about 11 swaps a second at cruise and 23
+ * at full sprint, so the legs quicken with the speed ramp below and hold as
+ * she eases in, instead of flipping on a fixed 10 Hz metronome.
+ */
+const STRIDE = 15;
+
+/**
  * How far above the viewport floor the perch element's bottom edge may sit and
  * still count as the fixed launcher. Generous enough for `bottom-6` plus a
  * safe-area inset, and for the trigger being a little taller than it looks.
@@ -103,8 +111,12 @@ const DEFAULTS = {
   /** Pixel scale: 32px cells at 2.25 = a 72px cat. Matches kuro.js, which uses
    *  2.25 on desktop and 1.75 on coarse pointers. */
   scale: 2.25,
-  /** Run speed in CSS px per second. */
-  speed: 130,
+  /** Cruise speed in CSS px/s: how fast she runs near the cursor. */
+  speed: 160,
+  /** Sprint ceiling in CSS px/s: how fast she runs when far behind it. */
+  sprintSpeed: 340,
+  /** Gap (px, beyond `stopDistance`) at which the sprint ceiling is reached. */
+  sprintRamp: 420,
   /** How close Dos stops to the cursor, in CSS px. */
   stopDistance: 64,
   /** Gap kept between Dos and the corner he rests in (idle-only mode). */
@@ -229,6 +241,11 @@ export function initDos(userOptions = {}) {
   let x = 0; // sprite centre, viewport px
   let y = 0;
   let running = false;
+  let runDir = "idle"; // direction of the current run, for the gait below
+  let walkFrame = 0; // walk-cycle pose index, advanced by distance travelled
+  let strideAcc = 0; // px travelled since the last pose swap
+  let walkPose = ""; // last pose the gait wrote, "dir:frame"
+  let chaseSpeed = opts.speed; // current rung of the sprint ramp
   let frameCount = 0;
   let idleTime = 0;
   let idleAnim = null;
@@ -542,7 +559,6 @@ export function initDos(userOptions = {}) {
         y: clamp(pointer.y, b.minY, b.maxY),
         outside, // cursor is beyond the column: run to that wall instead of stopping short
         stop: outside ? 3 : opts.stopDistance,
-        speed: opts.speed,
       };
     }
     // No walking target at all: when she is not following she stands still where she
@@ -554,7 +570,8 @@ export function initDos(userOptions = {}) {
     if (following === v) return;
     following = v;
     resetIdle();
-    idleTime = v ? 6 : 0; // starting: show the alert pose first
+    chaseSpeed = opts.speed; // every chase starts from cruise
+    idleTime = v ? 2 : 0; // starting: one alert beat, then she bolts
     restTicks = rand(opts.restEvery[0], opts.restEvery[1]);
     if (v) pointer.t = performance.now();
     // Follow is over (a click, or the cursor going idle). She stops wherever she
@@ -719,22 +736,33 @@ export function initDos(userOptions = {}) {
 
     if (resetIdle()) say(pick(opts.wakeMessages), 24);
 
-    // Alert pose before bolting off after the cursor, like oneko. The walk home needs no warning.
+    // One alert beat before bolting off after the cursor, like oneko but cut
+    // short: two ticks at most (the clamp) -- a beat of warning, not a pause.
+    // The walk home needs no warning.
     if (target.kind === "follow" && idleTime > 1) {
       running = false;
       setSprite("alert", 0);
-      idleTime = Math.min(idleTime, 7) - 1;
+      idleTime = Math.min(idleTime, 3) - 1;
       return;
     }
 
     if (target.kind !== "follow") idleTime = 0;
+    // A fresh run: clear the stale gait bookkeeping so the first pose is
+    // always written -- a "dir:frame" left over from the previous run must
+    // not count as "already showing".
+    if (!running) {
+      walkPose = "";
+      strideAcc = 0;
+    }
     running = true;
     let dir = "";
     dir += dy / dist > 0.5 ? "N" : "";
     dir += dy / dist < -0.5 ? "S" : "";
     dir += dx / dist > 0.5 ? "W" : "";
     dir += dx / dist < -0.5 ? "E" : "";
-    setSprite(dir || "idle", frameCount);
+    // The pose itself is written by the gait in move(), which advances it by
+    // distance travelled rather than by tick.
+    runDir = dir || "idle";
   }
 
   function move(dt) {
@@ -746,10 +774,28 @@ export function initDos(userOptions = {}) {
     const dist = Math.hypot(dx, dy);
     const gap = dist - target.stop;
     if (gap <= 0) return;
-    const step = Math.min((target.speed || opts.speed) * dt, gap);
+    // Fast far, calm near: the speed ramps up with the gap ahead of her and
+    // eases back to cruise on arrival, smoothed over a few frames so a long
+    // chase starts with a launch instead of a teleport.
+    const wanted = opts.speed + (opts.sprintSpeed - opts.speed) * Math.min(1, gap / opts.sprintRamp);
+    chaseSpeed += (wanted - chaseSpeed) * Math.min(1, dt * 12);
+    const step = Math.min(chaseSpeed * dt, gap);
     x += (dx / dist) * step;
     y += (dy / dist) * step;
     clampToBounds();
+
+    // The gait: one pose swap per STRIDE px actually travelled, so the legs
+    // quicken with the sprint ramp and hold still as she eases in.
+    strideAcc += step;
+    while (strideAcc >= STRIDE) {
+      strideAcc -= STRIDE;
+      walkFrame++;
+    }
+    const pose = `${runDir}:${walkFrame}`;
+    if (pose !== walkPose) {
+      walkPose = pose;
+      setSprite(runDir, walkFrame);
+    }
   }
 
   // --------------------------------------- petting, stretch & settle ----

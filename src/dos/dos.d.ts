@@ -5,8 +5,12 @@ export interface DosOptions {
   containerSelector?: string | Element | null;
   /** Pixel scale: 32px cells at 2.25 = a 72px cat. Default 2.25. */
   scale?: number;
-  /** Run speed in CSS px per second. Default 130. */
+  /** Cruise speed in CSS px/s (running near the cursor). Default 160. */
   speed?: number;
+  /** Sprint ceiling in CSS px/s, reached when the gap to the cursor exceeds `sprintRamp`. Default 340. */
+  sprintSpeed?: number;
+  /** Gap in px (beyond `stopDistance`) at which the sprint ceiling is reached. Default 420. */
+  sprintRamp?: number;
   /** How close he stops to the cursor, in CSS px. Default 64. */
   stopDistance?: number;
   /** Gap between Dos and his resting corner (idle-only mode). Default 0. */
