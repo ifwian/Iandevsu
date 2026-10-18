@@ -1,22 +1,28 @@
 import { HERO } from "@/content/hero";
 
 /**
- * The name, the role line under it, and the pitch under that.
+ * The role eyebrow, the name, the pitch.
+ *
+ * The role line used to sit BELOW the name as a strapline, and its words were
+ * said a second time in the pitch's first sentence ("Computer science student
+ * ... / I'm a computer science student ..."), which stuttered before the
+ * visitor had read anything else. Above the name it is what it always was: a
+ * label, said once, ahead of the two sentences that are actually about the
+ * work.
  *
  * The name takes the display role (Geist Pixel), like every other heading on
  * the site. Sentence case, as written -- unlike .section-eyebrow, an h1 has no
  * text-transform, so the casing here is literally the casing that renders.
  *
- * The role line and the pitch answer "who is this" before the tree below
- * starts listing details: the role says what she is, the pitch says what she
- * is doing with it. Both are stored as they render -- see `.hero-subtitle`
- * and `.hero-pitch` in hero.css, neither of which transforms its text.
+ * The three elements carry no spacing utilities of their own: the rhythm
+ * between them (8px, then 16px) is part of the card's shared scale in
+ * hero.css, so the intro cannot drift away from the blocks below it.
  */
 export default function HeroIntro() {
   return (
     <>
+      <p className="hero-role">{HERO.role}</p>
       <h1 className="hero-name">Marianne Napaño</h1>
-      <p className="hero-subtitle">{HERO.role}</p>
       <p className="hero-pitch">{HERO.pitch}</p>
     </>
   );

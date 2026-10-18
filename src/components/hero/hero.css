@@ -1,50 +1,108 @@
 /* ---------- Hero ----------
  * The hero's own stylesheet, imported by the section component.
  *
- * theme.css draws the window, the tree, the portrait and the pill; nothing
- * here restyles those from scratch. Everything below is either a piece the
- * hero gained after that sheet was written (the pitch, the primary action) or
- * a correction to a value theme.css set -- corrections live here because
- * theme.css is shared with every other section, and a value changed for the
- * hero's sake has to be changed where only the hero can see it.
+ * theme.css draws the window, the portrait and the pill; nothing here
+ * restyles those from scratch. Everything below is either a piece the hero
+ * gained after that sheet was written (the role eyebrow, the pitch, the
+ * action row) or a correction to a value theme.css set -- corrections live
+ * here because theme.css is shared with every other section, and a value
+ * changed for the hero's sake has to be changed where only the hero can see
+ * it.
  *
- * The scope is `#home`, the hero section's own id: `#home .hero-subtitle`
+ * The scope is `#home`, the hero section's own id: `#home .hero-role`
  * outranks theme.css's `.hero-subtitle` whatever order the two files are
  * injected in, and every rule stays inside the one section it was written
  * for.
  */
 
-/* The role line. theme.css sets `.hero-subtitle` as an 11px tracked uppercase
-   label -- terminal chrome rather than copy -- which is why it read as a
-   system string rather than as something about her. At 14px, sentence case,
-   no tracking transform, it reads as the line it is: the first sentence in
-   the column after the name, above the pitch and the tree. */
-#home .hero-subtitle {
-  font-size: 14px;
-  letter-spacing: 0.02em;
-  text-transform: none;
+/* ---------- The content column's rhythm ----------
+ * role -> name 8px, name -> pitch 16px, pitch -> builds 24px, builds -> quote
+ * 12px, quote -> actions 32px. Every step is on the card's 8px scale, and the
+ * whole sequence is declared in one place -- margins live here rather than as
+ * utilities on five components, so the rhythm reads as one list and cannot be
+ * reassembled by accident.
+ */
+
+/* The role eyebrow: the line that used to sit under the name as a strapline,
+   above the name and reduced to its label weight. 13px mono, `--gray-500`,
+   sentence case as stored -- the same register as the stat strip's labels and
+   the sidebar's chrome. */
+#home .hero-role {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gray-500);
 }
 
-/* The pitch: the hero's one sentence of plain prose, between the role line
-   and the tree. Body sans rather than the mono of the chrome around it, the
-   split the tree's own values use -- mono for chrome, sans for sentences. At
-   15px it is the easiest line in the card to read after the name, which is
-   the point of adding it; `--gray-500` is the darkest grey in the palette and
-   the same tone the tree's values carry, with ink staying reserved for the
-   name and for things a visitor can act on. */
+#home .hero-name {
+  margin-top: 0.5rem;
+}
+
+/* The pitch: the hero's one sentence of plain prose, under the name. Body
+   sans rather than the mono of the chrome around it -- mono for chrome, sans
+   for anything a person wrote -- at 15px in `--gray-500`, with ink staying
+   reserved for the name and for things a visitor can act on. Capped at 36rem
+   so it stays a short read rather than stretching to the column's measure. */
 #home .hero-pitch {
-  margin-top: 0.75rem;
+  margin-top: 1rem;
+  max-width: 36rem;
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.6;
   color: var(--gray-500);
 }
 
-/* The primary action. Filled, unlike the `.terminal-pill` chips it sits
-   above: inverted ink-on-background, because the hero should have exactly one
-   obvious next step and the chips under it are reference, not calls. Radius
-   from the same family as the frame and the panel (10px between the frame's
-   16 and the chips' full round), mono face for the chrome register, 13px so
+/* The builds line: the three things she makes, joined with " · " by
+   HeroBuilds, on the same 15px body setting as the pitch above it. Sans for
+   the same reason the old tree rendered its values in sans: these are nouns a
+   person wrote, and a monospaced sentence is measurably harder to scan. */
+#home .hero-builds {
+  margin-top: 1.5rem;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--gray-500);
+}
+
+/* The quote: a real blockquote, marked with the page's hairline rather than a
+   second heading -- 2px of `--gray-300` down its left edge, one padding step
+   away from the text. 14px, one step below the lines above it, same sans and
+   grey; the border is what says "borrowed words" without a label saying it. */
+#home .hero-quote {
+  margin-top: 0.75rem;
+  border-left: 2px solid var(--gray-300);
+  padding-left: 0.75rem;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--gray-500);
+}
+
+/* The action row: the primary step, then the three social marks, on one line
+   that wraps as a unit when the column narrows. 12px between the items;
+   the 32px above it is the last step of the column's rhythm. Centred while
+   the column itself is centred on a phone, flush left from `md` up, matching
+   what the intro above it does at each width. */
+#home .hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+@media (min-width: 768px) {
+  #home .hero-actions {
+    justify-content: flex-start;
+  }
+}
+
+/* The primary action. Filled, unlike everything else in the row: inverted
+   ink-on-background, because the hero should have exactly one obvious next
+   step and the three marks beside it are reference, not calls. Radius from
+   the same family as the frame and the panel (10px between the frame's 16 and
+   the round marks' full circle), mono face for the chrome register, 13px so
    the label clears the site's type floor, and `min-height: 2.5rem` keeps the
    tap target at the 40px minimum without stretching the text. */
 #home .hero-action-primary {
@@ -100,6 +158,37 @@
   }
 }
 
+/* The three social links, as round icon-only buttons at the 40px minimum tap
+   target. Icon-only because the row's one job is "View projects" and three
+   word-chips beside it competed with that; named for screen readers and
+   titled for pointers instead. A hairline ring rather than a fill, so colour
+   stays on the primary button's side, and the same ink hover the pills use.
+   Colour transitions only, so no reduced-motion guard -- matching the note on
+   `.terminal-pill` in theme.css. */
+#home .hero-social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 999px;
+  color: var(--gray-500);
+  transition:
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#home .hero-social-link:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+#home .hero-social-link:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
 /* ---------- Portrait hint, in two phrasings ----------
  * A pointer device hovers, a touch device taps, and "Hover or tap" on a phone
  * is half a sentence about an input the phone does not have. Both sentences
@@ -129,74 +218,6 @@
    the same 10px, which clears that column with margin to spare. */
 #home .hero-portrait-hint {
   letter-spacing: 0.04em;
-}
-
-/* ---------- Tree headings ----------
- * theme.css's `.hero-tree-file` set the old fake file name as 11px uppercase
- * chrome; these are the sentences a visitor reads ("What I make", "In my
- * words"), so they take the site's 14px floor and the ink colour, in sentence
- * case -- no `text-transform`, because the string in the content file is the
- * string on the page.
- */
-#home .hero-tree-heading {
-  margin-bottom: 0.5rem;
-  font-size: 14px;
-  line-height: 1.4;
-  color: var(--ink);
-}
-
-/* ---------- Tree connectors, drawn rather than typed ----------
- * The branch glyphs used to be box-drawing characters in the markup (`├──` /
- * `└──`) sitting in their own grid column. A character is only a connector if
- * the mono font actually carries the box-drawing block at the same advance as
- * the text, and the three-character glyph was already wider than the 1.4em
- * column it sat in on a phone -- which is how the `└──` rows ended up reading
- * as an orphaned line of symbols instead of as a branch of the tree.
- *
- * Drawn from borders instead, the corner lands where the maths puts it at any
- * font size or zoom, the dash is a chosen length rather than two characters,
- * and the column is free to be as narrow as the layout needs. It also means
- * the tree contains no decorative text at all: nothing to be read mid-row,
- * selected, or copied.
- *
- * The span stays in the markup as the drawing surface: empty, `aria-hidden`,
- * stretched to the row's full height so the vertical line runs edge to edge
- * and meets the next row's segment without a seam.
- */
-#home .hero-tree-branch {
-  position: relative;
-  align-self: stretch;
-}
-
-#home .hero-tree-branch::before,
-#home .hero-tree-branch::after {
-  content: "";
-  position: absolute;
-  background-color: currentColor;
-}
-
-/* The vertical: full height on a row the tree continues through; on the
-   closing row it stops at the bend. `0.85em` is where the dash sits -- the
-   middle of the row's first line, scaled with the text. */
-#home .hero-tree-branch::before {
-  top: 0;
-  bottom: 0;
-  left: 0.35em;
-  width: 1px;
-}
-
-#home .hero-tree-row--last .hero-tree-branch::before {
-  bottom: auto;
-  height: 0.85em;
-}
-
-/* The horizontal: from the vertical out to just short of the key, one gap
-   away. */
-#home .hero-tree-branch::after {
-  top: 0.85em;
-  left: 0.35em;
-  right: 0;
-  height: 1px;
 }
 
 /* ---------- One hairline ----------
