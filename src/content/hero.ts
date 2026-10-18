@@ -22,7 +22,7 @@ export interface HeroContent {
   role: string;
   /** The pitch under the name: what she builds, as one sentence. */
   pitch: string;
-  /** The pull quote under the pitch: the reflective half of the copy. */
+  /** The closing sentence under the pitch: same paragraph format as the pitch. */
   quote: string;
   /**
    * The stat strip's two GitHub figures.

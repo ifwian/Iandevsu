@@ -126,13 +126,18 @@
   margin-top: 0.5rem;
 }
 
-/* The pitch: the hero's one sentence of plain prose, under the name. Body
-   sans rather than the mono of the chrome around it -- mono for chrome, sans
-   for anything a person wrote -- at 15px in `--gray-500`, with ink staying
-   reserved for the name and for things a visitor can act on. Capped at 36rem
-   so it stays a short read rather than stretching to the column's measure. */
-#home .hero-pitch {
-  margin-top: 1rem;
+/* The copy's two sentences -- the lead ("I build ...") and the closing
+   ("These days, ..."). One rule, because they are one voice: body sans rather
+   than the mono of the chrome around them (mono for chrome, sans for anything
+   a person wrote), 15px in `--gray-500`, capped at 36rem so each stays a
+   short read rather than stretching to the column's measure.
+
+   The closing sentence used to be a bordered 14px pull quote; the border and
+   the size step are gone, so a format change lands here once instead of in
+   two rules that could drift. The only mark between the paragraphs is the
+   12px step in the column's rhythm above. */
+#home .hero-pitch,
+#home .hero-quote {
   max-width: 36rem;
   font-family: var(--font-body);
   font-size: 15px;
@@ -140,18 +145,12 @@
   color: var(--gray-500);
 }
 
-/* The quote: a real blockquote, marked with the page's hairline rather than a
-   second heading -- 2px of `--gray-300` down its left edge, one padding step
-   away from the text. 14px, one step below the pitch above it, same sans and
-   grey; the border is what says "set apart" without a label saying it. */
+#home .hero-pitch {
+  margin-top: 1rem;
+}
+
 #home .hero-quote {
   margin-top: 0.75rem;
-  border-left: 2px solid var(--gray-300);
-  padding-left: 0.75rem;
-  font-family: var(--font-body);
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--gray-500);
 }
 
 /* The action row: the primary step, then the three social marks, on one line
