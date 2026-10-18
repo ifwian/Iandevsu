@@ -99,3 +99,113 @@
     transform: none;
   }
 }
+
+/* ---------- Portrait hint, in two phrasings ----------
+ * A pointer device hovers, a touch device taps, and "Hover or tap" on a phone
+ * is half a sentence about an input the phone does not have. Both sentences
+ * are in the markup; the media query picks. `(hover: none)` -- the primary
+ * input cannot hover -- covers phones and tablets, while a laptop with a
+ * touchscreen still reports `hover: hover` and keeps the pair. No JavaScript,
+ * so the right sentence is there in the first paint.
+ */
+#home .hero-portrait-hint-touch {
+  display: none;
+}
+
+@media (hover: none) {
+  #home .hero-portrait-hint-hover {
+    display: none;
+  }
+
+  #home .hero-portrait-hint-touch {
+    display: inline;
+  }
+}
+
+/* The hint is `white-space: nowrap` in theme.css -- it must not wrap and push
+   the arrow off the photograph -- so the longer sentence has to fit the
+   narrowest portrait column (176px at `w-44`) by other means. Tightening the
+   tracking from 0.1em to 0.04em buys roughly a tenth of the line's width at
+   the same 10px, which clears that column with margin to spare. */
+#home .hero-portrait-hint {
+  letter-spacing: 0.04em;
+}
+
+/* ---------- Tree headings ----------
+ * theme.css's `.hero-tree-file` set the old fake file name as 11px uppercase
+ * chrome; these are the sentences a visitor reads ("What I make", "In my
+ * words"), so they take the site's 14px floor and the ink colour, in sentence
+ * case -- no `text-transform`, because the string in the content file is the
+ * string on the page.
+ */
+#home .hero-tree-heading {
+  margin-bottom: 0.5rem;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+/* ---------- Tree connectors, drawn rather than typed ----------
+ * The branch glyphs used to be box-drawing characters in the markup (`├──` /
+ * `└──`) sitting in their own grid column. A character is only a connector if
+ * the mono font actually carries the box-drawing block at the same advance as
+ * the text, and the three-character glyph was already wider than the 1.4em
+ * column it sat in on a phone -- which is how the `└──` rows ended up reading
+ * as an orphaned line of symbols instead of as a branch of the tree.
+ *
+ * Drawn from borders instead, the corner lands where the maths puts it at any
+ * font size or zoom, the dash is a chosen length rather than two characters,
+ * and the column is free to be as narrow as the layout needs. It also means
+ * the tree contains no decorative text at all: nothing to be read mid-row,
+ * selected, or copied.
+ *
+ * The span stays in the markup as the drawing surface: empty, `aria-hidden`,
+ * stretched to the row's full height so the vertical line runs edge to edge
+ * and meets the next row's segment without a seam.
+ */
+#home .hero-tree-branch {
+  position: relative;
+  align-self: stretch;
+}
+
+#home .hero-tree-branch::before,
+#home .hero-tree-branch::after {
+  content: "";
+  position: absolute;
+  background-color: currentColor;
+}
+
+/* The vertical: full height on a row the tree continues through; on the
+   closing row it stops at the bend. `0.85em` is where the dash sits -- the
+   middle of the row's first line, scaled with the text. */
+#home .hero-tree-branch::before {
+  top: 0;
+  bottom: 0;
+  left: 0.35em;
+  width: 1px;
+}
+
+#home .hero-tree-row--last .hero-tree-branch::before {
+  bottom: auto;
+  height: 0.85em;
+}
+
+/* The horizontal: from the vertical out to just short of the key, one gap
+   away. */
+#home .hero-tree-branch::after {
+  top: 0.85em;
+  left: 0.35em;
+  right: 0;
+  height: 1px;
+}
+
+/* ---------- One hairline ----------
+ * theme.css draws the frame's edge twice: a 1px border, plus a 1px ink ring
+ * in the first box-shadow. The two sit a pixel apart and read as a doubled,
+ * slightly smudged edge rather than as a crisp window. The border stays; the
+ * ring goes. The drop glow below it is untouched -- that is the light the
+ * window sits in, not a second line.
+ */
+#home .hero-frame {
+  box-shadow: 0 20px 60px -30px color-mix(in srgb, var(--ink) 45%, transparent);
+}
