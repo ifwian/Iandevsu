@@ -29,11 +29,11 @@ export interface DosOptions {
   dragFollow?: number;
   /** Chance per 100 ms tick that an idle animation (nap, scratch) starts. Default 1/150. */
   idleChance?: number;
-  /** Relative odds of each idle animation; 0 switches one off. Default all 1. */
+  /** Relative odds of each idle animation; 0 switches one off. Default sleeping 1, scratchSelf 1, wall 2. */
   idleWeights?: { sleeping?: number; scratchSelf?: number; wall?: number };
   /** Nap length in 100 ms ticks. Default 192. */
   sleepLength?: number;
-  /** Chance per tick of clawing the wall when the cursor is beyond it. Default 0.1. */
+  /** Chance per tick of clawing the wall when the cursor is beyond it. Default 0.28. */
   wallChance?: number;
   /** Min and max ticks between rotating speech bubbles. Default [130, 240]. */
   sayEvery?: [number, number];

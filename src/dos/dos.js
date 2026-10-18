@@ -135,12 +135,16 @@ const DEFAULTS = {
   dragFollow: 14,
   /** Chance per 100 ms tick that an idle animation (nap, scratch) starts once he has been idle for a second. */
   idleChance: 1 / 150,
-  /** Relative odds of each idle animation. 0 switches one off (e.g. { sleeping: 0 } = never naps). */
-  idleWeights: { sleeping: 1, scratchSelf: 1, wall: 1 },
+  /** Relative odds of each idle animation. 0 switches one off (e.g. { sleeping: 0 } = never naps).
+   *  A wall she is standing next to outweighs the rest: the wall poses are the
+   *  hardest to reach, so when she is in range she takes the invitation. */
+  idleWeights: { sleeping: 1, scratchSelf: 1, wall: 2 },
   /** How long a nap lasts, in 100 ms ticks (192 = about 19 s). */
   sleepLength: 192,
-  /** Chance per tick of clawing the wall when the cursor is on the other side of it. */
-  wallChance: 0.1,
+  /** Chance per tick of clawing the wall when the cursor is on the other side
+   *  of it. High enough that the scratch shows up quickly once she is parked
+   *  at a wall, which is the main place the wall poses can ever appear. */
+  wallChance: 0.28,
   /** Min and max ticks between rotating speech bubbles (130-240 = every 13-24 s). */
   sayEvery: [130, 240],
   /** How long a rotating speech bubble stays up, in ticks (38 = about 4 s). */
@@ -574,9 +578,15 @@ export function initDos(userOptions = {}) {
     idleTime = v ? 2 : 0; // starting: one alert beat, then she bolts
     restTicks = rand(opts.restEvery[0], opts.restEvery[1]);
     if (v) pointer.t = performance.now();
-    // Follow is over (a click, or the cursor going idle). She stops wherever she
-    // happens to be -- no walk, no snap, no path back to the button.
-    else stopInPlace();
+    else {
+      // Follow is over (a click, or the cursor going idle). She stops wherever
+      // she happens to be -- no walk, no snap, no path back to the button. If
+      // the stop happens to be within reach of a wall, she claims it, so the
+      // wall-scratch poses get their moment instead of staying theoretical.
+      stopInPlace();
+      const near = wallsAvailable();
+      if (near.length) wallGoal = near[0];
+    }
   }
 
   /**
@@ -610,7 +620,11 @@ export function initDos(userOptions = {}) {
   }
 
   function wallsAvailable() {
-    const e = opts.edgeInset + 3;
+    // A touch wider than the 3px she stops short by when a beyond-the-wall
+    // cursor is the target, so that stop actually counts as "at the wall" --
+    // wall scratching is the only way those poses can appear now that she
+    // never roams.
+    const e = opts.edgeInset + 6;
     const b = bounds;
     const walls = [];
     if (b.real.l && x - b.minX < e) walls.push("scratchWallW");
@@ -656,11 +670,12 @@ export function initDos(userOptions = {}) {
 
     switch (idleAnim) {
       case "sleeping":
-        if (idleAnimFrame < 8) {
+        // The blep ("tired") leads the nap for a clear beat before the z's start.
+        if (idleAnimFrame < 12) {
           setSprite("tired", 0);
         } else {
-          if (idleAnimFrame === 8) say(pick(opts.sleepMessages), 30);
-          setSprite("sleeping", Math.floor(idleAnimFrame / 4));
+          if (idleAnimFrame === 12) say(pick(opts.sleepMessages), 30);
+          setSprite("sleeping", Math.floor((idleAnimFrame - 12) / 4));
         }
         if (idleAnimFrame > opts.sleepLength) resetIdle();
         break;
