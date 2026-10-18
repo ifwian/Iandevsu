@@ -5,9 +5,9 @@ export interface DosOptions {
   containerSelector?: string | Element | null;
   /** Pixel scale: 32px cells at 2.25 = a 72px cat. Default 2.25. */
   scale?: number;
-  /** Cruise speed in CSS px/s (running near the cursor). Default 160. */
+  /** Cruise speed in CSS px/s (running near the cursor). Default 140. */
   speed?: number;
-  /** Sprint ceiling in CSS px/s, reached when the gap to the cursor exceeds `sprintRamp`. Default 340. */
+  /** Sprint ceiling in CSS px/s, reached when the gap to the cursor exceeds `sprintRamp`. Default 230. */
   sprintSpeed?: number;
   /** Gap in px (beyond `stopDistance`) at which the sprint ceiling is reached. Default 420. */
   sprintRamp?: number;

@@ -59,11 +59,11 @@ const GRAVITY = 2400; // px/s^2, for the little hop when he is poked or dropped
 
 /**
  * Travel, in px, per walk-cycle pose swap. The gait is driven by distance
- * travelled, not by the logic tick: about 11 swaps a second at cruise and 23
+ * travelled, not by the logic tick: about 8 swaps a second at cruise and 13
  * at full sprint, so the legs quicken with the speed ramp below and hold as
  * she eases in, instead of flipping on a fixed 10 Hz metronome.
  */
-const STRIDE = 15;
+const STRIDE = 18;
 
 /**
  * How far above the viewport floor the perch element's bottom edge may sit and
@@ -112,9 +112,9 @@ const DEFAULTS = {
    *  2.25 on desktop and 1.75 on coarse pointers. */
   scale: 2.25,
   /** Cruise speed in CSS px/s: how fast she runs near the cursor. */
-  speed: 160,
+  speed: 140,
   /** Sprint ceiling in CSS px/s: how fast she runs when far behind it. */
-  sprintSpeed: 340,
+  sprintSpeed: 230,
   /** Gap (px, beyond `stopDistance`) at which the sprint ceiling is reached. */
   sprintRamp: 420,
   /** How close Dos stops to the cursor, in CSS px. */
