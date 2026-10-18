@@ -59,7 +59,7 @@ export const PROJECTS: Project[] = [
   {
     title: "The Sifted Café",
     role: "Database & Backend developer",
-    status: "Deploying soon",
+    status: "live",
     tone: "live",
     description:
       "A full-stack web app for a local café, built with React, Tailwind CSS, Node.js, Express, PostgreSQL, and Prisma. Features include a menu display, online reservation system, and admin dashboard.",
@@ -71,6 +71,7 @@ export const PROJECTS: Project[] = [
       "postgresql",
       "prisma",
     ],
+    href: "https://thesiftedcafe.vercel.app/",
     image: {
       src: "/images/projects/the-sifted-cafe.webp",
       alt: "The Sifted Cafe home page: a blue hero reading Good coffee. Good food. Good people., with View Menu and Reserve a Table buttons.",
@@ -79,76 +80,51 @@ export const PROJECTS: Project[] = [
   {
     title: "LMS Notifier",
     role: "Backend Developer",
-    status: "coming soon",
-    tone: "active",
+    status: "live",
+    tone: "live",
     description: "A small web app that checks a Learning Management System (LMS) for new announcements and sends notifications to users. Built with Python.",
     stack: ["python"],
+    href: "https://lmscompanion.vercel.app/",
     image: {
       src: "/images/projects/lms-notifier.webp",
       alt: "e-GURO Companion landing page: Your LMS, without the constant checking, with Connect, Detect and Notify steps.",
     },
   },
   {
-    // TODO: confirm title, role, status and stack. Only the description and image
-    // come from the screenshot; the rest are placeholders.
     title: "FRAME",
     role: "Frontend Developer",
-    status: "coming soon",
-    tone: "active",
+    status: "live",
+    tone: "live",
     description: "A reservation site for a gaming station lounge: check live station availability, see opening hours and pricing, and reserve a slot.",
     stack: ["react", "tailwindcss"],
+    href: "https://theframegamingcafe.vercel.app/",
     image: {
       src: "/images/projects/frame.webp",
       alt: "FRAME home page: Reserve. Play. Repeat., with a Reserve a Station button and live availability of 7 of 12 stations.",
     },
   },
   {
-    title: "To-Do List",
-    role: "Frontend Developer",
-    status: "coming soon",
+    // No screenshot yet -- until there is a deploy, the card shows
+    // `dear-in-stereo.webp`, a template preview of the landing page as it is
+    // being designed. Swap it for a real screenshot when one exists.
+    title: "Dear, in Stereo",
+    role: "Full-stack Developer",
+    status: "in progress",
     tone: "active",
-    description: "A to-do list app that lets users add, complete, and delete tasks, built to practice arrays and local storage.",
-    stack: ["html5", "javascript"],
+    description: "A personal music-sharing platform where songs become digital letters: pick a track, write the note, and send a private link they can play, with themed mixtapes and an archive of everything sent and received.",
+    stack: ["react", "tailwindcss"],
+    image: {
+      src: "/images/projects/dear-in-stereo.webp",
+      alt: "Dear, in Stereo landing page: a dark music workspace with the headline Turn a song into a letter with Dear, in Stereo, set beside a card about private letter links.",
+    },
   },
   {
-    title: "Personal OS",
+    title: "Sora",
     role: "Frontend Developer",
     status: "coming soon",
     tone: "active",
     description: "A personal operating system web app that mimics a desktop environment, allowing users to open and manage multiple applications in a single interface. Built with React and Tailwind CSS.",
     stack: ["react", "tailwindcss"],
-  },
-  {
-    title: "Habit Tracker",
-    role: "Frontend Developer",
-    status: "template",
-    tone: "template",
-    description: "A daily habit tracker with streaks and simple charts, meant as a practice ground for state management patterns beyond useState.",
-    stack: ["react", "tailwindcss"],
-  },
-  {
-    title: "Markdown Notes",
-    role: "Full-stack Developer",
-    status: "template",
-    tone: "template",
-    description: "A notes app that saves Markdown files to a database and renders them live, for practicing CRUD with a real backend.",
-    stack: ["react", "nodejs", "mongodb"],
-  },
-  {
-    title: "URL Shortener",
-    role: "Backend Developer",
-    status: "template",
-    tone: "template",
-    description: "A minimal link-shortening service with click analytics, built to practice API design and database schema basics.",
-    stack: ["nodejs", "express", "postgresql"],
-  },
-  {
-    title: "Recipe Finder",
-    role: "Frontend Developer",
-    status: "template",
-    tone: "template",
-    description: "A recipe search app pulling from a public food API, for practicing fetch, filtering, and loading/error states.",
-    stack: ["javascript", "css3"],
   },
 ];
 
