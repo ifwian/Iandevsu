@@ -1,16 +1,11 @@
 /**
  * The hero section's copy, in one place: the role eyebrow above the name, the
- * pitch under it, the line of things she makes, the quote under that, and the
- * GitHub figures the stat strip cannot derive.
+ * pitch under it, the quote under that, and the GitHub figures the stat strip
+ * cannot derive.
  *
- * The role is stored as it renders -- sentence case, no `text-transform`
- * either way -- so the string in this file is literally the string on the
- * page.
- *
- * The three things she makes are a list rather than one joined string: the
- * " · " between them is typography, added at render time by HeroBuilds, so
- * reordering the list or adding a fourth item is a change here and nowhere
- * else.
+ * The role and the two prose sentences are stored as they render -- sentence
+ * case, no `text-transform` either way -- so the strings in this file are
+ * literally the strings on the page.
  *
  * Kept in this file rather than in `content/profile.ts` on purpose: that file
  * is what the chat persona is fed, and these are captions for the hero, not
@@ -25,11 +20,9 @@
 export interface HeroContent {
   /** The role line, an eyebrow above the name. Sentence case, middot-separated. */
   role: string;
-  /** The pitch under the name: the hero's one sentence of plain prose. */
+  /** The pitch under the name: what she builds, as one sentence. */
   pitch: string;
-  /** The things she makes, in render order, joined with " · " on the page. */
-  builds: string[];
-  /** The pull quote under the builds line. */
+  /** The pull quote under the pitch: the reflective half of the copy. */
   quote: string;
   /**
    * The stat strip's two GitHub figures.
@@ -49,9 +42,9 @@ export interface HeroContent {
 export const HERO: HeroContent = {
   role: "Computer science student · aspiring web developer",
   pitch:
-    "I build websites and little programs, and I'm learning to turn ideas into working web apps.",
-  builds: ["websites", "little programs", "things I probably didn't need to make"],
-  quote: "Too curious to stick to one thing.",
+    "I build websites, little programs, and the occasional web app I probably didn't need to make.",
+  quote:
+    "These days, I'm just exploring whatever catches my interest and turning rough ideas into real things—too curious to stick to just one thing.",
   github: {
     repos: "12 Public",
     commits: "105+",

@@ -105,11 +105,11 @@
 }
 
 /* ---------- The content column's rhythm ----------
- * role -> name 8px, name -> pitch 16px, pitch -> builds 24px, builds -> quote
- * 12px, quote -> actions 32px. Every step is on the card's 8px scale, and the
- * whole sequence is declared in one place -- margins live here rather than as
- * utilities on five components, so the rhythm reads as one list and cannot be
- * reassembled by accident.
+ * role -> name 8px, name -> pitch 16px, pitch -> quote 12px, quote -> actions
+ * 32px. Every step is on the card's 8px scale, and the whole sequence is
+ * declared in one place -- margins live here rather than as utilities on the
+ * components, so the rhythm reads as one list and cannot be reassembled by
+ * accident.
  */
 
 /* The role eyebrow: the line that used to sit under the name as a strapline,
@@ -140,22 +140,10 @@
   color: var(--gray-500);
 }
 
-/* The builds line: the three things she makes, joined with " · " by
-   HeroBuilds, on the same 15px body setting as the pitch above it. Sans for
-   the same reason the old tree rendered its values in sans: these are nouns a
-   person wrote, and a monospaced sentence is measurably harder to scan. */
-#home .hero-builds {
-  margin-top: 1.5rem;
-  font-family: var(--font-body);
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--gray-500);
-}
-
 /* The quote: a real blockquote, marked with the page's hairline rather than a
    second heading -- 2px of `--gray-300` down its left edge, one padding step
-   away from the text. 14px, one step below the lines above it, same sans and
-   grey; the border is what says "borrowed words" without a label saying it. */
+   away from the text. 14px, one step below the pitch above it, same sans and
+   grey; the border is what says "set apart" without a label saying it. */
 #home .hero-quote {
   margin-top: 0.75rem;
   border-left: 2px solid var(--gray-300);

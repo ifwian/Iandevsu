@@ -2,9 +2,9 @@
 
 import "@/components/hero/hero.css";
 import HeroActions from "@/components/hero/HeroActions";
-import HeroBuilds from "@/components/hero/HeroBuilds";
 import HeroIntro from "@/components/hero/HeroIntro";
 import HeroPortrait from "@/components/hero/HeroPortrait";
+import HeroQuote from "@/components/hero/HeroQuote";
 import HeroStats from "@/components/hero/HeroStats";
 
 export default function Hero() {
@@ -98,7 +98,7 @@ export default function Hero() {
               <div className="hero-column">
                 <HeroIntro />
 
-                <HeroBuilds />
+                <HeroQuote />
 
                 <HeroActions />
               </div>
