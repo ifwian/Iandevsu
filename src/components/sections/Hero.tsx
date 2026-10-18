@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { ArrowDown, ArrowUpRight } from "lucide-react";
+import { HERO } from "@/content/hero";
 import { SOCIAL_ITEMS } from "@/lib/socials";
 import PixelTransition from "@/components/ui/PixelTransition";
 
@@ -11,55 +12,6 @@ import PixelTransition from "@/components/ui/PixelTransition";
 type StatItem =
   | { label: string; value: string; href: string; external: boolean; tag?: false }
   | { label: string; value: string; tag: true };
-
-/**
- * The hero's metadata blocks: a file name and the fields under it.
- *
- * Data rather than markup, because the branch connectors are decided by
- * position -- the last row of a block gets `└──` and the rest `├──` -- and
- * hand-writing that per row is how the two end up disagreeing about which line
- * is the last one.
- *
- * Written lowercase; `.hero-tree-file` and `.hero-tree-key` both uppercase, so
- * `builds.sys` renders as `BUILDS.SYS` and a key like `focus` as `FOCUS` from
- * one casing decision in the stylesheet rather than two in the markup.
- *
- * Held here rather than in `content/profile.ts` on purpose: that file is what
- * the chat persona is fed, and these are captions for the hero, not facts about
- * her. Changing what the assistant knows is a separate decision from changing
- * what the hero says.
- *
- * There is deliberately no role row and no location row, and no `mission.log`
- * block either. The role is already in the strapline under her name; the
- * location is already in the sidebar; and what she is currently working on is
- * the one thing the stat strip's "Building" cell already says. What survives is
- * the line of copy none of those state: what she makes, and then the quote.
- *
- * `builds.sys` is numbered rather than keyed because it is a list of three, not
- * a set of fields -- `01`/`02`/`03` also match the numbered nav in the sidebar,
- * so the two read as the same numbering.
- *
- * `quote.txt` is the other shape: one line of prose with no key beside it, which
- * is a different thing from a field with a value. Modelled as a union so the two
- * cannot be confused -- a `quote` block has no `rows` and a `rows` block has no
- * `quote`, and adding a row to one of them is a compile error rather than a
- * block that renders half as a tree and half as a sentence.
- */
-type HeroBlock =
-  | { file: string; rows: { key: string; value: string }[] }
-  | { file: string; quote: string };
-
-const HERO_BLOCKS: HeroBlock[] = [
-  {
-    file: "builds.sys",
-    rows: [
-      { key: "01", value: "websites" },
-      { key: "02", value: "little programs" },
-      { key: "03", value: "things I probably didn't need to make" },
-    ],
-  },
-  { file: "quote.txt", quote: "Too curious to stick to one thing." },
-];
 
 export default function Hero() {
   const stats: StatItem[] = [
@@ -234,9 +186,7 @@ export default function Hero() {
                     here is literally the casing that renders. */}
                 <h1 className="hero-name">Marianne Napaño</h1>
 
-                <p className="hero-subtitle">
-                  Computer Science Student &middot; Aspiring Web Developer
-                </p>
+                <p className="hero-subtitle">{HERO.role}</p>
 
                 {/* The information block: two named "files", each a small tree.
                     This replaces a standalone italic quote paragraph and a row
@@ -262,7 +212,7 @@ export default function Hero() {
                     same register the rest of the sidebar and hero use: mono for
                     chrome, sans for anything a person wrote. */}
                 <div className="hero-tree mt-9">
-                  {HERO_BLOCKS.map((block) => (
+                  {HERO.blocks.map((block) => (
                     <div key={block.file} className="hero-tree-block">
                       <p className="hero-tree-file">{block.file}</p>
                       <dl className="hero-tree-list">
