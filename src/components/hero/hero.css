@@ -153,7 +153,7 @@
   margin-top: 0.75rem;
 }
 
-/* The action row: the primary step, then the three social marks, on one line
+/* The action row: the primary step, then the three social links, on one line
    that wraps as a unit when the column narrows. 12px between the items; the
    32px above it is the last step of the column's rhythm. Flush left, matching
    the copy above it -- the row is the first thing under a left-aligned
@@ -170,23 +170,22 @@
 
 /* The primary action. Filled, unlike everything else in the row: inverted
    ink-on-background, because the hero should have exactly one obvious next
-   step and the three marks beside it are reference, not calls. Radius from
-   the same family as the frame and the panel (10px between the frame's 16 and
-   the round marks' full circle), mono face for the chrome register, 13px so
-   the label clears the site's type floor, and `min-height: 2.5rem` keeps the
-   tap target at the 40px minimum without stretching the text. */
+   step and the three links beside it are reference, not calls. Borderless --
+   a hairline in the fill's own colour drew nothing; the fill is the shape.
+   Radius from the same family as the frame and the panel (10px), the display
+   face every other link on the site wears, 13px so the label clears the
+   site's type floor, and `min-height: 2.5rem` keeps the tap target at the
+   40px minimum without stretching the text. */
 #home .hero-action-primary {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   min-height: 2.5rem;
-  border: 1px solid var(--ink);
   border-radius: 10px;
   padding: 0.5rem 1.1rem;
   background-color: var(--ink);
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-size: 13px;
-  letter-spacing: 0.02em;
   color: var(--bg);
   transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -228,30 +227,27 @@
   }
 }
 
-/* The three social links, as round icon-only buttons at the 40px minimum tap
-   target. Icon-only because the row's one job is "View projects" and three
-   word-chips beside it competed with that; named for screen readers and
-   titled for pointers instead. A hairline ring rather than a fill, so colour
-   stays on the primary button's side, and the same ink hover the pills use.
-   Colour transitions only, so no reduced-motion guard -- matching the note on
-   `.terminal-pill` in theme.css. */
+/* The three social links, as lowercase words in the display face -- the same
+   register every other link on the site wears, and the same strings the
+   sidebar footer shows. The old round icon buttons carried a hairline ring
+   each, which read as a second row of chrome beside the primary's fill; words
+   with no border keep the row's one call to action unambiguous. Inline-flex
+   at the button's 2.5rem minimum height, so the tap target is the 40px box
+   and not the 13px line looking tappable. Colour transitions only, so no
+   reduced-motion guard -- matching the note on `.terminal-pill` in
+   theme.css. */
 #home .hero-social-link {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border: 1px solid var(--gray-300);
-  border-radius: 999px;
+  min-height: 2.5rem;
+  font-family: var(--font-display);
+  font-size: 13px;
   color: var(--gray-500);
-  transition:
-    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #home .hero-social-link:hover {
   color: var(--ink);
-  border-color: var(--ink);
 }
 
 #home .hero-social-link:focus-visible {

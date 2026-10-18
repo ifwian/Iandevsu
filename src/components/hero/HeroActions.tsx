@@ -4,7 +4,7 @@ import { SOCIAL_ITEMS } from "@/lib/socials";
 /**
  * The hero's action row: the primary step, then the social links.
  *
- * "View projects" is the single next step the column asks for -- the copy
+ * "view projects" is the single next step the column asks for -- the copy
  * above it states who she is and what she makes, and this is the one control
  * that acts on it. It is a plain `#projects` anchor, so it scrolls exactly
  * like every sidebar link does: `html` carries `scroll-behavior: smooth`, the
@@ -17,28 +17,23 @@ import { SOCIAL_ITEMS } from "@/lib/socials";
  * leave the page.
  *
  * The social links are the same three accounts the sidebar footer shows, from
- * the same `lib/socials` list, and they are icon-only round buttons here: the
- * old pill row spelled "github / linkedin / instagram" out in text and made
- * five chips of one kind compete in a row. Three 40px marks beside the one
- * button, named for assistive tech and titled for pointers, say the same
- * thing with less to read.
+ * the same `lib/socials` list, and here they are spelled out: the lowercase
+ * words the sidebar already uses, in the display face -- the register every
+ * other link on the site wears ("view all projects", "visit site", "back to
+ * home" are the same mouthful). An earlier pass hid them behind icon-only
+ * round buttons to keep the row's one job singular; the rings read as a
+ * second row of chrome next to the primary's fill, and words say "reference"
+ * more quietly, so the names are the labels themselves now -- no separate
+ * title casing for pointers, no aria-label to drift out of sync.
  *
- * The accessible names are the brands' own casing ("GitHub", not "github").
- * `lib/socials` keeps the site's lowercase mono register for the sidebar,
- * which shows the labels as text; these two strings are for this surface
- * only.
+ * The primary keeps its ink fill: the row should have exactly one obvious
+ * next step, and it is the one item painted with ink.
  */
-const SOCIAL_TITLES: Record<string, string> = {
-  github: "GitHub",
-  linkedin: "LinkedIn",
-  instagram: "Instagram",
-};
-
 export default function HeroActions() {
   return (
     <div className="hero-actions">
       <a href="#projects" className="hero-action-primary">
-        <span>View projects</span>
+        <span>view projects</span>
         <ArrowDown
           size={14}
           strokeWidth={1.7}
@@ -47,22 +42,17 @@ export default function HeroActions() {
         />
       </a>
 
-      {SOCIAL_ITEMS.map(({ label, href, Icon }) => {
-        const title = SOCIAL_TITLES[label] ?? label;
-        return (
-          <a
-            key={label}
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={title}
-            title={title}
-            className="hero-social-link"
-          >
-            <Icon size={15} />
-          </a>
-        );
-      })}
+      {SOCIAL_ITEMS.map(({ label, href }) => (
+        <a
+          key={label}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hero-social-link"
+        >
+          {label}
+        </a>
+      ))}
     </div>
   );
 }
