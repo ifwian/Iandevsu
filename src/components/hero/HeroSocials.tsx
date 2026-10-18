@@ -10,9 +10,9 @@ import { SOCIAL_ITEMS } from "@/lib/socials";
  * `justify-center` below md so a wrapped row of links centres too; `w-fit`
  * means the block itself is only as wide as its content, which is what lets the
  * `items-center` on the parent column centre the whole group as one unit.
- * `mt-8` rather than the `mt-6` it carried beside the old pill row: the tree
- * above is taller, and 24px of air under it read as crowding rather than as a
- * seam.
+ * `mt-8`, the same seam every row above it uses: the primary action sits
+ * directly above these chips, and the gap has to say they are different kinds
+ * of link -- one moves you through this page, three take you off it.
  */
 export default function HeroSocials() {
   return (

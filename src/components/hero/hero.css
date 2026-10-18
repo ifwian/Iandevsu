@@ -1,0 +1,101 @@
+/* ---------- Hero ----------
+ * The hero's own stylesheet, imported by the section component.
+ *
+ * theme.css draws the window, the tree, the portrait and the pill; nothing
+ * here restyles those from scratch. Everything below is either a piece the
+ * hero gained after that sheet was written (the pitch, the primary action) or
+ * a correction to a value theme.css set -- corrections live here because
+ * theme.css is shared with every other section, and a value changed for the
+ * hero's sake has to be changed where only the hero can see it.
+ *
+ * The scope is `#home`, the hero section's own id: `#home .hero-subtitle`
+ * outranks theme.css's `.hero-subtitle` whatever order the two files are
+ * injected in, and every rule stays inside the one section it was written
+ * for.
+ */
+
+/* The role line. theme.css sets `.hero-subtitle` as an 11px tracked uppercase
+   label -- terminal chrome rather than copy -- which is why it read as a
+   system string rather than as something about her. At 14px, sentence case,
+   no tracking transform, it reads as the line it is: the first sentence in
+   the column after the name, above the pitch and the tree. */
+#home .hero-subtitle {
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* The pitch: the hero's one sentence of plain prose, between the role line
+   and the tree. Body sans rather than the mono of the chrome around it, the
+   split the tree's own values use -- mono for chrome, sans for sentences. At
+   15px it is the easiest line in the card to read after the name, which is
+   the point of adding it; `--gray-500` is the darkest grey in the palette and
+   the same tone the tree's values carry, with ink staying reserved for the
+   name and for things a visitor can act on. */
+#home .hero-pitch {
+  margin-top: 0.75rem;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--gray-500);
+}
+
+/* The primary action. Filled, unlike the `.terminal-pill` chips it sits
+   above: inverted ink-on-background, because the hero should have exactly one
+   obvious next step and the chips under it are reference, not calls. Radius
+   from the same family as the frame and the panel (10px between the frame's
+   16 and the chips' full round), mono face for the chrome register, 13px so
+   the label clears the site's type floor, and `min-height: 2.5rem` keeps the
+   tap target at the 40px minimum without stretching the text. */
+#home .hero-action-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  border: 1px solid var(--ink);
+  border-radius: 10px;
+  padding: 0.5rem 1.1rem;
+  background-color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--bg);
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover holds the ink and steps it toward the page. Mixing the two tokens is
+   the only honest way to say "a little lighter" in a palette this narrow --
+   and it retints itself between themes because both operands are tokens.
+   No reduced-motion guard: a colour fade is not vestibular motion, matching
+   the note on `.terminal-pill` in theme.css. */
+#home .hero-action-primary:hover {
+  background-color: color-mix(in srgb, var(--ink) 88%, var(--bg));
+}
+
+/* A ring, offset, rather than an inset outline: the fill would swallow an
+   inset ring, and a 2px offset outline is visible around the button on both
+   themes. */
+#home .hero-action-primary:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* The arrow takes one step down toward what it points at, the same 2px nudge
+   the portrait arrow and the chips use. Guarded, because it is a transform. */
+#home .hero-action-primary .hero-action-arrow {
+  transition: transform 0.2s var(--ease-out);
+}
+
+#home .hero-action-primary:hover .hero-action-arrow {
+  transform: translateY(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #home .hero-action-primary .hero-action-arrow {
+    transition: none;
+  }
+
+  #home .hero-action-primary:hover .hero-action-arrow {
+    transform: none;
+  }
+}

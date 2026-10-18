@@ -1,7 +1,7 @@
 /**
- * The hero section's copy, in one place: the strapline under the name, the two
- * metadata "files" rendered as a small tree, and the GitHub figures the stat
- * strip cannot derive.
+ * The hero section's copy, in one place: the strapline under the name, the
+ * pitch under it, the two metadata "files" rendered as a small tree, and the
+ * GitHub figures the stat strip cannot derive.
  *
  * The blocks are data rather than markup, because the branch connectors are
  * decided by position -- the last row of a block gets `└──` and the rest `├──`
@@ -42,6 +42,8 @@ export type HeroBlock =
 export interface HeroContent {
   /** The strapline under the name, sentence case, middot-separated. */
   role: string;
+  /** The pitch under the strapline: the hero's one plain-prose sentence. */
+  pitch: string;
   /** The metadata "files" rendered under it, in display order. */
   blocks: HeroBlock[];
   /**
@@ -60,7 +62,9 @@ export interface HeroContent {
 }
 
 export const HERO: HeroContent = {
-  role: "Computer Science Student · Aspiring Web Developer",
+  role: "Computer science student · aspiring web developer",
+  pitch:
+    "I'm a computer science student building websites and little programs, and learning to turn ideas into working web apps.",
   blocks: [
     {
       file: "builds.sys",

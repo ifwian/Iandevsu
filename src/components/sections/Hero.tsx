@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import "@/components/hero/hero.css";
+import HeroActions from "@/components/hero/HeroActions";
 import HeroBuilds from "@/components/hero/HeroBuilds";
 import HeroIntro from "@/components/hero/HeroIntro";
 import HeroPortrait from "@/components/hero/HeroPortrait";
@@ -111,6 +113,8 @@ export default function Hero() {
                 <HeroIntro />
 
                 <HeroBuilds />
+
+                <HeroActions />
 
                 <HeroSocials />
           </div>
