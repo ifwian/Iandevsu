@@ -1,6 +1,7 @@
 /**
- * The hero section's copy, in one place: the strapline under the name, and the
- * two metadata "files" rendered as a small tree.
+ * The hero section's copy, in one place: the strapline under the name, the two
+ * metadata "files" rendered as a small tree, and the GitHub figures the stat
+ * strip cannot derive.
  *
  * The blocks are data rather than markup, because the branch connectors are
  * decided by position -- the last row of a block gets `└──` and the rest `├──`
@@ -43,6 +44,19 @@ export interface HeroContent {
   role: string;
   /** The metadata "files" rendered under it, in display order. */
   blocks: HeroBlock[];
+  /**
+   * The stat strip's two GitHub figures.
+   *
+   * The strip's project counts are derived from `content/projects.ts`; these
+   * two cannot be, because the site has no reusable GitHub feed (the activity
+   * section fetches a contribution calendar, which carries neither). They are
+   * maintained by hand: bump them when they drift. "105+" is deliberately a
+   * floor, not a ledger.
+   */
+  github: {
+    repos: string;
+    commits: string;
+  };
 }
 
 export const HERO: HeroContent = {
@@ -58,4 +72,8 @@ export const HERO: HeroContent = {
     },
     { file: "quote.txt", quote: "Too curious to stick to one thing." },
   ],
+  github: {
+    repos: "12 Public",
+    commits: "105+",
+  },
 };

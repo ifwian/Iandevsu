@@ -1,36 +1,63 @@
+import { HERO } from "@/content/hero";
+import { PROJECTS } from "@/content/projects";
+import { getProjectStats } from "@/lib/projectStats";
+
 /**
- * The hero's stat strip: three metric cells (links) and one status cell (tag).
+ * The hero's stat strip: four cells along the bottom of the terminal window.
  *
- * The strip is part of the terminal window, so it sits inside the frame against
- * its bottom edge with no `mt-12` -- as a footer of the same card rather than a
+ * The strip is part of the window, so it sits inside the frame against its
+ * bottom edge with no `mt-12` -- as a footer of the same card rather than a
  * separate band below it.
  *
- * A metric cell is a link; a status cell is a tag. Modelled as a union so a tag
- * can never carry an href, and a link can never be silently un-navigable.
+ * Three cells are metrics and one is a status, and all four are links, because
+ * all four have somewhere worth going. The status cell points at the projects
+ * section, where the thing it names can actually be seen, and its mark is the
+ * pulsing dot rather than the ↗: what it says is "this is happening", not
+ * "here is a number".
  */
-type StatItem =
-  | { label: string; value: string; href: string; external: boolean; tag?: false }
-  | { label: string; value: string; tag: true };
+
+/**
+ * One cell of the strip. `pulse` swaps the ↗ for the indicator light;
+ * `external` adds the new-tab targets.
+ */
+interface StatItem {
+  label: string;
+  value: string;
+  href: string;
+  external?: boolean;
+  pulse?: boolean;
+}
 
 export default function HeroStats() {
+  const { live, active, building } = getProjectStats(PROJECTS);
+  const projectCount = live + active;
+
   const stats: StatItem[] = [
-    { label: "REPOS", value: "12 Public", href: "https://github.com/ifwian?tab=repositories", external: true },
-    { label: "COMMITS", value: "105+", href: "https://github.com/ifwian", external: true },
-    { label: "PROJECTS", value: "5 Done", href: "#projects", external: false },
-    // A live status, not a metric: rendered as a non-navigating tag with an
-    // indicator light, so it is never mistaken for a link like the other three.
-    // The label was "building" against a value of "Building" -- the same word
-    // twice, and the label's `uppercase` made it read as "Building / BUILDING".
-    // "CURRENT FOCUS" is what the cell is actually saying: this is what the
-    // portfolio is currently about, not a tally.
-    { label: "current focus", value: "Building", tag: true },
+    { label: "Repos", value: HERO.github.repos, href: "https://github.com/ifwian?tab=repositories", external: true },
+    { label: "Commits", value: HERO.github.commits, href: "https://github.com/ifwian", external: true },
+    // Templates are not counted as projects (see `getProjectStats`); the
+    // breakdown keeps the headline number checkable against the section.
+    {
+      label: `${live} live · ${active} in progress`,
+      value: `${projectCount} ${projectCount === 1 ? "project" : "projects"}`,
+      href: "#projects",
+    },
+    // The status cell: the project comes from the list, so the strip cannot
+    // name something the section does not show; the link goes to the
+    // project's own page when it has one, and to the section otherwise.
+    {
+      label: "Current focus",
+      value: building ? `Building: ${building.title}` : "Building",
+      href: building ? building.anchor : "#projects",
+      pulse: true,
+    },
   ];
 
   return (
     <div className="relative grid grid-cols-2 border-t border-[var(--gray-200)] sm:grid-cols-4">
       {stats.map((stat, index) => {
-        // Border logic is shared so the tag cell keeps the same grid rhythm
-        // as the link cells.
+        // Border logic is shared so the status cell keeps the same grid rhythm
+        // as the metric cells.
         const cellClass = `flex flex-col justify-center px-4 py-4 ${
           index !== 0 ? "sm:border-l sm:border-[var(--gray-200)]" : ""
         } ${
@@ -39,20 +66,27 @@ export default function HeroStats() {
           index >= 2 ? "border-t border-[var(--gray-200)] sm:border-t-0" : ""
         }`;
 
-        // The status cell: a pulsing dot immediately left of the word.
+        const linkClass = `group cursor-pointer transition-colors hover:bg-[var(--gray-100)] ${cellClass}`;
+
+        // The status cell: a pulsing dot immediately left of the project.
         //
         // `--ink`, not `--status-active`. That green was the sanctioned
         // exception to the monochrome rule, but the exception exists for the
         // chat inbox, where four triage states have to be told apart at a
         // glance down a column of fifty rows. This cell is one fixed,
-        // permanently-pulsing dot next to the fixed word "Building" -- there
-        // is no state to disambiguate and no scan to speed up, so a hue here
-        // was decoration spending the one accent the palette has. The pulse
-        // still carries "this is live"; it no longer costs a colour to say
-        // it, and the ping is kept rather than dropped for the same reason.
-        if (stat.tag) {
+        // permanently-pulsing dot next to one line of text -- there is no
+        // state to disambiguate and no scan to speed up, so a hue here was
+        // decoration spending the one accent the palette has. The pulse still
+        // carries "this is live"; it no longer costs a colour to say it, and
+        // the ping is kept rather than dropped for the same reason.
+        if (stat.pulse) {
           return (
-            <div key={stat.label} className={cellClass} style={{ fontFamily: "var(--font-mono)" }}>
+            <a
+              key={stat.label}
+              href={stat.href}
+              className={linkClass}
+              style={{ fontFamily: "var(--font-mono)" }}
+            >
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
                   <span
@@ -68,10 +102,10 @@ export default function HeroStats() {
                   {stat.value}
                 </span>
               </div>
-              <span className="mt-1 text-[11px] font-normal uppercase tracking-widest text-[var(--gray-500)]">
+              <span className="mt-1 text-[13px] font-normal text-[var(--gray-500)]">
                 {stat.label}
               </span>
-            </div>
+            </a>
           );
         }
 
@@ -81,7 +115,7 @@ export default function HeroStats() {
             href={stat.href}
             target={stat.external ? "_blank" : undefined}
             rel={stat.external ? "noopener noreferrer" : undefined}
-            className={`group cursor-pointer transition-colors hover:bg-[var(--gray-100)] ${cellClass}`}
+            className={linkClass}
           >
             <div
               className="flex items-baseline gap-1"
@@ -95,7 +129,7 @@ export default function HeroStats() {
               </span>
             </div>
             <span
-              className="mt-1 text-[11px] font-normal uppercase tracking-widest text-[var(--ink)]"
+              className="mt-1 text-[13px] font-normal text-[var(--ink)]"
               style={{ fontFamily: "var(--font-mono)" }}
             >
               {stat.label}
