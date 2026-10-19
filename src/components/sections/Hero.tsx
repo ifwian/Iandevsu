@@ -24,7 +24,6 @@ export default function Hero() {
          which is deliberately larger than its top margin, exactly as on every
          other section. */
       className="section-frame px-5 pt-6 pb-16 lg:px-6 lg:pt-0"
-      style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
         {/**

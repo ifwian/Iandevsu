@@ -72,7 +72,6 @@ export default function AboutMe() {
     <section 
       id="about" 
       className="section-frame px-5 py-16 lg:px-6"
-      style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
         <div className="section-shell">

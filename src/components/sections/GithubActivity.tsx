@@ -106,7 +106,6 @@ export default function GithubActivity() {
     <section 
       id="github" 
       className="section-frame px-5 py-16 lg:px-6"
-      style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
         <div className="section-shell">
@@ -131,22 +130,21 @@ export default function GithubActivity() {
           github activity
         </h2>
 
-        {/* Description */}
-        <p className="mb-8 max-w-xl text-xs sm:text-sm leading-relaxed text-[var(--gray-500)]">
+        {/* Description. Was `text-xs sm:text-sm` -- 12px on a phone, under the
+            site's own floor for reading copy, and two steps below every other
+            section's lede. */}
+        <p className="section-lede">
           A snapshot of my contribution history for 2026.
         </p>
 
-        {/* Card Container with Smooth Box Hover Effects.
-            The `hover:shadow-[...]` utility that used to sit here is gone rather
-            than corrected. `.card` already carries `box-shadow:
-            var(--shadow-resting)` and a `:hover` rule lifting to
-            `var(--shadow-hover)` with a 0.35s transition, so the utility was
-            overriding a themed token with a hardcoded `rgb(0,0,0,0.3)` -- a
-            value tuned for the dark palette, which reads as a grey smudge in
-            light mode. Deleting it restores the token for both themes. */}
-        <div 
-          className="card flex flex-col p-4 sm:p-6 lg:p-8 rounded-xl bg-[var(--gray-50)] border border-[var(--gray-200)] transition-all duration-300 hover:border-[var(--gray-300)] hover:bg-[var(--gray-100)]"
-        >
+        {/* Card Container. `.card` is the whole treatment: it already carries the
+            `--gray-50` ground, the `--gray-200` hairline, a 16px radius and the
+            resting/hover shadow pair. The utilities that restated those are gone
+            -- and so is their `hover:bg-[var(--gray-100)]`, which fought the
+            card's own hover by darkening the surface underneath it. The
+            `hover:shadow-[...]` note that used to be here is still true, and
+            still why nothing hardcoded is back. */}
+        <div className="card flex flex-col p-4 sm:p-6 lg:p-8">
           {/**
            * Horizontal scroller for the month labels and the grid together.
            *

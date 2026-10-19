@@ -327,6 +327,13 @@ body::before {
   flex-direction: column;
   justify-content: center;
   scroll-snap-align: start;
+  /* The mono base every section sits on. It used to be an inline
+     `style={{ fontFamily: "var(--font-mono)" }}` repeated on all six section
+     tags -- six copies of one rule, and the one thing a section could forget
+     and then render all of its chrome in the body face. Prose opts back out to
+     `--font-body` (`.section-lede`, `.about-prose`), so this is the shell's
+     register, not the page's. */
+  font-family: var(--font-mono);
 }
 
 /* True scroll snapping, enabled only on the home page.
@@ -533,6 +540,34 @@ h1, h2, h3, h4, h5, h6 {
 @media (min-width: 640px) {
   .section-title {
     font-size: 1.5rem;
+  }
+}
+
+/* The one-line description under a section title.
+   Every section had spelled this out in utilities, and they had drifted: three
+   said `--gray-500` and two `--gray-400`, three stopped at 15px while two
+   stepped up to 17px at `sm`, and the bottom margin was 6, 8 or 10 depending on
+   the section -- so the same sentence sat at a different size, colour and
+   distance from its heading depending on which section rendered it, and the
+   identical line on `/` and `/projects` did not match itself.
+
+   `--gray-400` because that is what the site's other prose uses
+   (`.about-prose`, `.project-card-summary`): the larger the text, the lower the
+   weight it needs, and a description at 15-17px does not need the contrast a
+   13px label needs. Prose lives on the body face and this is prose. */
+.section-lede {
+  max-width: 32rem;
+  margin-bottom: 2rem;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--gray-400);
+}
+
+@media (min-width: 640px) {
+  .section-lede {
+    font-size: 17px;
+    line-height: 1.75;
   }
 }
 
@@ -2490,6 +2525,91 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--bg);
 }
 
+/* ---------- Tech stack chips ----------
+   The 04 section's chips: a mark and a name in one box, a step larger than
+   `.pill` because they carry a label rather than a tag. Sized here rather than
+   in a pile of utilities at the call site -- the markup this replaced restated
+   `.card`'s ground, hairline and radius, then added four more utilities that
+   fought them (a 12px radius against the card's 16, and a hover that darkened
+   the surface instead of warming it). */
+.stack-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.stack-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  background-color: var(--gray-50);
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--ink);
+  cursor: default;
+  transition:
+    border-color 0.2s var(--ease-out),
+    background-color 0.2s var(--ease-out);
+}
+
+.stack-chip:hover {
+  border-color: var(--gray-300);
+  background-color: var(--gray-100);
+}
+
+/* The mark sits a step below the label at rest and steps up with the chip --
+   the same division of labour as `.project-card-stack svg`, and the reason the
+   marks inherit `currentColor` and no per-technology colour rule exists. */
+.stack-chip-mark {
+  flex: none;
+  color: var(--gray-500);
+  transition: color 0.2s var(--ease-out);
+}
+
+.stack-chip:hover .stack-chip-mark {
+  color: var(--ink);
+}
+
+/* The expanded view: one block per layer, each label above its row. */
+.stack-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.stack-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* The toggle's arrow: leans out on hover like every other arrow on the site,
+   and points right once the list it opens is open. */
+.stack-toggle-arrow {
+  display: inline-block;
+  transition: transform 0.2s var(--ease-out);
+}
+
+.section-shell-action:hover .stack-toggle-arrow:not([data-open]) {
+  transform: translate(2px, -2px);
+}
+
+.stack-toggle-arrow[data-open] {
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stack-toggle-arrow,
+  .section-shell-action:hover .stack-toggle-arrow:not([data-open]),
+  .stack-toggle-arrow[data-open] {
+    transition: none;
+    transform: none;
+  }
+}
+
 /* ---------- Keyboard focus ----------
    One ink ring for every interactive element, shown only for keyboard focus.
    Element-qualified selectors outrank Tailwind's single-class `outline-none`. */
@@ -2555,6 +2675,13 @@ select:focus-visible,
 }
 .link-arrow:hover .arrow-glyph {
   transform: translate(2px, -2px);
+}
+
+/* The one left-pointing glyph on the site (the "back to home" link), which
+   leans the other way. The reduced-motion guard below already covers it: its
+   selector is the same specificity as this one and it is declared later. */
+.link-arrow:hover .arrow-glyph-back {
+  transform: translate(-2px, -2px);
 }
 
 /* Looping Tailwind utilities are injected by the CDN after this sheet, so the

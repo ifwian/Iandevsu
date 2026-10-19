@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 
 /**
- * Monochrome outline marks for the technologies named in `content/projects.ts`.
+ * Monochrome outline marks for every technology the site names by name: the
+ * stack rows on the project cards (`content/projects.ts`) and the full list the
+ * 04 stack section shows.
  *
- * These replace the Devicon glyphs the project cards used to render. Devicon
+ * These replace the Devicon glyphs both of those places used to render. Devicon
  * ships brand-coloured marks as an icon *font*, so a card's preview was a
  * React logo in React blue and a Python logo in Python yellow -- the only
  * saturated colour on the page, against a design system whose one rule is that
@@ -24,7 +26,7 @@ import type { ReactNode } from "react";
  * atom, Node's hexagon, Tailwind's double wave, Prisma's prism, the database
  * cylinder, the Mongo leaf, and shields for the two web-platform marks.
  *
- * One optical weight across all eleven is the point of hand-authoring them: an
+ * One optical weight across all sixteen is the point of hand-authoring them: an
  * icon font renders at whatever weight the foundry chose, so a row of mixed
  * brands never quite sits level. These do, because they are the same pen.
  *
@@ -43,7 +45,12 @@ export type TechIconName =
   | "html5"
   | "javascript"
   | "css3"
-  | "mongodb";
+  | "mongodb"
+  | "git"
+  | "java"
+  | "mysql"
+  | "figma"
+  | "vscode";
 
 interface TechIconProps {
   name: TechIconName;
@@ -159,6 +166,70 @@ const MARKS: Record<TechIconName, ReactNode> = {
     <>
       <path d="M17.4 3.6c2.6 3.4 3 7.6.7 10.9-2 2.9-5.6 4.2-9 3.1 3.6-.6 6.2-3 6.8-6.6.5-3-.2-5.4-1.4-7.4Z" />
       <path d="M9.6 20.6c-1.1-1.6-1.1-3.2 0-4.8" />
+    </>
+  ),
+
+  // Two commits on a trunk and a third branched off it. Three circles and two
+  // rules is the whole graph, which is why this one is drawn rather than
+  // abstracted: there is nothing to abstract.
+  git: (
+    <>
+      <circle cx="6.5" cy="7" r="2.3" />
+      <circle cx="6.5" cy="17" r="2.3" />
+      <circle cx="17.5" cy="12" r="2.3" />
+      <path d="M6.5 9.3v5.4" />
+      <path d="M8.8 7h5.4a3.3 3.3 0 0 1 3.3 3.3v0.5" />
+    </>
+  ),
+
+  // The language is named after an island's coffee and has carried a steaming
+  // cup as its mark ever since. Drawn as a tapered mug, a handle and two
+  // wisps: at 15px the cup is the part that survives, and the wisps are what
+  // keep it from reading as a bin.
+  java: (
+    <>
+      <path d="M7 10.6h8.2l-.75 6.7a2 2 0 0 1-2 1.75h-2.7a2 2 0 0 1-2-1.75Z" />
+      <path d="M15.2 12.3h1.4a2.15 2.15 0 0 1 0 4.3h-1.8" />
+      <path d="M9.8 3.8c1.2 1 1.2 2 0 3" />
+      <path d="M13 4.8c1.2 1 1.2 2 0 3" />
+    </>
+  ),
+
+  // MySQL's mark is a dolphin, and a traced dolphin at this size is a blob --
+  // so it is reduced to the parts that identify it: a rounded body, the dorsal
+  // fin, the fluke, one eye. The same trade the Postgres note above describes,
+  // on a shape that at least keeps an outline.
+  mysql: (
+    <>
+      <path d="M5.8 12.4c0-2.8 2.9-5 6.1-5s6.1 2.2 6.1 5-2.7 5-6.1 5-6.1-2.2-6.1-5Z" />
+      <path d="M5.8 12.4 3 9.9v5Z" />
+      <path d="M11.2 7.6 12.6 4.4l1.9 3.3" />
+      <circle cx="15" cy="11.2" r="0.85" />
+    </>
+  ),
+
+  // The one brand mark here whose geometry is simple enough to reproduce
+  // rather than abstract: three half-rounds down the left, the disc on the
+  // middle right, the quarter-round foot.
+  figma: (
+    <>
+      <path d="M12 3.2H9.6a3.2 3.2 0 0 0 0 6.4H12z" />
+      <path d="M12 3.2h2.4a3.2 3.2 0 0 1 0 6.4H12z" />
+      <path d="M12 9.6H9.6a3.2 3.2 0 0 0 0 6.4H12z" />
+      <path d="M14.4 9.6a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4z" />
+      <path d="M12 16H9.6a3.2 3.2 0 1 0 2.4 5.4z" />
+    </>
+  ),
+
+  // VS Code's mark is a folded ribbon: a filled shape with two cut corners,
+  // which as an outline is a bowtie. So this is the honest fallback -- the
+  // brackets and bar of an editor -- sitting beside the words the chip
+  // already prints.
+  vscode: (
+    <>
+      <path d="M9.4 7.6 5 12l4.4 4.4" />
+      <path d="M14.6 7.6 19 12l-4.4 4.4" />
+      <path d="M13.4 5.2 10.6 18.8" />
     </>
   ),
 };
