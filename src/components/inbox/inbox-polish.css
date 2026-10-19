@@ -1,0 +1,148 @@
+/* Inbox polish: fixes overlapping controls and unreadable micro-labels in the
+ * existing inbox markup, without touching theme.css. Everything is scoped to the
+ * inbox page and uses (0,2,0)+ selectors, so it beats the single-class Tailwind
+ * utilities and theme.css rules regardless of stylesheet order. Monochrome. */
+
+/* ---------- Thread header: wrap instead of overlapping ---------- */
+:is(.inbox-app, .inbox-page) .inbox-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.85rem 1rem;
+}
+
+/* The name block takes the free space but may drop below the buttons. */
+:is(.inbox-app, .inbox-page) .inbox-panel-head > .min-w-0 {
+  flex: 1 1 9rem;
+}
+
+/* Name + status pill: the pill wraps under the name when the pane is narrow. */
+:is(.inbox-app, .inbox-page) .inbox-panel-head h2 {
+  flex-wrap: wrap;
+  row-gap: 0.25rem;
+  min-width: 0;
+}
+
+:is(.inbox-app, .inbox-page) .inbox-panel-head :is(.inbox-btn, .inbox-icon-btn) {
+  flex: none;
+  white-space: nowrap;
+}
+
+:is(.inbox-app, .inbox-page) .inbox-btn {
+  min-height: 2.25rem;
+  padding-inline: 0.85rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ---------- Readable labels: sentence case, no tiny caps ---------- */
+:is(.inbox-app, .inbox-page) .uppercase {
+  letter-spacing: 0;
+  text-transform: capitalize;
+}
+
+:is(.inbox-app, .inbox-page) :is([class*="text-[9px]"], [class*="text-[10px]"], [class*="text-[11px]"]) {
+  font-size: 0.8125rem;
+}
+
+:is(.inbox-app, .inbox-page) [class*="tracking-"] {
+  letter-spacing: 0;
+}
+
+/* Readable labels: sentence case, no tiny caps, minimum 13px */
+:is(.inbox-app, .inbox-page) .micro-label {
+  font-size: 0.8125rem;
+  text-transform: capitalize;
+  letter-spacing: 0;
+  color: var(--gray-500);
+}
+
+/* Greys that were too faint to read at small sizes. */
+:is(.inbox-app, .inbox-page) [class*="text-[var(--gray-400)]"] {
+  color: var(--gray-500);
+}
+
+/* Anything green is an accent colour this site does not use. */
+:is(.inbox-app, .inbox-page) :is([class*="text-green"], [class*="text-emerald"]) {
+  color: var(--ink);
+}
+
+:is(.inbox-app, .inbox-page) .inbox-panel-title {
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+:is(.inbox-app, .inbox-page) .inbox-hint {
+  font-size: 0.75rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ---------- Segmented controls: wrap, never clip ---------- */
+:is(.inbox-app, .inbox-page) .inbox-seg {
+  max-width: 100%;
+  border-radius: 0.75rem;
+}
+
+:is(.inbox-app, .inbox-page) .inbox-seg-item {
+  font-family: inherit;
+  font-size: 0.8125rem;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 0.4rem 0.8rem;
+}
+
+/* The conversation filter: all options visible, wrapping onto a second row if needed. */
+.inbox-pane--list .inbox-seg {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.inbox-pane--list .inbox-seg-item {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+/* The status control in the details: a tidy 2 x 2 grid. */
+.inbox-pane--aside .inbox-seg {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+}
+
+.inbox-pane--aside .inbox-seg-item {
+  justify-content: center;
+}
+
+/* ---------- Details panel: scrolls as a whole, nothing clipped or stacked on top ---------- */
+.inbox-pane--aside {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.inbox-pane--aside textarea {
+  min-height: 5rem;
+  max-height: 10rem;
+  resize: vertical;
+}
+
+/* ---------- Keyboard focus ---------- */
+:is(.inbox-app, .inbox-page) :is(.inbox-btn, .inbox-icon-btn, .inbox-seg-item):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* ---------- Touch targets ---------- */
+@media (pointer: coarse) {
+  :is(.inbox-app, .inbox-page) :is(.inbox-btn, .inbox-icon-btn, .inbox-seg-item) {
+    min-height: 2.5rem;
+    min-width: 2.5rem;
+  }
+}

@@ -1,40 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isReaction, reactionKey, type Reaction, type ReactionKind } from "@/lib/chatFormat";
+import ReactionBar from "@/components/chat/ReactionBar";
 import { useLocation } from "react-router-dom";
-import { MessageCircle, Paperclip, RotateCcw, Send, X } from "lucide-react";
+import { ArrowRight, MessageCircle, Send } from "lucide-react";
 import { PROFILE } from "@/content/profile";
 import { supabase } from "@/lib/supabase";
 import { apiUrl } from "@/lib/api";
 import {
-  attachmentTranscriptLine,
-  formatBytes,
   formatClock,
-  isReaction,
-  MAX_ATTACHMENT_BYTES,
-  MAX_ATTACHMENTS,
-  reactionKey,
   shouldGroupMessage,
-  type Reaction,
-  type ReactionKind,
 } from "@/lib/chatFormat";
 import TypingIndicator from "@/components/chat/TypingIndicator";
-import ReactionBar from "@/components/chat/ReactionBar";
 import { useTypingSignal } from "@/lib/useTypingSignal";
 import "@/components/chat/chat-ux.css";
-import ChatText from "@/components/chat/ChatText";
+import "@/components/chat/chat-redesign.css";
 import ChatTextarea from "@/components/chat/ChatTextarea";
 import ChatNotice from "@/components/chat/ChatNotice";
+import ChatPanelHeader from "@/components/chat/ChatPanelHeader";
+import ChatBubble from "@/components/chat/ChatBubble";
 import { useStickToBottom } from "@/lib/useStickToBottom";
-
-interface MessageAttachment {
-  name: string;
-  size: number;
-  /**
-   * Object URL for a local preview. Created at send time and therefore not
-   * restored from history -- after a reload the chip shows the name and size
-   * only, which is honest rather than showing a broken image.
-   */
-  url?: string;
-}
 
 interface ChatMessage {
   role: "user" | "model";
@@ -50,7 +34,6 @@ interface ChatMessage {
    * which must never be rendered as something a person said.
    */
   source?: "assistant" | "admin" | "system";
-  attachments?: MessageAttachment[];
 }
 
 interface StreamEvent {
@@ -99,7 +82,6 @@ const QUICK_ACTIONS: readonly QuickAction[] = [
 /** Same asset the favicon uses (see index.html), so the browser reuses the
  *  cached copy instead of pulling a separate image for a 32px avatar. */
 const ASSISTANT_AVATAR = "/images/anime-avatar-64.webp";
-const PRESENCE_COLOR = "#22c55e";
 
 const VISITOR_STORAGE_KEY = "ian-chat-visitor-id";
 const SESSION_STARTED_KEY = "ian-chat-session-started-at";
@@ -313,15 +295,7 @@ function saveHistory(visitorId: string, messages: ChatMessage[]): void {
       JSON.stringify({
         version: 2,
         updatedAt: new Date().toISOString(),
-        messages: messages.slice(-50).map((message) =>
-          // Blob URLs die with the document that made them, so persisting one
-          // would restore a chip pointing at a revoked object URL -- a broken
-          // image on every message from a previous session. The name and size
-          // survive; the preview does not, and says so by being absent.
-          message.attachments
-            ? { ...message, attachments: message.attachments.map(({ name, size }) => ({ name, size })) }
-            : message
-        ),
+        messages: messages.slice(-50),
       })
     );
   } catch {
@@ -340,11 +314,6 @@ interface RemoteAdminMessage {
    * message.
    */
   role: "admin" | "system";
-}
-
-interface RemoteThread {
-  messages: RemoteAdminMessage[];
-  reactions: Reaction[];
 }
 
 function isRowId(value: unknown): value is string | number {
@@ -390,19 +359,20 @@ function mergeAdminMessages(current: ChatMessage[], remote: RemoteAdminMessage[]
 async function fetchAdminReplies(
   visitorId: string,
   accessToken?: string
-): Promise<RemoteThread> {
+): Promise<{ messages: RemoteAdminMessage[]; reactions: Reaction[]; status: number }> {
   const headers: Record<string, string> = {};
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   const response = await fetch(apiUrl(`/api/chat?visitorId=${encodeURIComponent(visitorId)}&role=admin`), {
     cache: "no-store",
     headers,
   });
-  if (!response.ok) return { messages: [], reactions: [] };
   const data: unknown = await response.json().catch(() => null);
-  if (!data || typeof data !== "object") return { messages: [], reactions: [] };
+  const hasMessages = typeof data === "object" && data !== null && "messages" in data;
+  const hasReactions = typeof data === "object" && data !== null && "reactions" in data;
   return {
-    messages: "messages" in data && Array.isArray(data.messages) ? data.messages.filter(isRemoteAdminMessage) : [],
-    reactions: "reactions" in data && Array.isArray(data.reactions) ? data.reactions.filter(isReaction) : [],
+    messages: hasMessages && Array.isArray(data.messages) ? data.messages.filter(isRemoteAdminMessage) : [],
+    reactions: hasReactions && Array.isArray(data.reactions) ? data.reactions.filter(isReaction) : [],
+    status: response.status,
   };
 }
 
@@ -566,20 +536,15 @@ export default function ChatWithIan() {
   const [nameDraft, setNameDraft] = useState(() => getStoredContact()?.name || "");
   const [emailDraft, setEmailDraft] = useState(() => getStoredContact()?.email || "");
   const [contactError, setContactError] = useState<string | null>(null);
-  // Files staged for the next message. Object URLs are revoked on removal and
-  // on unmount; a leaked blob URL holds the whole file in memory for the life
-  // of the document.
-  const [pendingFiles, setPendingFiles] = useState<MessageAttachment[]>([]);
-  const [reactions, setReactions] = useState<Reaction[]>([]);
   const [adminTyping, setAdminTyping] = useState(false);
-  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [sendingReaction, setSendingReaction] = useState(false);
+  const [connectionLost, setConnectionLost] = useState(false);
+  const [reactions, setReactions] = useState<Reaction[]>([]);
   const { ref: scrollRef, onScroll, showJump, scrollToBottom } = useStickToBottom<HTMLDivElement>(
     [messages, loading, adminTyping],
     { streaming: loading }
   );
   const abortRef = useRef<AbortController | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const wasOpenRef = useRef(false);
@@ -600,7 +565,6 @@ export default function ChatWithIan() {
   // Held in a ref rather than state: the broadcast effect must not re-subscribe
   // every time the composer text changes.
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
-  const fileUrlsRef = useRef<string[]>([]);
   /**
    * Set whenever a reaction write is confirmed, so the next poll replaces the
    * optimistic local set with the server's authoritative one.
@@ -731,47 +695,87 @@ export default function ChatWithIan() {
   useEffect(() => {
     const visitorId = session?.visitorId;
     if (!open || !visitorId) return;
-    let active = true;
     let inFlight = false;
+    let consecutiveAuthErrors = 0;
+    let timeoutId: number | undefined;
+
+    const getAccessToken = async (): Promise<string | undefined> => {
+      if (supabase) {
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (data.session?.access_token) return data.session.access_token;
+        } catch {
+          // fall through
+        }
+      }
+      return session?.accessToken;
+    };
 
     const poll = async () => {
-      if (inFlight || document.hidden) return;
+      if (inFlight) return;
       inFlight = true;
       try {
-        const remote = await fetchAdminReplies(visitorId, session?.accessToken);
-        if (!active) return;
-        if (remote.messages.length) {
-          setMessages((current) => mergeAdminMessages(current, remote.messages));
-        }
-        if (reactionsDirtyRef.current) {
-          reactionsDirtyRef.current = false;
-          // Wholesale replacement, not a merge: the server owns the reaction
-          // set, and ReactionBar already ignores rows whose message is not in
-          // the transcript, so nothing needs filtering here.
-          setReactions(remote.reactions);
+        const token = await getAccessToken();
+        const remote = await fetchAdminReplies(visitorId, token);
+
+        if (remote.status === 401 || remote.status === 403) {
+          consecutiveAuthErrors++;
+          if (consecutiveAuthErrors >= 2) {
+            setConnectionLost(true);
+            console.warn("[chat] lost access to this conversation:", remote.status);
+          }
+          if (remote.messages.length) {
+            setMessages((current) => mergeAdminMessages(current, remote.messages));
+          }
+          if (reactionsDirtyRef.current) {
+            reactionsDirtyRef.current = false;
+            setReactions(remote.reactions);
+          }
+        } else {
+          consecutiveAuthErrors = 0;
+          setConnectionLost(false);
+          if (remote.messages.length) {
+            setMessages((current) => mergeAdminMessages(current, remote.messages));
+          }
+          if (reactionsDirtyRef.current) {
+            reactionsDirtyRef.current = false;
+            setReactions(remote.reactions);
+          }
         }
       } catch {
-        return;
+        consecutiveAuthErrors = 0;
+        setConnectionLost(false);
       } finally {
         inFlight = false;
       }
     };
 
-    const onVisibilityChange = () => {
-      if (!document.hidden) void poll();
+    const schedulePoll = () => {
+      const intervalMs = connectionLost ? 30_000 : document.hidden ? 20_000 : 2_500;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        void poll();
+        schedulePoll();
+      }, intervalMs);
     };
 
-    pollRef.current = () => void poll();
-    void poll();
-    const interval = window.setInterval(() => void poll(), 2500);
+    schedulePoll();
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) void poll();
+      schedulePoll();
+    };
     document.addEventListener("visibilitychange", onVisibilityChange);
+
+    pollRef.current = () => void poll(); // realtime nudge bypasses hidden check
+    void poll();
+
     return () => {
-      active = false;
-      window.clearInterval(interval);
+      window.clearTimeout(timeoutId);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       pollRef.current = () => undefined;
     };
-  }, [open, session?.accessToken, session?.visitorId]);
+  }, [open, session?.visitorId, connectionLost]);
 
   /**
    * Realtime: incoming admin/system messages, incoming reactions, and the
@@ -877,12 +881,6 @@ export default function ChatWithIan() {
     void reportActivity(session, contact, location.pathname, "page");
   }, [contact, location.pathname, open, session]);
 
-  useEffect(() => {
-    return () => {
-      for (const url of fileUrlsRef.current) URL.revokeObjectURL(url);
-    };
-  }, []);
-
   /**
    * Starts a brand-new visitor thread.
    *
@@ -942,7 +940,6 @@ export default function ChatWithIan() {
     setLoading(false);
     setAdminTyping(false);
     setReactions([]);
-    clearPendingFiles();
   };
 
   /**
@@ -1030,64 +1027,6 @@ export default function ChatWithIan() {
     void announceVisit(session, contact, location.pathname);
   }, [announceVisit, authSettled, contact, location.pathname, open, session]);
 
-  /** Revokes every object URL this component has created. */
-  const releaseFileUrls = useCallback(() => {
-    for (const url of fileUrlsRef.current) URL.revokeObjectURL(url);
-    fileUrlsRef.current = [];
-  }, []);
-
-  const clearPendingFiles = useCallback(() => {
-    releaseFileUrls();
-    setPendingFiles([]);
-    setAttachmentError(null);
-  }, [releaseFileUrls]);
-
-  const addFiles = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setAttachmentError(null);
-
-    const room = MAX_ATTACHMENTS - pendingFiles.length;
-    if (room <= 0) {
-      setAttachmentError(`You can attach up to ${MAX_ATTACHMENTS} files per message.`);
-      return;
-    }
-
-    const accepted: MessageAttachment[] = [];
-    for (const file of Array.from(files).slice(0, room)) {
-      if (file.size > MAX_ATTACHMENT_BYTES) {
-        setAttachmentError(`${file.name} is ${formatBytes(file.size)} -- the limit is ${formatBytes(MAX_ATTACHMENT_BYTES)}.`);
-        continue;
-      }
-      // Only images get a preview URL. A blob URL for a PDF is pure overhead:
-      // nothing renders it, and it still pins the file in memory.
-      const url = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
-      if (url) fileUrlsRef.current.push(url);
-      accepted.push({ name: file.name, size: file.size, url });
-    }
-
-    if (files.length > room) {
-      setAttachmentError(`Only the first ${room} file${room === 1 ? "" : "s"} were attached.`);
-    }
-    if (accepted.length) setPendingFiles((current) => [...current, ...accepted]);
-  };
-
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    addFiles(event.target.files);
-    // Reset so re-picking the same file fires `change` again.
-    event.target.value = "";
-  };
-
-  const removePendingFile = (index: number) => {
-    setPendingFiles((current) => {
-      const target = current[index];
-      if (target?.url) {
-        URL.revokeObjectURL(target.url);
-        fileUrlsRef.current = fileUrlsRef.current.filter((url) => url !== target.url);
-      }
-      return current.filter((_, position) => position !== index);
-    });
-  };
-
   /**
    * Signals to the admin that the visitor is typing.
    *
@@ -1160,37 +1099,23 @@ export default function ChatWithIan() {
   const send = async (override?: string) => {
     const typedText = input.trim();
     const text = (override ?? typedText).trim();
-    const attachments = pendingFiles;
     // Contact must be captured before the first message so the transcript is
     // attributed to a person rather than an anonymous visitor id.
-    if ((!text && attachments.length === 0) || loading || !session || !contact) return;
+    if (!text || loading || !session || !contact) return;
 
     // Their own message should always bring them to the bottom, even if they had
     // scrolled up reading something earlier.
     scrollToBottom();
 
-    // The model reads text, so an attachment travels as its filename. That line
-    // goes into the persisted body, which means the admin sees the reference
-    // too -- the honest version of "I sent you a screenshot".
-    const attachmentLines = attachments.map((file) => attachmentTranscriptLine(file.name, file.size));
-    const body = [text, ...attachmentLines].filter(Boolean).join("\n\n");
-
     const nextMessages: ChatMessage[] = [
       ...messages,
-      { role: "user", text: text || attachmentLines.join("\n"), at: Date.now(), attachments: attachments.length ? attachments : undefined },
+      { role: "user", text, at: Date.now() },
     ];
     const assistantIndex = nextMessages.length;
     setMessages([...nextMessages, { role: "model", text: "", at: Date.now() }]);
     setInput("");
     setError(null);
-    setAttachmentError(null);
     setLoading(true);
-    // Ownership of the preview URLs moves to the rendered message, so the
-    // clear below must not revoke them.
-    fileUrlsRef.current = fileUrlsRef.current.filter(
-      (url) => !attachments.some((file) => file.url === url)
-    );
-    setPendingFiles([]);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -1232,7 +1157,7 @@ export default function ChatWithIan() {
           sessionStartedAt: session.sessionStartedAt,
           visitorName: contact.name,
           visitorEmail: contact.email,
-          messages: [...nextMessages, { role: "user", text: body }],
+          messages: [...nextMessages, { role: "user", text }],
         }),
       });
 
@@ -1400,7 +1325,15 @@ export default function ChatWithIan() {
 
 {open && (
         <div
-          className="card chat-panel fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] right-[calc(env(safe-area-inset-right,0px)+1rem)] z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden sm:bottom-6 sm:right-6"
+          /* The shadcn surface: `bg-card` / `text-card-foreground` and the
+             rest resolve to the bryl-minimal tokens (see the colors block in
+             index.html), so the panel retints with the theme -- no colour is
+             restated here. `.card` is gone on purpose: its hover lift meant
+             the whole panel rose 2px when the pointer crossed it, which was
+             the class showing through, not a decision. `chat-panel` stays for
+             the height rules in theme.css, and the entrance animation in
+             chat-redesign.css rides on it too. */
+          className="chat-panel fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] right-[calc(env(safe-area-inset-right,0px)+1rem)] z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border/50 bg-card text-card-foreground shadow-xl sm:bottom-6 sm:right-6"
           data-dos-avoid
           role="dialog"
           aria-label={`Chat with ${PROFILE.goesBy}`}
@@ -1412,62 +1345,13 @@ export default function ChatWithIan() {
             }
           }}
         >
-          <div
-            className="flex items-center justify-between gap-2 px-4 py-3"
-            style={{ borderBottom: "1px solid var(--gray-200)" }}
-          >
-            <div className="flex items-center gap-3">
-              <span
-                className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full"
-                style={{ border: "1px solid var(--gray-200)", backgroundColor: "var(--gray-100)" }}
-              >
-                <img
-                  src={ASSISTANT_AVATAR}
-                  alt=""
-                  aria-hidden="true"
-                  className="h-full w-full object-cover"
-                />
-              </span>
-              <div>
-                <p className="micro-label truncate" style={{ color: "var(--ink)" }}>
-                  CHAT WITH IAN
-                </p>
-                <p
-                  className="flex items-center gap-1 text-[11px] uppercase leading-tight tracking-[0.12em]"
-                  style={{ color: "var(--gray-400)" }}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                    style={{ backgroundColor: PRESENCE_COLOR }}
-                  />
-                  ONLINE · AI ASSISTANT
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={startFreshThread}
-                aria-label="Start a new chat"
-                title="Start a new chat"
-                className="flex h-6 w-6 items-center justify-center"
-                style={{ color: "var(--gray-400)" }}
-              >
-                <RotateCcw size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close chat"
-                title="Close chat"
-                className="flex h-6 w-6 items-center justify-center"
-                style={{ color: "var(--gray-400)" }}
-              >
-                <X size={14} />
-              </button>
-</div>
-          </div>
+          <ChatPanelHeader
+            name={PROFILE.goesBy}
+            subtitle="Active now"
+            avatarSrc={ASSISTANT_AVATAR}
+            onNewChat={startFreshThread}
+            onClose={() => setOpen(false)}
+          />
 
           {contact ? (
             <>
@@ -1524,13 +1408,12 @@ export default function ChatWithIan() {
                   }
 
                   const isVisitor = message.role === "user";
-                  // "Ian" for the assistant and for a human admin reply -- from
-                  // the visitor's side they are the same person, and the
-                  // avatar only appears on the AI's own turns.
-                  const sender = isVisitor ? "you" : PROFILE.goesBy;
+                  const sender = isVisitor ? "visitor" : "assistant";
+                  const name = isVisitor ? "You" : PROFILE.goesBy;
+                  const time = message.at ? formatClock(message.at) : undefined;
                   const grouped = shouldGroupMessage(
                     previousSender(messages, index),
-                    { sender, at: message.at ?? 0 }
+                    { sender: isVisitor ? "You" : PROFILE.goesBy, at: message.at ?? 0 }
                   );
                   const canReact = message.id !== undefined;
 
@@ -1539,106 +1422,28 @@ export default function ChatWithIan() {
                       key={`${message.role}-${message.id ?? index}-${index}`}
                       className={`chat-reaction-row flex flex-col ${isVisitor ? "items-end" : "items-start"}`}
                     >
-                      {!grouped && (
-                        <div className="chat-meta" style={{ justifyContent: isVisitor ? "flex-end" : "flex-start" }}>
-                          <span style={{ color: "var(--ink)" }}>{sender}</span>
-                          <span aria-hidden="true">·</span>
-                          <time dateTime={message.at ? new Date(message.at).toISOString() : undefined}>
-                            {formatClock(message.at)}
-                          </time>
+                      <ChatBubble
+                        sender={sender}
+                        name={name}
+                        time={time}
+                        text={message.text}
+                        streaming={isStreaming}
+                        grouped={grouped}
+                      />
+                      {canReact && (
+                        <div className={isVisitor ? "flex justify-end" : "flex justify-start"}>
+                          <ReactionBar
+                            messageId={message.id as string | number}
+                            reactions={reactions}
+                            actor={session?.visitorId ?? ""}
+                            onToggle={(kind, active) => {
+                              if (message.id !== undefined) void toggleReaction(message.id, kind, active);
+                            }}
+                            busy={sendingReaction}
+                            align={isVisitor ? "end" : "start"}
+                          />
                         </div>
                       )}
-                      <div className={`flex w-full items-end gap-2 ${isVisitor ? "justify-end" : "justify-start"}`}>
-                        {/* The anime avatar belongs to the AI persona. Showing it
-                            next to a human reply would misattribute the message,
-                            so human turns are labelled with a name instead. */}
-                        {!isVisitor && message.source !== "admin" && (
-                          <img
-                            src={ASSISTANT_AVATAR}
-                            alt=""
-                            aria-hidden="true"
-                            loading="lazy"
-                            decoding="async"
-                            className="mb-0.5 h-6 w-6 flex-shrink-0 rounded-full object-cover"
-                            style={{ border: "1px solid var(--gray-200)" }}
-                          />
-                        )}
-                        <div className="min-w-0 max-w-[80%]">
-                          {/* Visitor turns stay plain text: what they typed is
-                              exactly what is shown back to them. Ian's turns are
-                              rendered, because a reply comes back as markdown. */}
-                          {isVisitor ? (
-                            <p
-                              className="whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed"
-                              style={{
-                                backgroundColor: isVisitor ? "var(--ink)" : "var(--gray-100)",
-                                color: isVisitor ? "var(--bg)" : "var(--ink)",
-                              }}
-                            >
-                              {message.text || (isStreaming ? "thinking…" : "")}
-                              {isStreaming && message.text && <span className="ml-0.5 animate-pulse">▍</span>}
-                            </p>
-                          ) : (
-                            <div
-                              className="break-words rounded-xl px-3 py-2 text-sm leading-relaxed"
-                              style={{
-                                backgroundColor: isVisitor ? "var(--ink)" : "var(--gray-100)",
-                                color: isVisitor ? "var(--bg)" : "var(--ink)",
-                              }}
-                            >
-                              {message.text ? (
-                                <ChatText text={message.text} caret={isStreaming} />
-                              ) : (
-                                isStreaming ? "thinking…" : ""
-                              )}
-                            </div>
-                          )}
-                          {message.attachments && message.attachments.length > 0 && (
-                            <ul className="mt-1.5 flex flex-wrap justify-end gap-1.5">
-                              {message.attachments.map((file) => (
-                                <li key={file.name}>
-                                  <span
-                                    className="flex items-center gap-1.5 rounded-lg border border-[var(--gray-200)] bg-[var(--gray-50)] px-2 py-1"
-                                    style={{ color: "var(--gray-500)" }}
-                                  >
-                                    {file.url ? (
-                                      <img
-                                        src={file.url}
-                                        alt={file.name}
-                                        className="h-8 w-8 rounded object-cover"
-                                        style={{ border: "1px solid var(--gray-200)" }}
-                                      />
-                                    ) : (
-                                      <Paperclip size={12} strokeWidth={1.8} aria-hidden="true" />
-                                    )}
-                                    <span className="text-[11px] leading-tight" style={{ fontFamily: "var(--font-mono)" }}>
-                                      {file.name}
-                                      <span style={{ color: "var(--gray-400)" }}> · {formatBytes(file.size)}</span>
-                                    </span>
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          {/* Below the bubble, not under it: on a 360px panel a
-                              row underneath would sit closer to the *next*
-                              message and read as belonging to it. */}
-                          <div className={isVisitor ? "flex justify-end" : "flex justify-start"}>
-                            {canReact && (
-                              <ReactionBar
-                                messageId={message.id as string | number}
-                                reactions={reactions}
-                                actor={session?.visitorId ?? ""}
-                                onToggle={(kind, active) => {
-                                  if (message.id !== undefined) void toggleReaction(message.id, kind, active);
-                                }}
-                                busy={sendingReaction}
-                                align={isVisitor ? "end" : "start"}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   );
                 })}
@@ -1698,27 +1503,6 @@ export default function ChatWithIan() {
                 className="flex shrink-0 items-end gap-2 p-3"
                 style={{ borderTop: "1px solid var(--gray-200)" }}
               >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  multiple
-                  accept="image/*,.pdf,.txt,.md,.csv,.json"
-                  className="visually-hidden"
-                  tabIndex={-1}
-                  aria-hidden="true"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={loading || !session || pendingFiles.length >= MAX_ATTACHMENTS}
-                  aria-label="Attach a file"
-                  title="Attach a file"
-                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-[var(--gray-300)] transition-colors hover:border-[var(--ink)] disabled:opacity-40"
-                  style={{ color: "var(--gray-500)" }}
-                >
-                  <Paperclip size={15} strokeWidth={1.8} />
-                </button>
                 <ChatTextarea
                   ref={inputRef}
                   value={input}
@@ -1728,7 +1512,7 @@ export default function ChatWithIan() {
                   placeholder={
                     authFailed
                       ? "Chat is unavailable right now"
-                      : "Ask about my projects, stack..."
+                      : "Type a message..."
                   }
                   ariaLabel="Message"
                   disabled={!session || authFailed}
@@ -1738,7 +1522,7 @@ export default function ChatWithIan() {
                   onClick={() => void send()}
                   disabled={
                     loading ||
-                    (!input.trim() && pendingFiles.length === 0) ||
+                    !input.trim() ||
                     !session ||
                     authFailed
                   }
@@ -1749,79 +1533,27 @@ export default function ChatWithIan() {
                   <Send size={14} strokeWidth={1.8} />
                 </button>
               </div>
-
-              {/* Staged files, plus the honesty note. The assistant is
-                  text-only, so the composer says so at the moment the visitor
-                  picks a file rather than letting them assume the model can see
-                  it. */}
-              {(pendingFiles.length > 0 || attachmentError) && (
-                <div className="shrink-0 px-3 pb-2">
-                  {attachmentError && (
-                    <div className="mb-1.5">
-                      <ChatNotice message={attachmentError} onDismiss={() => setAttachmentError(null)} />
-                    </div>
-                  )}
-                  {pendingFiles.length > 0 && (
-                    <>
-                      <ul className="flex flex-wrap gap-1.5">
-                        {pendingFiles.map((file, index) => (
-                          <li
-                            key={file.name}
-                            className="flex items-center gap-1.5 rounded-lg border border-[var(--gray-200)] bg-[var(--gray-50)] py-1 pl-1.5 pr-1"
-                          >
-                            {file.url ? (
-                              <img
-                                src={file.url}
-                                alt=""
-                                aria-hidden="true"
-                                className="h-6 w-6 rounded object-cover"
-                                style={{ border: "1px solid var(--gray-200)" }}
-                              />
-                            ) : (
-                              <Paperclip size={12} strokeWidth={1.8} aria-hidden="true" className="text-[var(--gray-500)]" />
-                            )}
-                            <span
-                              className="max-w-[9rem] truncate text-[11px] leading-tight"
-                              style={{ fontFamily: "var(--font-mono)", color: "var(--gray-500)" }}
-                            >
-                              {file.name}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => removePendingFile(index)}
-                              aria-label={`Remove ${file.name}`}
-                              className="flex h-4 w-4 items-center justify-center"
-                              style={{ color: "var(--gray-400)" }}
-                            >
-                              <X size={11} />
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                      <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: "var(--gray-500)" }}>
-                        I read text only, so {PROFILE.goesBy} will see the file name but not the file itself.
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
             </>
           ) : (
-            /* Pre-chat step: name is required, email is optional. */
+            /* Pre-chat step: name is required, email is optional. A shadcn
+               surface built on the site's own tokens: `chat-welcome` is the
+               stagger hook (the entrance lives in chat-redesign.css) and
+               everything else is utility classes over the palette, so
+               nothing here restates a colour the theme already knows. */
             <form
-              className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4"
+              className="chat-welcome flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4"
               onSubmit={(event) => {
                 event.preventDefault();
                 submitContact();
               }}
             >
-              <p className="text-sm leading-relaxed" style={{ color: "var(--ink)" }}>
+              <p className="text-[15px] leading-relaxed tracking-tight text-card-foreground">
                 {GREETING.text}
               </p>
 
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="ian-chat-name" className="micro-label" style={{ color: "var(--gray-500)" }}>
-                  name
+              <div className="grid gap-2">
+                <label htmlFor="ian-chat-name" className="text-sm font-medium leading-none text-card-foreground">
+                  Name
                 </label>
                 <input
                   id="ian-chat-name"
@@ -1836,18 +1568,13 @@ export default function ChatWithIan() {
                   autoFocus
                   autoComplete="given-name"
                   placeholder="Ada Lovelace"
-                  // The input sets an inline `color`, which ::placeholder
-                  // inherits -- so the sample name rendered as dark as real
-                  // typed text and read like a filled-in value. Dimming the
-                  // placeholder marks it as a hint.
-                  className="chat-input w-full rounded-lg border border-[var(--gray-200)] px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
-                  style={{ backgroundColor: "var(--gray-100)", color: "var(--ink)" }}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="ian-chat-email" className="micro-label" style={{ color: "var(--gray-500)" }}>
-                  email <span style={{ color: "var(--gray-400)" }}>· optional</span>
+              <div className="grid gap-2">
+                <label htmlFor="ian-chat-email" className="text-sm font-medium leading-none text-card-foreground">
+                  Email <span className="font-normal text-muted-foreground">· Optional</span>
                 </label>
                 <input
                   id="ian-chat-email"
@@ -1860,8 +1587,7 @@ export default function ChatWithIan() {
                   maxLength={MAX_EMAIL_LENGTH}
                   autoComplete="email"
                   placeholder="you@example.com"
-                  className="chat-input w-full rounded-lg border border-[var(--gray-200)] px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
-                  style={{ backgroundColor: "var(--gray-100)", color: "var(--ink)" }}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
 
@@ -1871,32 +1597,36 @@ export default function ChatWithIan() {
                 type="submit"
                 disabled={!nameDraft.trim()}
                 // Full width so it spans the panel instead of floating as a
-                // small pill in a 360px column.
-                className="mt-1 w-full rounded-lg px-4 py-2.5 text-sm transition-opacity hover:opacity-85 disabled:opacity-40"
-                style={{ backgroundColor: "var(--ink)", color: "var(--bg)" }}
+                // small pill in a 360px column. The shadcn `hover:bg-primary/90`
+                // is a no-op on this stack -- Tailwind v3 drops alpha on a
+                // `var()` colour -- so the real hover is the `hover:opacity-90`
+                // sitting beside it, which lands on the same 90%.
+                className="group mt-1 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
               >
-                start chatting
+                Start chatting
+                <ArrowRight
+                  size={15}
+                  strokeWidth={1.8}
+                  aria-hidden="true"
+                  className="transition-transform duration-200 group-hover:translate-x-0.5"
+                />
               </button>
 
-              {/* type="button" so it does not submit the form behind it. Sized
-                  and coloured like the privacy note below: asking for a name is
-                  a courtesy, not a gate, and the way out should not shout. */}
+              {/* type="button" so it does not submit the form behind it. A
+                  ghost button: asking for a name is a courtesy, not a gate,
+                  and the way out should not shout. */}
               <button
                 type="button"
                 onClick={() => submitContact("Guest")}
-                className="text-[11px] leading-relaxed transition-opacity hover:opacity-70"
-                style={{ color: "var(--gray-400)" }}
+                className="inline-flex h-10 w-full items-center justify-center rounded-md px-4 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                or continue as guest
+                Or continue as guest
               </button>
 
               {/* mt-auto pushes this to the bottom of the panel. The form is a
                   flex column in a fixed-height card, so without it the lower
                   third was dead space and the block looked unfinished. */}
-              <p
-                className="mt-auto pt-4 text-[11px] leading-relaxed"
-                style={{ color: "var(--gray-400)" }}
-              >
+              <p className="mt-auto pt-2 text-xs leading-relaxed text-muted-foreground">
                 Your email is only stored so {PROFILE.goesBy} can reply to you. Leave it blank if you'd
                 rather not.
               </p>

@@ -64,6 +64,25 @@
             sans: ["var(--font-body)"],
             serif: ["var(--font-body)"],
           },
+          /* Shadcn-style surface tokens, for the chat panel's header and
+             welcome step. Every value resolves against the bryl-minimal
+             variables in src/styles/theme.css rather than restating a colour,
+             so `bg-card` and friends retint themselves with the light/dark
+             toggle like every other surface on the page. Nested DEFAULT /
+             foreground pairs are what make `bg-card text-card-foreground`
+             read as one utility family. */
+          colors: {
+            background: "var(--bg)",
+            foreground: "var(--ink)",
+            border: "var(--gray-200)",
+            input: "var(--gray-300)",
+            ring: "var(--ink)",
+            card: { DEFAULT: "var(--gray-50)", foreground: "var(--ink)" },
+            primary: { DEFAULT: "var(--ink)", foreground: "var(--bg)" },
+            secondary: { DEFAULT: "var(--gray-100)", foreground: "var(--ink)" },
+            muted: { DEFAULT: "var(--gray-100)", foreground: "var(--gray-500)" },
+            accent: { DEFAULT: "var(--gray-100)", foreground: "var(--ink)" },
+          },
         },
       },
     };

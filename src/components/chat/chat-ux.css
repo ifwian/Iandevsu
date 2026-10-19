@@ -254,7 +254,7 @@ html .chat-panel :is(button, a):focus-visible,
 }
 
 /* ---------- Touch: bigger targets ----------
-   The header buttons are 24px, below what a thumb can reliably hit. */
+   The header buttons are 36px, below what a thumb can reliably hit. */
 @media (pointer: coarse) {
   html .chat-panel button[aria-label="Close chat"],
   html .chat-panel button[aria-label="Start a new chat"] {
