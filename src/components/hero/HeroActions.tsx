@@ -1,4 +1,4 @@
-import { ArrowDown } from "lucide-react";
+import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { SOCIAL_ITEMS } from "@/lib/socials";
 
 /**
@@ -22,12 +22,18 @@ import { SOCIAL_ITEMS } from "@/lib/socials";
  * other link on the site wears ("view all projects", "visit site", "back to
  * home" are the same mouthful). An earlier pass hid them behind icon-only
  * round buttons to keep the row's one job singular; the rings read as a
- * second row of chrome next to the primary's fill, and words say "reference"
- * more quietly, so the names are the labels themselves now -- no separate
- * title casing for pointers, no aria-label to drift out of sync.
+ * second row of chrome next to the primary, and words say "reference" more
+ * quietly, so the names are the labels themselves now -- no separate title
+ * casing for pointers, no aria-label to drift out of sync. Each ends in the
+ * up-right arrow, the site's "this leaves the page" mark, because these three
+ * do.
  *
- * The primary keeps its ink fill: the row should have exactly one obvious
- * next step, and it is the one item painted with ink.
+ * The primary keeps the row's strongest ink: the row should have exactly one
+ * obvious next step. It is unfilled -- the old ink fill inverted to a white
+ * pill in dark mode and took the whole row's attention -- so its weight comes
+ * from colour and the down-arrow, not a painted box. It also sits one extra
+ * step to the right of the social links (`margin-right` in hero.css), so the
+ * row reads "one step, then references" rather than four equal words.
  */
 export default function HeroActions() {
   return (
@@ -50,7 +56,15 @@ export default function HeroActions() {
           rel="noopener noreferrer"
           className="hero-social-link"
         >
-          {label}
+          <span>{label}</span>
+          {/* Decorative: the link already announces itself, so the mark is
+              `aria-hidden` rather than being read out as "up-right arrow". */}
+          <ArrowUpRight
+            size={12}
+            strokeWidth={1.7}
+            aria-hidden="true"
+            className="hero-social-arrow"
+          />
         </a>
       ))}
     </div>
