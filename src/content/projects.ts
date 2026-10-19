@@ -104,18 +104,18 @@ export const PROJECTS: Project[] = [
     },
   },
   {
-    // No screenshot yet -- until there is a deploy, the card shows
-    // `dear-in-stereo.webp`, a template preview of the landing page as it is
-    // being designed. Swap it for a real screenshot when one exists.
+    // Live at the link below. The preview is a real screenshot of the
+    // deployed landing page, not the template mock it replaced.
     title: "Dear, in Stereo",
     role: "Full-stack Developer",
     status: "in progress",
     tone: "active",
     description: "A personal music-sharing platform where songs become digital letters: pick a track, write the note, and send a private link they can play, with themed mixtapes and an archive of everything sent and received.",
     stack: ["react", "tailwindcss"],
+    href: "https://dearinstereo.vercel.app/",
     image: {
       src: "/images/projects/dear-in-stereo.webp",
-      alt: "Dear, in Stereo landing page: a dark music workspace with the headline Turn a song into a letter with Dear, in Stereo, set beside a card about private letter links.",
+      alt: "Dear, in Stereo landing page: the headline Dear, someone. Here is a song. beside a sample letter card, with Write a song letter and See how it works buttons.",
     },
   },
   {
