@@ -571,22 +571,33 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  margin: 0 6px 0 0;
   background-color: var(--gray-200);
   color: var(--gray-500);
   display: flex;
-  align-items: normal;
+  align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: 600;
   text-align: center;
   flex-shrink: 0;
+  margin: 0 6px 0 0;
 }
 .inbox-msg[data-side="out"] .inbox-avatar {
   margin: 0 0 0 6px;
 }
 .inbox-msg[data-side="in"] .inbox-avatar {
   margin: 0 6px 0 0;
+}
+
+/* Mobile: center avatar in message bubbles */
+@media (max-width: 640px) {
+  .inbox-avatar {
+    margin: 0 auto;
+  }
+  .inbox-msg[data-side="out"] .inbox-avatar,
+  .inbox-msg[data-side="in"] .inbox-avatar {
+    margin: 0 auto;
+  }
 }
 
 /* --------------------------------------------------------------------------
