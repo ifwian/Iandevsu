@@ -1,11 +1,10 @@
-import type { Reaction, VisitorActivity } from "@/lib/chatFormat";
-
 /**
- * Shapes the admin inbox exchanges with `/api/chat?admin=1`.
+ * Shapes the browser half of the admin inbox exchanges with `/api/chat?admin=1`,
+ * and the validators that guard them.
  *
- * They live here rather than in the page so the three panel components can
+ * They live apart from the page so the row, the header and the transcript can
  * take typed props without importing the page (which would be a cycle), and so
- * the validators sit in one place instead of being re-implemented per panel.
+ * "what the server is allowed to send" is answered once instead of per view.
  */
 
 export interface Conversation {
@@ -29,6 +28,12 @@ export interface Conversation {
   first_seen_at?: string;
   device?: string | null;
   current_page?: string | null;
+  /**
+   * Admin-side archive marker. Null (or absent, before
+   * 20261019010000_add_chat_archived.sql is applied) means the conversation is
+   * in the inbox; a timestamp means it is filed away.
+   */
+  archived_at?: string | null;
 }
 
 export interface InboxMessage {
@@ -39,14 +44,14 @@ export interface InboxMessage {
   created_at: string;
 }
 
-export interface Note {
-  id: string | number;
-  conversation_id: string;
-  body: string;
-  created_at: string;
-}
-
-/** Everything the visitor information panel shows. */
+/**
+ * The visitor summary the thread response carries.
+ *
+ * Deliberately narrower than the server's object: this is what the header
+ * actually renders. `sessionCount` and `device` still arrive and are ignored
+ * rather than validated, so an older server cannot fail the whole thread on a
+ * field the header does not use.
+ */
 export interface VisitorInfo {
   name: string | null;
   email: string | null;
@@ -55,27 +60,17 @@ export interface VisitorInfo {
   /** This particular chat thread's start. */
   sessionStartedAt: string;
   currentPage: string | null;
-  device: string | null;
-  sessionCount: number;
   visitorId: string;
 }
 
-export interface ThreadPayload {
-  messages: InboxMessage[];
-  notes: Note[];
-  activity: VisitorActivity[];
-  reactions: Reaction[];
-  visitor: VisitorInfo;
-}
-
-/** chat_messages.id is a bigint: PostgREST may hand back number or string. */
-export function isRowId(value: unknown): value is string | number {
+/* chat_messages.id is a bigint: PostgREST may hand back number or string. */
+function isRowId(value: unknown): value is string | number {
   if (typeof value === "number") return Number.isFinite(value);
   return typeof value === "string" && value.trim().length > 0;
 }
 
 /** Absent, null, or a string -- the contact columns are optional. */
-export function isOptionalText(value: unknown): boolean {
+function isOptionalText(value: unknown): boolean {
   return value === undefined || value === null || typeof value === "string";
 }
 
@@ -93,6 +88,7 @@ export function isConversation(value: unknown): value is Conversation {
     typeof candidate.status === "string" &&
     typeof candidate.last_message_at === "string" &&
     typeof candidate.last_message_preview === "string" &&
+    isOptionalText(candidate.archived_at) &&
     // Must stay optional, otherwise conversations created before the pre-chat
     // form (and the migration) would vanish from the list entirely.
     isOptionalText(candidate.visitor_name) &&
@@ -106,24 +102,13 @@ export function isInboxMessage(value: unknown): value is InboxMessage {
   return (
     isRowId(candidate.id) &&
     typeof candidate.conversation_id === "string" &&
-    // 'system' must be accepted. Takeover and resolution announcements are
-    // stored with that role, and rejecting it here silently dropped them from
-    // the transcript the admin is reading.
+    // 'system' must be accepted. Takeover announcements are stored with that
+    // role, and rejecting it here silently dropped them from the transcript the
+    // admin is reading.
     (candidate.role === "visitor" ||
       candidate.role === "assistant" ||
       candidate.role === "admin" ||
       candidate.role === "system") &&
-    typeof candidate.body === "string" &&
-    typeof candidate.created_at === "string"
-  );
-}
-
-export function isNote(value: unknown): value is Note {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    isRowId(candidate.id) &&
-    typeof candidate.conversation_id === "string" &&
     typeof candidate.body === "string" &&
     typeof candidate.created_at === "string"
   );
@@ -135,12 +120,10 @@ export function isVisitorInfo(value: unknown): value is VisitorInfo {
   return (
     typeof candidate.firstSeenAt === "string" &&
     typeof candidate.sessionStartedAt === "string" &&
-    typeof candidate.sessionCount === "number" &&
     typeof candidate.visitorId === "string" &&
     isOptionalText(candidate.name) &&
     isOptionalText(candidate.email) &&
-    isOptionalText(candidate.currentPage) &&
-    isOptionalText(candidate.device)
+    isOptionalText(candidate.currentPage)
   );
 }
 
@@ -157,5 +140,28 @@ export function roleLabel(role: InboxMessage["role"]): string {
   return "assistant";
 }
 
-/** Every note is a fixed-height row so a long one cannot push the composer out. */
-export const MAX_NOTE_LENGTH = 2000;
+/** Unread count, tolerating the column not existing. */
+export function unreadOf(conversation: Conversation): number {
+  return typeof conversation.unread_count === "number" && conversation.unread_count > 0
+    ? conversation.unread_count
+    : 0;
+}
+
+/** Archived at any point in the past. */
+export function isArchived(conversation: Conversation): boolean {
+  return Boolean(conversation.archived_at);
+}
+
+/** Case-insensitive match on name, email, id, or the label the list shows. */
+export function matchesQuery(conversation: Conversation, term: string): boolean {
+  if (
+    conversation.visitor_name?.toLowerCase().includes(term) ||
+    conversation.visitor_email?.toLowerCase().includes(term) ||
+    conversation.visitor_id.toLowerCase().includes(term)
+  ) {
+    return true;
+  }
+  // Match on what the list actually renders, so searching for the text a
+  // visitor sees ("anonymous") finds the nameless rows.
+  return visitorLabel(conversation).toLowerCase().includes(term);
+}

@@ -45,6 +45,14 @@ for (const job of jobs) {
     console.log(`skip   ${job.output} (already exists)`);
     continue;
   }
+  /* The original-size sources (`job.input`) were removed from the repo once the
+     site shipped only the generated copies below -- they are still in git
+     history if a rebuild is ever wanted. Skip instead of throwing when one is
+     absent, so running this stays a safe no-op. */
+  if (!existsSync(inputPath)) {
+    console.log(`skip   ${job.output} (no source ${job.input})`);
+    continue;
+  }
   const info = await job.run(sharp(inputPath)).toFile(outputPath);
   console.log(`wrote  ${job.output}  ${info.width}x${info.height}  ${(info.size / 1024).toFixed(1)} KB`);
 }

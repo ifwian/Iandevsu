@@ -1,0 +1,602 @@
+/* ==========================================================================
+   Inbox layout — one stylesheet, token-driven, no Tailwind utilities.
+   Every class below is an isolated `ui-*` or `inbox-*` class so it cannot
+   reach the public portfolio and nothing in the public site reaches into it.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Page
+   -------------------------------------------------------------------------- */
+
+.inbox-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100dvh;
+  padding: 12px;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-mono);
+}
+@media (min-width: 640px) {
+  .inbox-page { padding: 16px; }
+}
+
+/* --------------------------------------------------------------------------
+   Top bar
+   -------------------------------------------------------------------------- */
+
+.inbox-topbar {
+  display: flex;
+  align-items: normal;
+  gap: 10px;
+  flex: none;
+  min-width: 0;
+}
+.inbox-topbar-identity {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.inbox-topbar-heading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.inbox-topbar-sub {
+  color: var(--ui-muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.inbox-topbar-actions {
+  display: flex;
+  align-items: normal;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* --------------------------------------------------------------------------
+   Two panes (list + thread); below 900px only one is visible at a time.
+   Above 900px both are always drawn.
+   -------------------------------------------------------------------------- */
+
+.inbox-shell {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 900px) {
+  .inbox-shell {
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  }
+}
+@media (max-width: 899px) {
+  .inbox-shell[data-pane="list"] > .inbox-thread,
+  .inbox-shell[data-pane="thread"] > .inbox-list {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   List pane
+   -------------------------------------------------------------------------- */
+
+.inbox-list { min-height: 0; }
+.inbox-list-head {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid var(--ui-edge);
+}
+.inbox-list-headline {
+  display: flex;
+  align-items: normal;
+  justify-content: space-between;
+  gap: 8px;
+}
+.inbox-list-label {
+  color: var(--ui-muted);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.inbox-search {
+  position: relative;
+  display: flex;
+  align-items: normal;
+}
+.inbox-search > svg {
+  position: absolute;
+  left: 9px;
+  color: var(--ui-muted);
+  pointer-events: none;
+}
+.inbox-search .ui-input {
+  padding-right: 28px;
+  padding-left: 28px;
+}
+.inbox-search-clear {
+  position: absolute;
+  right: 5px;
+  display: inline-flex;
+  align-items: normal;
+  justify-content:center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+.inbox-search-clear:hover {
+  color: var(--ink);
+  background-color: var(--gray-200);
+}
+
+/* Segmented control: Open / Archived */
+.inbox-seg {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--ui-edge);
+  border-radius: var(--ui-radius-sm);
+  background-color: var(--bg);
+}
+.inbox-seg-item {
+  display: inline-flex;
+  align-items: normal;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--ui-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.inbox-seg-item:hover:not([aria-pressed="true"]) {
+  color: var(--ink);
+  background-color: var(--gray-100);
+}
+.inbox-seg-item[aria-pressed="true"] {
+  background-color: var(--ink);
+  color: var(--bg);
+}
+.inbox-seg-item:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+.inbox-seg-count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+/* List rows */
+.inbox-list-body { flex: 1 1 auto; min-height: 0; padding: 4px; }
+.inbox-rows { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.inbox-row { position: relative; }
+.inbox-row-hit {
+  display: grid;
+  align-items: normal;
+  gap: 10px;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  width: 100%;
+  padding: 9px 34px 9px 9px;
+  border: 0;
+  border-radius: var(--ui-radius);
+  background-color: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.inbox-row-hit:hover { background-color: var(--gray-100); }
+.inbox-row-hit:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.inbox-row[data-selected="true"] .inbox-row-hit {
+  background-color: var(--gray-100);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+.inbox-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.inbox-row-name {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inbox-row[data-unread="true"] .inbox-row-name { font-weight: 600; }
+.inbox-row-preview {
+  color: var(--ui-muted);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inbox-row-tail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.inbox-row-time {
+  color: var(--ui-muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.inbox-row-menu {
+  position: absolute;
+  top: 8px;
+  right: 6px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.inbox-row:hover .inbox-row-menu,
+.inbox-row:focus-within .inbox-row-menu,
+.inbox-row:has(.ui-button[aria-expanded="true"]) .inbox-row-menu {
+  opacity: 1;
+}
+@media (hover: none) {
+  .inbox-row-menu { opacity: 1; }
+}
+.inbox-row-hint {
+  color: var(--ui-muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* --------------------------------------------------------------------------
+   Monogram
+   -------------------------------------------------------------------------- */
+
+.inbox-monogram {
+  display: inline-flex;
+  align-items: normal;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background-color: var(--gray-200);
+  color: var(--gray-500);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.inbox-monogram--lg { width: 38px; height: 38px; font-size: 15px; }
+
+/* --------------------------------------------------------------------------
+   Thread pane
+   -------------------------------------------------------------------------- */
+
+.inbox-thread { min-height: 0; }
+.inbox-thread-head {
+  flex: none;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--ui-edge);
+}
+.inbox-thread-identity {
+  display: flex;
+  align-items: normal;
+  gap: 10px;
+  min-width: 0;
+}
+.inbox-thread-back {
+  display: none;
+}
+@media (max-width: 899px) {
+  .inbox-thread-back { display: inline-flex; }
+}
+.inbox-thread-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.inbox-thread-name > h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inbox-thread-actions {
+  display: flex;
+  align-items: normal;
+  gap: 8px;
+  margin-left: auto;
+}
+.inbox-thread-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: normal;
+  gap: 4px 10px;
+  margin: 8px 0 0;
+  color: var(--ui-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.inbox-thread-meta > span {
+  display: inline-flex;
+  align-items: normal;
+  gap: 5px;
+  min-width: 0;
+}
+.inbox-email {
+  display: inline-flex;
+  align-items: normal;
+  gap: 4px;
+  color: var(--gray-500);
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inbox-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--accent-positive);
+}
+.inbox-thread-meta > span:first-child {
+  color: var(--gray-500);
+  font-size: 13px;
+}
+.inbox-thread-meta > span:last-child {
+  color: var(--ui-muted);
+  font-size: 11px;
+}
+
+/* Transcript */
+.inbox-transcript {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 16px 14px;
+}
+.inbox-day {
+  display: flex;
+  align-items: normal;
+  gap: 10px;
+  margin: 4px 0;
+  color: var(--ui-muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.inbox-day::before,
+.inbox-day::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background-color: var(--ui-edge);
+}
+.inbox-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 78%;
+}
+.inbox-msg[data-side="in"] { align-self: flex-start; align-items: flex-start; }
+.inbox-msg[data-side="out"] { align-self: flex-end; align-items: flex-end; }
+.inbox-msg-meta {
+  display: flex;
+  gap: 6px;
+  color: var(--ui-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.inbox-bubble {
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-lg);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.inbox-msg[data-side="in"] .inbox-bubble {
+  border-color: var(--ui-edge);
+  border-top-left-radius: 4px;
+  background-color: var(--bg);
+}
+.inbox-msg[data-side="out"] .inbox-bubble {
+  border-top-right-radius: 4px;
+  background-color: var(--bg);
+  color: var(--ink);
+}
+/* Assistant bubble — soft fill on the right */
+.inbox-msg[data-role="assistant"] .inbox-bubble {
+  border-color: transparent;
+  background-color: var(--gray-100);
+}
+/* Admin bubble — ink fill on the right (already covered by [data-side="out"]) */
+.inbox-msg[data-side="out"] .inbox-bubble {
+  /* intentionally repeated for specificity; could remove if redundant */
+}
+.inbox-msg[data-grouped="true"] .inbox-bubble {
+  border-top-left-radius: var(--ui-radius-lg);
+  border-top-right-radius: var(--ui-radius-lg);
+}
+.inbox-bubble-text {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* Notices / system messages */
+.inbox-notice {
+  align-self: center;
+  max-width: 88%;
+  margin: 2px 0;
+  color: var(--gray-500);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* Composer */
+.inbox-composer {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--ui-edge);
+}
+.inbox-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.inbox-composer textarea {
+  max-height: 168px;
+  font-size: 15px;
+}
+.inbox-composer-foot {
+  display: flex;
+  align-items: normal;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ui-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Error banner */
+.inbox-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: none;
+  padding: 9px 10px;
+  border: 1px solid var(--ui-edge-strong);
+  border-radius: var(--ui-radius-sm);
+  background-color: var(--gray-50);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.inbox-banner-dismiss {
+  display: inline-flex;
+  align-items: normal;
+  justify-content:center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: -2px -2px 0 auto;
+  border: 0;
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+.inbox-banner-dismiss:hover {
+  color: var(--ink);
+  background-color: var(--gray-200);
+}
+
+/* --------------------------------------------------------------------------
+   Sign-in gate
+   -------------------------------------------------------------------------- */
+
+.inbox-gate {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: normal;
+  justify-content: center;
+  min-height: 0;
+  padding: 24px 0;
+}
+.inbox-gate-card {
+  width: min(100%, 26rem);
+}
+.inbox-gate-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.inbox-gate-note {
+  margin: 14px 0 0;
+  color: var(--ui-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.inbox-gate-note code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   Avatars
+   -------------------------------------------------------------------------- */
+
+.inbox-avatar {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin: 0 6px 0 0;
+  background-color: var(--gray-200);
+  color: var(--gray-500);
+  display: flex;
+  align-items: normal;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  flex-shrink: 0;
+}
+.inbox-msg[data-side="out"] .inbox-avatar {
+  margin: 0 0 0 6px;
+}
+.inbox-msg[data-side="in"] .inbox-avatar {
+  margin: 0 6px 0 0;
+}
+
+/* --------------------------------------------------------------------------
+   Refresh spinner
+   -------------------------------------------------------------------------- */
+
+@keyframes inbox-spin {
+  to { transform: rotate(360deg); }
+}
+.inbox-spin { animation: inbox-spin 0.9s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .inbox-spin { animation: none; }
+}

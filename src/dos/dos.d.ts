@@ -5,8 +5,12 @@ export interface DosOptions {
   containerSelector?: string | Element | null;
   /** Pixel scale: 32px cells at 2.25 = a 72px cat. Default 2.25. */
   scale?: number;
-  /** Run speed in CSS px per second. Default 130. */
+  /** Cruise speed in CSS px/s (running near the cursor). Default 140. */
   speed?: number;
+  /** Sprint ceiling in CSS px/s, reached when the gap to the cursor exceeds `sprintRamp`. Default 230. */
+  sprintSpeed?: number;
+  /** Gap in px (beyond `stopDistance`) at which the sprint ceiling is reached. Default 420. */
+  sprintRamp?: number;
   /** How close he stops to the cursor, in CSS px. Default 64. */
   stopDistance?: number;
   /** Gap between Dos and his resting corner (idle-only mode). Default 0. */
@@ -25,11 +29,11 @@ export interface DosOptions {
   dragFollow?: number;
   /** Chance per 100 ms tick that an idle animation (nap, scratch) starts. Default 1/150. */
   idleChance?: number;
-  /** Relative odds of each idle animation; 0 switches one off. Default all 1. */
+  /** Relative odds of each idle animation; 0 switches one off. Default sleeping 1, scratchSelf 1, wall 2. */
   idleWeights?: { sleeping?: number; scratchSelf?: number; wall?: number };
   /** Nap length in 100 ms ticks. Default 192. */
   sleepLength?: number;
-  /** Chance per tick of clawing the wall when the cursor is beyond it. Default 0.1. */
+  /** Chance per tick of clawing the wall when the cursor is beyond it. Default 0.28. */
   wallChance?: number;
   /** Min and max ticks between rotating speech bubbles. Default [130, 240]. */
   sayEvery?: [number, number];

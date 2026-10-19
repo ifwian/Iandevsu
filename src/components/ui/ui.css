@@ -1,0 +1,477 @@
+/* ==========================================================================
+   UI kit -- shadcn/ui's composition API without its dependencies.
+
+   The names and the shape of the components are shadcn/ui's (Button, Input,
+   Card, Badge, Separator, ScrollArea, DropdownMenu, AlertDialog, Skeleton) so
+   anything learned there transfers. The *styling* is not, because the real
+   components expect `background` / `foreground` / `muted` token pairs plus
+   Radix and class-variance-authority, and this project installs none of them.
+
+   So: one neutral ramp (--gray-50..--gray-500 against --ink and --bg), hairline
+   borders, and a single emphasis move -- fill with ink, invert the text.
+   Monochrome on purpose. Borders and fills carry the hierarchy instead of
+   colour, which is what lets both themes run off one set of rules.
+
+   Every value here is a token, and every selector is a single `ui-` class, so
+   nothing in this file can reach the marketing sections and nothing in them can
+   reach this. Type floors: 13px for chrome, 11px for the uppercase labels.
+   ========================================================================== */
+
+:root {
+  --ui-radius-sm: 6px;
+  --ui-radius: 8px;
+  --ui-radius-lg: 12px;
+  /* Hairlines. Two weights: the normal edge and the one a control gets when it
+     wants to be seen (a field's border while focused, an outlined button). */
+  --ui-edge: var(--gray-200);
+  --ui-edge-strong: var(--gray-300);
+  /* Quiet text. --gray-400 is dark enough on --bg in light mode and light
+     enough on --bg in dark mode, so it is the only one needed. */
+  --ui-muted: var(--gray-400);
+}
+
+/* --------------------------------------------------------------------------
+   Button
+   -------------------------------------------------------------------------- */
+
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-sm);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.ui-button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.ui-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Sizes are the only thing that changes the box; variants only ever change
+   fill, border and text. */
+.ui-button--sm {
+  height: 28px;
+  padding: 0 10px;
+}
+.ui-button--md {
+  height: 34px;
+  padding: 0 14px;
+}
+.ui-button--icon {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+.ui-button--icon-sm {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
+/* The emphasis move: ink fill, inverted text. There is exactly one of these
+   per view, and it is whatever the view is for. */
+.ui-button--default {
+  background-color: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+.ui-button--default:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.ui-button--secondary {
+  background-color: var(--gray-100);
+  border-color: var(--gray-100);
+  color: var(--ink);
+}
+.ui-button--secondary:hover:not(:disabled) {
+  background-color: var(--gray-200);
+  border-color: var(--gray-200);
+}
+
+.ui-button--outline {
+  background-color: var(--bg);
+  border-color: var(--ui-edge-strong);
+  color: var(--ink);
+}
+.ui-button--outline:hover:not(:disabled) {
+  border-color: var(--ink);
+  background-color: var(--gray-100);
+}
+
+.ui-button--ghost {
+  background-color: transparent;
+  color: var(--ui-muted);
+}
+.ui-button--ghost:hover:not(:disabled) {
+  background-color: var(--gray-100);
+  color: var(--ink);
+}
+
+/* --------------------------------------------------------------------------
+   Input / Textarea
+   -------------------------------------------------------------------------- */
+
+.ui-input,
+.ui-textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--ui-edge);
+  border-radius: var(--ui-radius-sm);
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ui-input {
+  height: 32px;
+  padding: 0 10px;
+}
+
+.ui-textarea {
+  display: block;
+  padding: 9px 11px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.ui-input::placeholder,
+.ui-textarea::placeholder {
+  color: var(--ui-muted);
+}
+
+.ui-input:focus,
+.ui-textarea:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--gray-200);
+}
+
+.ui-input:disabled,
+.ui-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+   Badge
+   -------------------------------------------------------------------------- */
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  height: 18px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ui-badge--default {
+  background-color: var(--ink);
+  color: var(--bg);
+}
+.ui-badge--secondary {
+  background-color: var(--gray-200);
+  color: var(--gray-500);
+}
+.ui-badge--outline {
+  border-color: var(--ui-edge-strong);
+  color: var(--gray-500);
+}
+
+/* --------------------------------------------------------------------------
+   Card
+   -------------------------------------------------------------------------- */
+
+.ui-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--ui-edge);
+  border-radius: var(--ui-radius-lg);
+  background-color: var(--gray-50);
+  color: var(--ink);
+}
+
+.ui-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px 12px;
+}
+
+.ui-card-title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.ui-card-description {
+  margin: 0;
+  color: var(--gray-500);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ui-card-content {
+  padding: 0 16px 16px;
+}
+
+/* --------------------------------------------------------------------------
+   ScrollArea -- overflow plus a scrollbar that does not fight the theme.
+
+   `overscroll-behavior: contain` matters here: without it a wheel at the end of
+   the transcript chains to the page behind it, and the admin scrolls the
+   document they are not looking at.
+   -------------------------------------------------------------------------- */
+
+.ui-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.ui-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.ui-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ui-scroll::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-color: var(--gray-200);
+  background-clip: content-box;
+}
+
+.ui-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--gray-300);
+}
+
+/* --------------------------------------------------------------------------
+   DropdownMenu
+
+   Rendered through a portal and positioned from the trigger's rect, because a
+   menu inside a card would otherwise be clipped by the card's own
+   `overflow: hidden` -- the row menus live in a scrolling list.
+   -------------------------------------------------------------------------- */
+
+.ui-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 11rem;
+  max-width: 16rem;
+  padding: 4px;
+  border: 1px solid var(--ui-edge);
+  border-radius: var(--ui-radius);
+  background-color: var(--bg);
+  box-shadow: var(--shadow-modal);
+  animation: ui-pop-in 0.12s var(--ease-out);
+}
+
+@keyframes ui-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ui-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: var(--ui-radius-sm);
+  background-color: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Hover and keyboard focus are the same state: :focus-visible never fires for
+   an item focused by ArrowDown in some engines, and the arrow key is the
+   keyboard path this menu actually has. */
+.ui-menu-item:hover,
+.ui-menu-item:focus {
+  background-color: var(--gray-100);
+  outline: none;
+}
+
+.ui-menu-item[data-tone="quiet"] {
+  color: var(--ui-muted);
+}
+
+.ui-menu-item[data-tone="quiet"]:hover,
+.ui-menu-item[data-tone="quiet"]:focus {
+  color: var(--ink);
+}
+
+.ui-menu-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-menu-item > svg {
+  flex: none;
+  color: var(--ui-muted);
+}
+
+.ui-menu-separator {
+  height: 1px;
+  margin: 4px 2px;
+  background-color: var(--ui-edge);
+}
+
+.ui-menu-label {
+  padding: 6px 9px 4px;
+  color: var(--ui-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* --------------------------------------------------------------------------
+   AlertDialog
+   -------------------------------------------------------------------------- */
+
+.ui-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background-color: rgba(6, 6, 8, 0.45);
+  animation: ui-fade-in 0.12s ease;
+}
+
+.ui-dialog {
+  position: fixed;
+  z-index: 81;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(92vw, 27rem);
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 18px;
+  border: 1px solid var(--ui-edge);
+  border-radius: var(--ui-radius-lg);
+  background-color: var(--bg);
+  box-shadow: var(--shadow-modal);
+  animation: ui-dialog-in 0.14s var(--ease-out);
+}
+
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ui-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.ui-dialog-title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ui-dialog-description {
+  margin: 8px 0 0;
+  color: var(--gray-500);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ui-dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+/* --------------------------------------------------------------------------
+   Skeleton
+   -------------------------------------------------------------------------- */
+
+.ui-skeleton {
+  border-radius: var(--ui-radius-sm);
+  background-color: var(--gray-200);
+  animation: ui-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ui-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion: every animation above is decoration. Nothing here is the
+   only carrier of meaning, so all of it can go.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-menu,
+  .ui-dialog,
+  .ui-dialog-backdrop,
+  .ui-skeleton {
+    animation: none;
+  }
+}

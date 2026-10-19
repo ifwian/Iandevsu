@@ -1,0 +1,446 @@
+/* ---------- Hero ----------
+ * The hero's own stylesheet, imported by the section component.
+ *
+ * theme.css draws the window, the portrait and the pill; nothing here
+ * restyles those from scratch. Everything below is either a piece the hero
+ * gained after that sheet was written (the role eyebrow, the pitch, the
+ * action row) or a correction to a value theme.css set -- corrections live
+ * here because theme.css is shared with every other section, and a value
+ * changed for the hero's sake has to be changed where only the hero can see
+ * it.
+ *
+ * The scope is `#home`, the hero section's own id: `#home .hero-titlebar`
+ * outranks theme.css's `.hero-titlebar` whatever order the two files are
+ * injected in, and every rule stays inside the one section it was written
+ * for.
+ */
+
+/* ---------- Card layout ----------
+ * One row from 720px up: a fixed 240px portrait column beside a content
+ * column that takes the rest, 40px apart, both starting at the same top edge
+ * (`align-items: flex-start`) -- the portrait is top-aligned with the eyebrow,
+ * not centred against the column beside it. Below 720px the same wrapper is a
+ * single column with the portrait first, capped at 200px and left-aligned
+ * above the eyebrow. The 720px step is the card's own: `md` is 768px and `sm`
+ * is 640px, and neither is where the portrait stops fitting beside the copy.
+ */
+
+/* The card's one inner inset, 32px at every width. */
+#home .hero-body {
+  position: relative;
+  padding: 32px;
+}
+
+/* The titlebar correction: theme.css steps its horizontal padding against a
+   body that no longer steps (1.25/1.5/2rem at 0/640/1024). One value matching
+   the body's 32px keeps the invariant that rule was written for -- the path
+   and the name beneath it stay on one left edge. 13px rather than the sheet's
+   11px: the card's floor is 13px, and the path is the one real string in the
+   chrome. */
+#home .hero-titlebar {
+  padding: 0.5rem 32px;
+  font-size: 13px;
+}
+
+#home .hero-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+/* The content column: `min-width: 0` so long copy shrinks inside it instead
+   of stretching the card, full width while stacked, `flex: 1` beside the
+   portrait. */
+#home .hero-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  width: 100%;
+}
+
+/* The portrait column: capped at 200px and flush left in the stacked layout;
+   a fixed 240px from 720px up. `align-items: center` is only for the caption
+   below the image -- the image itself is `w-full`. */
+#home .hero-portrait-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 200px;
+}
+
+@media (min-width: 720px) {
+  #home .hero-layout {
+    flex-direction: row;
+    gap: 40px;
+  }
+
+  #home .hero-column {
+    flex: 1;
+    width: auto;
+  }
+
+  #home .hero-portrait-col {
+    width: 240px;
+    max-width: none;
+    flex-shrink: 0;
+  }
+}
+
+/* One hairline around the portrait. theme.css drew its edge twice -- a 1px
+   border plus a 1px `--bg` ring in the first box-shadow, and a wider ink glow
+   on hover. On a 240px picture the doubled edge reads as a smudged frame, so
+   the border stays, the rings go, and the hover keeps its feedback (the
+   border steps to ink). The reveal itself is the component's, untouched. */
+#home .hero-portrait {
+  border: 1px solid var(--gray-300);
+  box-shadow: none;
+}
+
+#home .hero-portrait:hover {
+  border-color: var(--ink);
+  box-shadow: none;
+}
+
+/* ---------- The content column's rhythm ----------
+ * role -> name 8px, name -> pitch 16px, pitch -> quote 12px, quote -> actions
+ * 32px. Every step is on the card's 8px scale, and the whole sequence is
+ * declared in one place -- margins live here rather than as utilities on the
+ * components, so the rhythm reads as one list and cannot be reassembled by
+ * accident.
+ */
+
+/* The role eyebrow: the line that used to sit under the name as a strapline,
+   above the name and reduced to its label weight. 13px mono, `--gray-500`,
+   sentence case as stored -- the same register as the stat strip's labels and
+   the sidebar's chrome. */
+#home .hero-role {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+#home .hero-name {
+  margin-top: 0.5rem;
+}
+
+/* The copy's two sentences -- the lead ("I build ...") and the closing
+   ("These days, ..."). One rule, because they are one voice: body sans rather
+   than the mono of the chrome around them (mono for chrome, sans for anything
+   a person wrote), 15px in `--gray-500`, capped at 36rem so each stays a
+   short read rather than stretching to the column's measure.
+
+   The closing sentence used to be a bordered 14px pull quote; the border and
+   the size step are gone, so a format change lands here once instead of in
+   two rules that could drift. The only mark between the paragraphs is the
+   12px step in the column's rhythm above. */
+#home .hero-pitch,
+#home .hero-quote {
+  max-width: 36rem;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--gray-500);
+}
+
+#home .hero-pitch {
+  margin-top: 1rem;
+}
+
+#home .hero-quote {
+  margin-top: 0.75rem;
+}
+
+/* The action row: the primary step, then the three social links, on one line
+   that wraps as a unit when the column narrows. 12px between the items, plus
+   the primary's own `margin-right`, so the first social link starts a full
+   step further right -- "one step, then references" rather than four equal
+   words. The 32px above it is the last step of the column's rhythm. Flush
+   left, matching the copy above it -- the row is the first thing under a
+   left-aligned column, not a centred island. */
+#home .hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  justify-content: flex-start;
+  margin-top: 2rem;
+}
+
+/* The primary action. Unfilled: it used to carry the ink fill, but `--ink`
+   inverts with the theme, so in dark mode "the one ink-painted control" was a
+   white pill -- the loudest object on the page for a link that only scrolls
+   down it. What is left is the row's strongest ink text, the display face
+   every other link on the site wears, 13px so the label clears the site's
+   type floor, and the down-arrow that makes it the one step. No horizontal
+   padding, so the label stays flush with the copy above it; `min-height:
+   2.5rem` keeps the tap target at the 40px minimum without stretching the
+   text. The extra `margin-right` is the fuller break before the social
+   words -- on top of the row's 12px gap. */
+#home .hero-action-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  margin-right: 1.25rem;
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--ink);
+}
+
+/* A ring, offset, rather than an inset outline: the fill would swallow an
+   inset ring, and a 2px offset outline is visible around the button on both
+   themes. */
+#home .hero-action-primary:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* The arrow takes one step down toward what it points at -- the row's one
+   nudge, guarded because it is a transform. */
+#home .hero-action-primary .hero-action-arrow {
+  transition: transform 0.2s var(--ease-out);
+}
+
+#home .hero-action-primary:hover .hero-action-arrow {
+  transform: translateY(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #home .hero-action-primary .hero-action-arrow {
+    transition: none;
+  }
+
+  #home .hero-action-primary:hover .hero-action-arrow {
+    transform: none;
+  }
+
+  /* The social arrow keeps its colour fade -- a colour change is not
+     vestibular motion (the `.terminal-pill` note) -- and drops the lean. */
+  #home .hero-social-arrow {
+    transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  #home .hero-social-link:hover .hero-social-arrow {
+    transform: none;
+  }
+}
+
+/* The three social links, as lowercase words in the display face -- the same
+   register every other link on the site wears, and the same strings the
+   sidebar footer shows. The old round icon buttons carried a hairline ring
+   each, which read as a second row of chrome beside the primary; words with
+   no border keep the row's one call to action unambiguous. Each ends in the
+   site's up-right arrow, the same "leaves the page" mark the stat strip
+   carries -- at 12px in `--gray-400` it sits under the label's weight and
+   rides the hover rather than competing with it. Inline-flex at the 2.5rem
+   minimum height, so the tap target is the 40px box and not the 13px line
+   looking tappable. */
+#home .hero-social-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2.5rem;
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--gray-500);
+  transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#home .hero-social-link:hover {
+  color: var(--ink);
+}
+
+#home .hero-social-link:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* The arrow follows the label's hover and leans toward the tab it opens.
+   Colour plus a transform, so the transform is guarded for reduced motion
+   above while the colour fade is not. */
+#home .hero-social-arrow {
+  color: var(--gray-400);
+  transition:
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.2s var(--ease-out);
+}
+
+#home .hero-social-link:hover .hero-social-arrow {
+  color: var(--ink);
+  transform: translate(2px, -2px);
+}
+
+/* ---------- Portrait caption, in two phrasings ----------
+ * The hint, moved from above the portrait to a caption under it, at 13px in
+ * `--gray-500` -- ordinary card text rather than the 10px tracked
+ * `--gray-400` whisper theme.css carried, which sat under the card's type
+ * floor and a step lighter than everything around it.
+ *
+ * A pointer device hovers, a touch device taps, and "Hover or tap" on a phone
+ * is half a sentence about an input the phone does not have. Both sentences
+ * are in the markup; the media query picks. `(hover: none)` -- the primary
+ * input cannot hover -- covers phones and tablets, while a laptop with a
+ * touchscreen still reports `hover: hover` and keeps the pair. No JavaScript,
+ * so the right sentence is there in the first paint.
+ */
+#home .hero-portrait-caption {
+  margin-top: 0.5rem;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gray-500);
+  text-align: center;
+}
+
+#home .hero-portrait-caption-touch {
+  display: none;
+}
+
+@media (hover: none) {
+  #home .hero-portrait-caption-hover {
+    display: none;
+  }
+
+  #home .hero-portrait-caption-touch {
+    display: inline;
+  }
+}
+
+/* ---------- The stat strip ----------
+ * Four cells in a 2x2 grid below 720px, one row of four above it -- the same
+ * step the card layout changes at. Declared with that step rather than as
+ * `sm:` utilities, because `sm` is 640px: four columns from there would each
+ * be under 200px at exactly the width where the strip's values are longest.
+ *
+ * The hairlines: in the 2x2 layout the even cells open a new row, so they
+ * take the left rule, and the cells from the third on take the top rule. From
+ * 720px up every cell but the first takes the left rule and the row rules go.
+ */
+#home .hero-stats {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--gray-200);
+}
+
+#home .hero-stats > :nth-child(even) {
+  border-left: 1px solid var(--gray-200);
+}
+
+#home .hero-stats > :nth-child(n + 3) {
+  border-top: 1px solid var(--gray-200);
+}
+
+@media (min-width: 720px) {
+  #home .hero-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  #home .hero-stats > :nth-child(n + 3) {
+    border-top: none;
+  }
+
+  #home .hero-stats > :not(:first-child) {
+    border-left: 1px solid var(--gray-200);
+  }
+}
+
+/* One cell, identical in all four: `position: relative` for the arrow in the
+   top-right, padding, the vertical centring that keeps shorter cells level
+   with their neighbours in the same grid row, and the hover tint the strip
+   has always carried (colour only, so no reduced-motion guard -- the
+   `.terminal-pill` note). */
+#home .hero-stat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 1rem;
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#home .hero-stat:hover {
+  background-color: var(--gray-100);
+}
+
+/* The value: one line, never wrapped. 15px on a phone, 16px from 720px up --
+   a full step down from the 18/20 it carried, so the longest value ("Dear, in
+   Stereo") stays whole inside its cell at every width instead of ellipsising,
+   and the label underneath gets its share of the reading. `font-weight: 600`
+   because that is the heaviest Geist Mono the page loads (400/500/600 -- see
+   index.html), so a "bold" 700 here would be a synthesised smudge rather than
+   the face's own weight. The `padding-right` reserves the top-right corner
+   for the arrow, so a value that runs the full width of its cell ellipsises
+   before it can collide with it. */
+#home .hero-stat-value {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-right: 1rem;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+@media (min-width: 720px) {
+  #home .hero-stat-value {
+    font-size: 16px;
+  }
+}
+
+/* The text span carries the ellipsis: the flex row is shrinkable, the text is
+   the one string that can outgrow its cell (a long project title), and
+   truncation has to happen inside the value line rather than as a wrap onto
+   the label's line. */
+#home .hero-stat-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The label: 13px, sentence case as stored, `--gray-500` -- the same register
+   in every cell, status included. The metric labels used to take ink, which
+   made the four labels read as four different weights of statement; the
+   value above them is what the strip is saying, the label is what it is
+   about. */
+#home .hero-stat-label {
+  margin-top: 0.5rem;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+/* The ↗ that marks a cell as a link, in the top-right of all four -- the one
+   position that reads as an affordance on a card rather than as punctuation
+   after the value, and the one position a full-width value cannot reach. */
+#home .hero-stat-arrow {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--gray-400);
+  transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#home .hero-stat:hover .hero-stat-arrow {
+  color: var(--ink);
+}
+
+/* ---------- One hairline ----------
+ * theme.css draws the frame's edge twice: a 1px border, plus a 1px ink ring
+ * in the first box-shadow. The two sit a pixel apart and read as a doubled,
+ * slightly smudged edge rather than as a crisp window. The border stays; the
+ * ring goes. The drop glow below it is untouched -- that is the light the
+ * window sits in, not a second line.
+ */
+#home .hero-frame {
+  box-shadow: 0 20px 60px -30px color-mix(in srgb, var(--ink) 45%, transparent);
+}

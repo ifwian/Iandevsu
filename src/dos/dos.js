@@ -58,6 +58,14 @@ const ALPHA_MIN = 24; // alpha above this counts as "on the cat" for hit testing
 const GRAVITY = 2400; // px/s^2, for the little hop when he is poked or dropped
 
 /**
+ * Travel, in px, per walk-cycle pose swap. The gait is driven by distance
+ * travelled, not by the logic tick: about 8 swaps a second at cruise and 13
+ * at full sprint, so the legs quicken with the speed ramp below and hold as
+ * she eases in, instead of flipping on a fixed 10 Hz metronome.
+ */
+const STRIDE = 18;
+
+/**
  * How far above the viewport floor the perch element's bottom edge may sit and
  * still count as the fixed launcher. Generous enough for `bottom-6` plus a
  * safe-area inset, and for the trigger being a little taller than it looks.
@@ -103,8 +111,12 @@ const DEFAULTS = {
   /** Pixel scale: 32px cells at 2.25 = a 72px cat. Matches kuro.js, which uses
    *  2.25 on desktop and 1.75 on coarse pointers. */
   scale: 2.25,
-  /** Run speed in CSS px per second. */
-  speed: 130,
+  /** Cruise speed in CSS px/s: how fast she runs near the cursor. */
+  speed: 140,
+  /** Sprint ceiling in CSS px/s: how fast she runs when far behind it. */
+  sprintSpeed: 230,
+  /** Gap (px, beyond `stopDistance`) at which the sprint ceiling is reached. */
+  sprintRamp: 420,
   /** How close Dos stops to the cursor, in CSS px. */
   stopDistance: 64,
   /** Gap kept between Dos and the corner he rests in (idle-only mode). */
@@ -123,12 +135,16 @@ const DEFAULTS = {
   dragFollow: 14,
   /** Chance per 100 ms tick that an idle animation (nap, scratch) starts once he has been idle for a second. */
   idleChance: 1 / 150,
-  /** Relative odds of each idle animation. 0 switches one off (e.g. { sleeping: 0 } = never naps). */
-  idleWeights: { sleeping: 1, scratchSelf: 1, wall: 1 },
+  /** Relative odds of each idle animation. 0 switches one off (e.g. { sleeping: 0 } = never naps).
+   *  A wall she is standing next to outweighs the rest: the wall poses are the
+   *  hardest to reach, so when she is in range she takes the invitation. */
+  idleWeights: { sleeping: 1, scratchSelf: 1, wall: 2 },
   /** How long a nap lasts, in 100 ms ticks (192 = about 19 s). */
   sleepLength: 192,
-  /** Chance per tick of clawing the wall when the cursor is on the other side of it. */
-  wallChance: 0.1,
+  /** Chance per tick of clawing the wall when the cursor is on the other side
+   *  of it. High enough that the scratch shows up quickly once she is parked
+   *  at a wall, which is the main place the wall poses can ever appear. */
+  wallChance: 0.28,
   /** Min and max ticks between rotating speech bubbles (130-240 = every 13-24 s). */
   sayEvery: [130, 240],
   /** How long a rotating speech bubble stays up, in ticks (38 = about 4 s). */
@@ -229,6 +245,11 @@ export function initDos(userOptions = {}) {
   let x = 0; // sprite centre, viewport px
   let y = 0;
   let running = false;
+  let runDir = "idle"; // direction of the current run, for the gait below
+  let walkFrame = 0; // walk-cycle pose index, advanced by distance travelled
+  let strideAcc = 0; // px travelled since the last pose swap
+  let walkPose = ""; // last pose the gait wrote, "dir:frame"
+  let chaseSpeed = opts.speed; // current rung of the sprint ramp
   let frameCount = 0;
   let idleTime = 0;
   let idleAnim = null;
@@ -542,7 +563,6 @@ export function initDos(userOptions = {}) {
         y: clamp(pointer.y, b.minY, b.maxY),
         outside, // cursor is beyond the column: run to that wall instead of stopping short
         stop: outside ? 3 : opts.stopDistance,
-        speed: opts.speed,
       };
     }
     // No walking target at all: when she is not following she stands still where she
@@ -554,12 +574,19 @@ export function initDos(userOptions = {}) {
     if (following === v) return;
     following = v;
     resetIdle();
-    idleTime = v ? 6 : 0; // starting: show the alert pose first
+    chaseSpeed = opts.speed; // every chase starts from cruise
+    idleTime = v ? 2 : 0; // starting: one alert beat, then she bolts
     restTicks = rand(opts.restEvery[0], opts.restEvery[1]);
     if (v) pointer.t = performance.now();
-    // Follow is over (a click, or the cursor going idle). She stops wherever she
-    // happens to be -- no walk, no snap, no path back to the button.
-    else stopInPlace();
+    else {
+      // Follow is over (a click, or the cursor going idle). She stops wherever
+      // she happens to be -- no walk, no snap, no path back to the button. If
+      // the stop happens to be within reach of a wall, she claims it, so the
+      // wall-scratch poses get their moment instead of staying theoretical.
+      stopInPlace();
+      const near = wallsAvailable();
+      if (near.length) wallGoal = near[0];
+    }
   }
 
   /**
@@ -593,7 +620,11 @@ export function initDos(userOptions = {}) {
   }
 
   function wallsAvailable() {
-    const e = opts.edgeInset + 3;
+    // A touch wider than the 3px she stops short by when a beyond-the-wall
+    // cursor is the target, so that stop actually counts as "at the wall" --
+    // wall scratching is the only way those poses can appear now that she
+    // never roams.
+    const e = opts.edgeInset + 6;
     const b = bounds;
     const walls = [];
     if (b.real.l && x - b.minX < e) walls.push("scratchWallW");
@@ -639,11 +670,12 @@ export function initDos(userOptions = {}) {
 
     switch (idleAnim) {
       case "sleeping":
-        if (idleAnimFrame < 8) {
+        // The blep ("tired") leads the nap for a clear beat before the z's start.
+        if (idleAnimFrame < 12) {
           setSprite("tired", 0);
         } else {
-          if (idleAnimFrame === 8) say(pick(opts.sleepMessages), 30);
-          setSprite("sleeping", Math.floor(idleAnimFrame / 4));
+          if (idleAnimFrame === 12) say(pick(opts.sleepMessages), 30);
+          setSprite("sleeping", Math.floor((idleAnimFrame - 12) / 4));
         }
         if (idleAnimFrame > opts.sleepLength) resetIdle();
         break;
@@ -719,22 +751,33 @@ export function initDos(userOptions = {}) {
 
     if (resetIdle()) say(pick(opts.wakeMessages), 24);
 
-    // Alert pose before bolting off after the cursor, like oneko. The walk home needs no warning.
+    // One alert beat before bolting off after the cursor, like oneko but cut
+    // short: two ticks at most (the clamp) -- a beat of warning, not a pause.
+    // The walk home needs no warning.
     if (target.kind === "follow" && idleTime > 1) {
       running = false;
       setSprite("alert", 0);
-      idleTime = Math.min(idleTime, 7) - 1;
+      idleTime = Math.min(idleTime, 3) - 1;
       return;
     }
 
     if (target.kind !== "follow") idleTime = 0;
+    // A fresh run: clear the stale gait bookkeeping so the first pose is
+    // always written -- a "dir:frame" left over from the previous run must
+    // not count as "already showing".
+    if (!running) {
+      walkPose = "";
+      strideAcc = 0;
+    }
     running = true;
     let dir = "";
     dir += dy / dist > 0.5 ? "N" : "";
     dir += dy / dist < -0.5 ? "S" : "";
     dir += dx / dist > 0.5 ? "W" : "";
     dir += dx / dist < -0.5 ? "E" : "";
-    setSprite(dir || "idle", frameCount);
+    // The pose itself is written by the gait in move(), which advances it by
+    // distance travelled rather than by tick.
+    runDir = dir || "idle";
   }
 
   function move(dt) {
@@ -746,10 +789,28 @@ export function initDos(userOptions = {}) {
     const dist = Math.hypot(dx, dy);
     const gap = dist - target.stop;
     if (gap <= 0) return;
-    const step = Math.min((target.speed || opts.speed) * dt, gap);
+    // Fast far, calm near: the speed ramps up with the gap ahead of her and
+    // eases back to cruise on arrival, smoothed over a few frames so a long
+    // chase starts with a launch instead of a teleport.
+    const wanted = opts.speed + (opts.sprintSpeed - opts.speed) * Math.min(1, gap / opts.sprintRamp);
+    chaseSpeed += (wanted - chaseSpeed) * Math.min(1, dt * 12);
+    const step = Math.min(chaseSpeed * dt, gap);
     x += (dx / dist) * step;
     y += (dy / dist) * step;
     clampToBounds();
+
+    // The gait: one pose swap per STRIDE px actually travelled, so the legs
+    // quicken with the sprint ramp and hold still as she eases in.
+    strideAcc += step;
+    while (strideAcc >= STRIDE) {
+      strideAcc -= STRIDE;
+      walkFrame++;
+    }
+    const pose = `${runDir}:${walkFrame}`;
+    if (pose !== walkPose) {
+      walkPose = pose;
+      setSprite(runDir, walkFrame);
+    }
   }
 
   // --------------------------------------- petting, stretch & settle ----

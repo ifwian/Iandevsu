@@ -1,95 +1,15 @@
-/* Chat widget and inbox usability styles. Pairs with ChatText, ChatTextarea,
- * ChatNotice and the hooks in src/lib.
+/* Chat widget usability styles. Pairs with ChatTextarea and ChatNotice and the
+ * hooks in src/lib.
  *
  * Plain CSS with the site's own tokens (--ink, --bg, --gray-*), written as
  * ordinary classes rather than Tailwind utilities, so it applies the same
  * whether or not the Tailwind runtime has generated anything. Rules that must
  * beat an existing Tailwind utility are scoped under `html` (specificity 0,2,x),
- * which wins over a single utility class regardless of stylesheet order. */
-
-/* ---------- Formatted replies (ChatText) ---------- */
-.chat-text {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.chat-text > * + * {
-  margin-top: 0.5rem;
-}
-
-.chat-text p {
-  margin: 0;
-}
-
-.chat-text ul,
-.chat-text ol {
-  margin: 0;
-  padding-left: 1.15rem;
-}
-
-.chat-text ul {
-  list-style: disc;
-}
-
-.chat-text ol {
-  list-style: decimal;
-}
-
-.chat-text li + li {
-  margin-top: 0.2rem;
-}
-
-.chat-text strong {
-  font-weight: 600;
-}
-
-.chat-code {
-  padding: 0.05rem 0.3rem;
-  border: 1px solid var(--gray-200);
-  border-radius: 0.25rem;
-  background-color: var(--gray-50);
-  font-family: var(--font-mono);
-  font-size: 0.85em;
-}
-
-.chat-text pre {
-  margin: 0;
-  padding: 0.5rem 0.65rem;
-  overflow-x: auto;
-  border: 1px solid var(--gray-200);
-  border-radius: 0.5rem;
-  background-color: var(--gray-50);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  line-height: 1.5;
-  white-space: pre;
-}
-
-.chat-link {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-}
-
-.chat-link:hover {
-  text-decoration-thickness: 2px;
-}
-
-.chat-caret {
-  margin-left: 0.1rem;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .chat-caret {
-    animation: chat-caret-blink 1s step-end infinite;
-  }
-}
-
-@keyframes chat-caret-blink {
-  50% {
-    opacity: 0;
-  }
-}
+ * which wins over a single utility class regardless of stylesheet order.
+ *
+ * The inbox has its own sheets now (`components/ui/ui.css` and
+ * `components/inbox/inbox.css`); nothing here is loaded by it. ChatText's
+ * formatting, which both surfaces use, lives in theme.css. */
 
 /* ---------- Message box (ChatTextarea) ---------- */
 .chat-field {
@@ -126,14 +46,17 @@
   opacity: 0.5;
 }
 
-/* Characters left, only once the visitor is close to the limit. */
+/* Characters left, only once the visitor is close to the limit. At the site's
+   11px label floor rather than the 10px this started at: the counter sits in
+   the corner of a 15px field, and one step below the floor read as a rendering
+   artefact rather than as small type. */
 .chat-counter {
   position: absolute;
   right: 0.5rem;
   bottom: 0.2rem;
   color: var(--gray-400);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   pointer-events: none;
 }
@@ -229,8 +152,7 @@
 }
 
 /* ---------- Keyboard focus ---------- */
-html .chat-panel :is(button, a):focus-visible,
-.inbox-app :is(button, a):focus-visible {
+html .chat-panel :is(button, a):focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
@@ -254,7 +176,7 @@ html .chat-panel :is(button, a):focus-visible,
 }
 
 /* ---------- Touch: bigger targets ----------
-   The header buttons are 24px, below what a thumb can reliably hit. */
+   The header buttons are 36px, below what a thumb can reliably hit. */
 @media (pointer: coarse) {
   html .chat-panel button[aria-label="Close chat"],
   html .chat-panel button[aria-label="Start a new chat"] {
@@ -273,16 +195,18 @@ html .chat-panel :is(button, a):focus-visible,
   }
 }
 
-/* ---------- Inbox: "draft" marker on a conversation with unsent text ---------- */
-.inbox-draft {
-  flex: none;
-  padding: 0 0.3rem;
-  border: 1px solid var(--gray-300);
-  border-radius: 0.25rem;
-  color: var(--gray-500);
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.08em;
-  line-height: 1.5;
-  text-transform: uppercase;
+/* ---------- Scroll containment ----------
+   Two scroll regions in the widget: the thread and the welcome step. Neither
+   declared `overscroll-behavior`, so reaching either end handed the rest of the
+   gesture to the page behind -- the panel is `fixed`, but the scroll chain still
+   walks out to the document, and on the home page that used to spin the page to
+   the next section while the pointer was sitting in the chat. `contain` keeps
+   the gesture where it was made; the page scrolls exactly as it did once the
+   pointer is outside the panel.
+
+   The inbox transcript had the same fix and no longer needs it here: its
+   `ui-scroll` region declares it. */
+.chat-panel [aria-label="Chat messages"],
+.chat-panel .chat-welcome {
+  overscroll-behavior: contain;
 }

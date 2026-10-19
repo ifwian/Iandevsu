@@ -2,8 +2,14 @@ import { Link } from "react-router-dom";
 import { PROJECTS } from "@/content/projects";
 import type { Project } from "@/content/projects";
 import ProjectCard from "@/components/projects/ProjectCard";
+import { useRevealOnScroll } from "@/lib/useRevealOnScroll";
 
 export default function ProjectsPage() {
+  /* The home page arms the scroll-entrance stagger in `Home`; this route is a
+     page of its own, so it arms it itself. Its `[data-reveal-group]` is the
+     one window body below the fold, and it lands with the same beat. */
+  useRevealOnScroll();
+
   const live = PROJECTS.filter((p: Project) => p.tone === "live").length;
   const building = PROJECTS.filter((p: Project) => p.tone === "active").length;
 
@@ -28,17 +34,11 @@ export default function ProjectsPage() {
       style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
-        <Link
-          to="/"
-          className="link-arrow group mb-6 inline-flex items-center text-sm transition-colors hover:text-[var(--ink)]"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          {/* `hover:text-white` was on this link, and it was invisible in light
-              mode -- white on a white page. `--ink` is what every other
-              `.link-arrow` call site on the site uses. */}
-          <span className="arrow-glyph mr-1 inline-block transition-transform group-hover:-translate-x-0.5">
-            &#8598;
-          </span>
+        <Link to="/" className="link-arrow mb-6">
+          {/* The one `.link-arrow` on the site whose glyph points left, so it
+              leans left on hover. `hover:text-white` used to be on this link
+              too, and it was invisible in light mode -- white on a white page. */}
+          <span className="arrow-glyph arrow-glyph-back">&#8598;</span>
           back to home
         </Link>
 
@@ -61,7 +61,7 @@ export default function ProjectsPage() {
           </div>
 
 
-          <div className="section-shell-body">
+          <div className="section-shell-body" data-reveal-group>
             {/* `section-title` even though this is an `<h1>`. The class is a type
                 scale, not a heading-level rule, and reusing it is what keeps this
                 page's title on the same size as every section title on the home
@@ -75,10 +75,7 @@ export default function ProjectsPage() {
               <span className="title-cursor" aria-hidden="true" />
             </h1>
 
-            <p
-              className="mb-8 max-w-xl text-[15px] leading-[1.75] sm:text-[17px]"
-              style={{ fontFamily: "var(--font-body)", color: "var(--gray-400)" }}
-            >
+            <p className="section-lede">
               Everything I&rsquo;m building or planning to build, real projects and practice templates
               alike.
             </p>

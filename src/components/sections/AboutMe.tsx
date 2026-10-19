@@ -72,7 +72,6 @@ export default function AboutMe() {
     <section 
       id="about" 
       className="section-frame px-5 py-16 lg:px-6"
-      style={{ fontFamily: "var(--font-mono)" }}
     >
       <div className="w-full max-w-4xl mx-auto">
         <div className="section-shell">
@@ -85,7 +84,7 @@ export default function AboutMe() {
           </div>
 
 
-          <div className="section-shell-body">
+          <div className="section-shell-body" data-reveal-group>
         {/* Still `.section-title`, so this heading stays on the same scale as
             the other six section headings -- see the note above `.title-row`
             in theme.css for why it deliberately does not grow.

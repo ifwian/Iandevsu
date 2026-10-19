@@ -175,6 +175,13 @@ alter table public.chat_conversation_notes enable row level security;
 alter table public.chat_visitor_activity enable row level security;
 alter table public.chat_message_reactions enable row level security;
 
+alter table public.chat_conversations
+  add column if not exists archived_at timestamptz;
+
+create index if not exists chat_conversations_archived_at_idx
+  on public.chat_conversations (archived_at desc)
+  where archived_at is not null;
+
 commit;
 
 do $$

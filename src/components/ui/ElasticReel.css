@@ -1,0 +1,147 @@
+/* ---------- Elastic Reel ----------
+ * A dock of photo slices that swell open into full images.
+ *
+ * The container is a flex row whose 1px `gap` is filled by its own
+ * background, so the slices read as one reel scored by hairlines rather than
+ * six boxes floating on a canvas -- the same trick the card grids use with
+ * their shared borders.
+ *
+ * The swell: resting slices share the width evenly and crop their portrait
+ * photos to slivers. Hovering hands the room to the open slice by driving it
+ * to `flex-basis: 340px * 3/4` with `flex-grow: 0` -- one open frame for
+ * every picture, the 3:4 shape (about 255px wide at the strip's height).
+ * Hiking and nature, 600x800, fill that frame exactly; the four taller files
+ * (600x1067) sit centred inside it, `cover` trimming a little from their top
+ * and bottom -- a 3:4 window cannot hold a taller photo whole without
+ * shrinking it inside the frame. The overshoot in the easing keeps the
+ * motion elastic rather than linear.
+ *
+ * The strip is 340px tall in content-box, so the border does not eat into
+ * the arithmetic above -- 340 is the picture height itself, the size these
+ * photos had as cards in the depth carousel this replaced.
+ *
+ * The hover opens only for `hover: hover` pointers. A touch screen would
+ * otherwise stick the first tap's emulated hover onto one slice forever with
+ * no way to release it; there, the reel is simply six equal crops, still
+ * readable, and the pills above still name every subject.
+ */
+
+.elastic-reel {
+  display: flex;
+  gap: 1px;
+  box-sizing: content-box;
+  height: 340px;
+  overflow: hidden;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background-color: var(--gray-200);
+}
+
+/* Phones get two thirds of the height. At 375px the dock is ~335px wide for
+   six slices, so a resting slice is ~55px and the 340px above reads as a
+   picket fence rather than a strip of photographs. Nothing else has to move:
+   the open frame is a `hover: hover` rule (there is no hover here) and the
+   labels are already hidden, so this is purely the crops staying legible. */
+@media (max-width: 639px) {
+  .elastic-reel {
+    height: 220px;
+  }
+}
+
+/* One slice. `flex: 1 1 0` with `min-width: 0` is what lets every slice start
+   equal and grow or yield independently -- without the zero basis, a wider
+   image would claim more room before the hover even happens. Both flex
+   properties transition; `flex-basis` is the one doing the visible work. */
+.elastic-reel-slice {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  background-color: var(--gray-100);
+  transition:
+    flex-grow 0.7s cubic-bezier(0.34, 1.45, 0.4, 1),
+    flex-basis 0.7s cubic-bezier(0.34, 1.45, 0.4, 1);
+}
+
+/* The scrim that the label sits on: a soft floor under the bottom edge, so a
+   light photo cannot swallow the white text. It deepens a step while the
+   slice is open, which is when the label matters most. */
+.elastic-reel-slice::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 45%;
+  background: linear-gradient(to top, rgba(5, 6, 10, 0.55), transparent);
+  opacity: 0.8;
+  transition: opacity 0.7s var(--ease-out, ease-out);
+  pointer-events: none;
+}
+
+.elastic-reel-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* At the open width hiking and nature, 600x800, fill the 3:4 frame exactly,
+     so "cover" and "no crop" are one and the same for them; the four taller
+     photos are centre-cropped in the frame, and every resting slice is a
+     centre crop of its photo. Same register as the rest of the page's
+     photography: desaturated a step so the crops sit inside the monochrome
+     palette. */
+  object-fit: cover;
+  filter: saturate(0.85) contrast(1.02);
+}
+
+/* The label: the subject's name in the site's mono chrome register, on the
+   photo instead of under it. 11px, the same floor `.micro-label` sets for
+   label text -- it was 10px, which is below that floor and reads as a smudge
+   over a photograph. Hidden on phones, where six equal slices leave no room
+   for the longest name without cropping it mid-word -- the pills above
+   already say all six there. */
+.elastic-reel-label {
+  position: absolute;
+  bottom: 0.55rem;
+  left: 0.6rem;
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+  transition: color 0.7s var(--ease-out, ease-out);
+}
+
+@media (max-width: 639px) {
+  .elastic-reel-label {
+    display: none;
+  }
+}
+
+@media (hover: hover) {
+  .elastic-reel-slice:hover {
+    flex-grow: 0;
+    /* One open frame for every picture: the strip's height times 3/4, the
+       shape the hiking and nature files are natively (340px * 3/4 = 255px). */
+    flex-basis: calc(340px * 3 / 4);
+  }
+
+  .elastic-reel-slice:hover::after {
+    opacity: 1;
+  }
+
+  .elastic-reel-slice:hover .elastic-reel-label {
+    color: #fff;
+  }
+}
+
+/* Less motion: the slices still open, they just stop travelling there. */
+@media (prefers-reduced-motion: reduce) {
+  .elastic-reel-slice,
+  .elastic-reel-slice::after,
+  .elastic-reel-label {
+    transition: none;
+  }
+}

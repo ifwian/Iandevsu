@@ -108,17 +108,18 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
 
         <div className="project-card-foot">
           {project.href ? (
+            /* Bare `.link-arrow`: it already sets the display face, the 13px
+               size, the ink colour and the arrow's lean. The `text-xs` and the
+               `group-hover` utilities this used to carry were two of those
+               things, said again and said smaller (12px, under the site's own
+               type floor). */
             <a
               href={project.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="link-arrow group text-xs transition-colors hover:text-[var(--ink)]"
-              style={{ fontFamily: "var(--font-display)" }}
+              className="link-arrow"
             >
-              visit site{" "}
-              <span className="arrow-glyph inline-block transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5">
-                &#8599;
-              </span>
+              visit site <span className="arrow-glyph">&#8599;</span>
             </a>
           ) : (
             <span className="micro-label">no live url yet</span>
