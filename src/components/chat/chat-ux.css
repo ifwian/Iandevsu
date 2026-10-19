@@ -126,14 +126,17 @@
   opacity: 0.5;
 }
 
-/* Characters left, only once the visitor is close to the limit. */
+/* Characters left, only once the visitor is close to the limit. At the site's
+   11px label floor rather than the 10px this started at: the counter sits in
+   the corner of a 15px field, and one step below the floor read as a rendering
+   artefact rather than as small type. */
 .chat-counter {
   position: absolute;
   right: 0.5rem;
   bottom: 0.2rem;
   color: var(--gray-400);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   pointer-events: none;
 }
@@ -281,8 +284,22 @@ html .chat-panel :is(button, a):focus-visible,
   border-radius: 0.25rem;
   color: var(--gray-500);
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   line-height: 1.5;
   text-transform: uppercase;
+}
+
+/* ---------- Scroll containment ----------
+   Three scroll regions: the widget's thread, the widget's welcome step, and the
+   inbox transcript. None of them declared `overscroll-behavior`, so reaching
+   either end handed the rest of the gesture to the page behind -- the panel is
+   `fixed`, but the scroll chain still walks out to the document, and on the home
+   page that used to spin the page to the next section while the pointer was
+   sitting in the chat. `contain` keeps the gesture where it was made; the page
+   scrolls exactly as it did once the pointer is outside the panel. */
+.chat-panel [aria-label="Chat messages"],
+.chat-panel .chat-welcome,
+.inbox-transcript {
+  overscroll-behavior: contain;
 }
