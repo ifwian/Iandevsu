@@ -1,60 +1,113 @@
+import { Archive, ArchiveRestore, MoreHorizontal, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { formatFull, formatRelative } from "@/lib/relativeTime";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import Monogram from "@/components/inbox/Monogram";
+import { formatFull, formatRelative } from "@/lib/chatFormat";
+import { isArchived, unreadOf, visitorLabel, type Conversation } from "@/components/inbox/types";
 
 interface ConversationRowProps {
-  name: string;
-  preview: string;
-  time: string | number | Date;
-  /** Unread messages; 0 shows "Read". */
-  unread?: number;
-  /** e.g. "Active", "Waiting", "Resolved". */
-  statusLabel?: string;
-  selected?: boolean;
-  /** The admin has an unsent reply in this conversation. */
-  draft?: boolean;
+  conversation: Conversation;
+  selected: boolean;
+  /** The admin has unsent text for this conversation. */
+  draft: boolean;
+  /** An archive or delete for this row is in flight. */
+  busy: boolean;
   onSelect: () => void;
+  onArchive: (archived: boolean) => void;
+  onDelete: () => void;
 }
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  const letters = parts.length === 1 ? parts[0].slice(0, 2) : parts[0][0] + parts[parts.length - 1][0];
-  return letters.toUpperCase();
-}
-
-/** One conversation in the list: who, when, the latest message, and whether it needs attention. */
-export default function ConversationRow({ name, preview, time, unread = 0, statusLabel, selected = false, draft = false, onSelect }: ConversationRowProps) {
-  const date = time instanceof Date ? time : new Date(time);
-  const iso = Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+/**
+ * One conversation: who, when, and the last thing they said.
+ *
+ * The row is a button and the menu is a second button beside it, not inside it
+ * -- a `<button>` cannot contain another one, and the menu is the only place
+ * archive and delete live in the list. So the hit area is a grid with the tail
+ * column reserved, and the menu is absolutely positioned over it.
+ */
+export default function ConversationRow({
+  conversation,
+  selected,
+  draft,
+  busy,
+  onSelect,
+  onArchive,
+  onDelete,
+}: ConversationRowProps) {
+  const unread = unreadOf(conversation);
+  const archived = isArchived(conversation);
+  const when = conversation.last_message_at;
+  const since = formatRelative(when);
+  const name = visitorLabel(conversation);
 
   return (
-    <button
-      type="button"
-      className="ibx-row"
-      data-selected={selected ? "true" : undefined}
+    <li
+      className="inbox-row"
+      data-selected={selected}
       data-unread={unread > 0 ? "true" : undefined}
-      aria-current={selected ? "true" : undefined}
-      onClick={onSelect}
     >
-      <span className="ibx-avatar" aria-hidden="true">
-        {initials(name)}
-      </span>
-      <span className="ibx-row-body">
-        <span className="ibx-row-top">
-          <span className="ibx-row-name">{name}</span>
-          <time className="ibx-row-time" dateTime={iso} title={formatFull(date)}>
-            {formatRelative(date)}
-          </time>
+      <button
+        type="button"
+        className="inbox-row-hit"
+        onClick={onSelect}
+        aria-current={selected ? "true" : undefined}
+      >
+        <Monogram name={name} />
+        <span className="inbox-row-body">
+          <span className="inbox-row-name">{name}</span>
+          <span className="inbox-row-preview">{conversation.last_message_preview}</span>
         </span>
-        <span className="ibx-row-preview">
-          {draft ? <span className="ibx-row-draft">Draft: </span> : null}
-          {preview || "No messages yet"}
+        <span className="inbox-row-tail">
+          <span className="inbox-row-time" title={formatFull(when)}>
+            {since}
+          </span>
+          {unread > 0 ? (
+            <Badge>{unread > 99 ? "99+" : unread}</Badge>
+          ) : archived ? (
+            <Badge variant="outline">filed</Badge>
+          ) : draft ? (
+            <Badge variant="outline">draft</Badge>
+          ) : null}
         </span>
-        <span className="ibx-row-meta">
-          {unread > 0 ? <Badge>{unread} unread</Badge> : <Badge variant="outline">Read</Badge>}
-          {statusLabel ? <Badge variant="secondary">{statusLabel}</Badge> : null}
-        </span>
-      </span>
-    </button>
+      </button>
+
+      <div className="inbox-row-menu">
+        <DropdownMenu>
+          <DropdownMenuTrigger>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Actions for ${name}`}
+              icon={<MoreHorizontal size={15} />}
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem
+              icon={archived ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+              onSelect={() => onArchive(!archived)}
+              disabled={busy}
+            >
+              {archived ? "Restore" : "Archive"}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              tone="quiet"
+              icon={<Trash2 size={14} />}
+              onSelect={onDelete}
+              disabled={busy}
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </li>
   );
 }
