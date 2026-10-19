@@ -7,7 +7,10 @@ export default function ScrollTopButton() {
 
   useEffect(() => {
     const onScroll = () => setVisible(window.scrollY > 400);
-    window.addEventListener("scroll", onScroll);
+    // Passive, so the handler can never sit between the wheel/trackpad and the
+    // next painted frame: nothing here calls `preventDefault`, and without the
+    // flag the browser has to assume it might.
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 

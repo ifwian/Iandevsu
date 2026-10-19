@@ -2752,8 +2752,17 @@ select:focus-visible,
    body's `[data-reveal-group]` when the observer sees it, then run the same
    fade-and-rise over the body's direct children -- heading, description,
    content -- with a `:nth-child` ladder standing in for the hero's
-   hand-written delays. 60ms apart, capped at eight children; every section
+   hand-written delays. 45ms apart, capped at eight children; every section
    body has three or four, so nothing real slips past the ladder.
+
+   The ladder and the duration are tuned to *finish* as the group reaches
+   reading position rather than after it. The trigger fires while the group is
+   still in the bottom eighth of the viewport (see `useRevealOnScroll`), and
+   0.55s plus at most 0.36s of ladder means the last child has settled by the
+   time the eye arrives. Both were longer before -- 0.7s over a 60ms ladder
+   from a trigger 60px *past* the fold -- and the result was motion that kept
+   running under a reader who had already scrolled to it, which reads as the
+   page lagging behind the scroll rather than as an entrance.
 
    `:not(.card)` is the one carve-out, and it is about ownership: a `.card`
    already transitions and transforms on hover (`.card:hover` lifts it), and
@@ -2773,10 +2782,10 @@ select:focus-visible,
 @media (prefers-reduced-motion: no-preference) {
   .reveal-ready [data-reveal-group] > :not(.card) {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(10px);
     transition:
-      opacity 0.7s var(--ease-out),
-      transform 0.7s var(--ease-out),
+      opacity 0.55s var(--ease-out),
+      transform 0.55s var(--ease-out),
       text-shadow 0.4s var(--ease-out);
   }
 
@@ -2786,31 +2795,31 @@ select:focus-visible,
   }
 
   .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(2) {
-    transition-delay: 60ms;
+    transition-delay: 45ms;
   }
 
   .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(3) {
-    transition-delay: 120ms;
+    transition-delay: 90ms;
   }
 
   .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(4) {
-    transition-delay: 180ms;
+    transition-delay: 135ms;
   }
 
   .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(5) {
-    transition-delay: 240ms;
+    transition-delay: 180ms;
   }
 
   .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(6) {
-    transition-delay: 300ms;
+    transition-delay: 225ms;
   }
 
   .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(7) {
-    transition-delay: 360ms;
+    transition-delay: 270ms;
   }
 
   .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(8) {
-    transition-delay: 420ms;
+    transition-delay: 315ms;
   }
 }
 

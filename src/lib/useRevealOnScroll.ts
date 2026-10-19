@@ -44,10 +44,16 @@ export function useRevealOnScroll() {
           observer.unobserve(entry.target);
         }
       },
-      // A little past the fold (`-60px`) and 8% of the body's own height:
-      // the group is already meaningfully on screen before it starts, so the
-      // motion lands where the reader is looking instead of at the edge.
-      { threshold: 0.08, rootMargin: "0px 0px -60px 0px" }
+      // Fire as the group's top edge crosses into the bottom eighth of the
+      // viewport, not 60px after it has already done so. With the 0.55s
+      // transition (plus the CSS ladder) starting there, the last child has
+      // settled by roughly the time the group's top reaches mid-screen, so the
+      // motion is something the reader catches out of the corner of the eye
+      // ahead of them rather than something still running underneath them.
+      // `threshold: 0` also means the trigger is the group's own edge rather
+      // than a fraction of its height, which is what made a tall section wait
+      // longer than a short one to start.
+      { threshold: 0, rootMargin: "0px 0px -12% 0px" }
     );
 
     groups.forEach((group) => observer.observe(group));
