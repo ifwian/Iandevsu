@@ -37,6 +37,17 @@
   background-color: var(--gray-200);
 }
 
+/* Phones get two thirds of the height. At 375px the dock is ~335px wide for
+   six slices, so a resting slice is ~55px and the 340px above reads as a
+   picket fence rather than a strip of photographs. Nothing else has to move:
+   the open frame is a `hover: hover` rule (there is no hover here) and the
+   labels are already hidden, so this is purely the crops staying legible. */
+@media (max-width: 639px) {
+  .elastic-reel {
+    height: 220px;
+  }
+}
+
 /* One slice. `flex: 1 1 0` with `min-width: 0` is what lets every slice start
    equal and grow or yield independently -- without the zero basis, a wider
    image would claim more room before the hover even happens. Both flex
@@ -83,16 +94,18 @@
 }
 
 /* The label: the subject's name in the site's mono chrome register, on the
-   photo instead of under it. Hidden on phones, where six equal slices leave
-   no room for the longest name without cropping it mid-word -- the pills
-   above already say all six there. */
+   photo instead of under it. 11px, the same floor `.micro-label` sets for
+   label text -- it was 10px, which is below that floor and reads as a smudge
+   over a photograph. Hidden on phones, where six equal slices leave no room
+   for the longest name without cropping it mid-word -- the pills above
+   already say all six there. */
 .elastic-reel-label {
   position: absolute;
   bottom: 0.55rem;
   left: 0.6rem;
   z-index: 1;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   line-height: 1;
   text-transform: uppercase;
