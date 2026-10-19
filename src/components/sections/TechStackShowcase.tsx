@@ -111,7 +111,7 @@ export default function TechStackShowcase() {
             </button>
           </div>
 
-          <div className="section-shell-body">
+          <div className="section-shell-body" data-reveal-group>
             <h2 className="section-title">tech stack</h2>
 
             <p className="section-lede">

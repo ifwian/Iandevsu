@@ -11,6 +11,7 @@ import LifeOutsideIDE from "@/components/sections/LifeOutsideIDE";
 import GithubActivity from "@/components/sections/GithubActivity";
 import Blog from "@/components/sections/Blog";
 import ChatWithIan from "@/components/chat/ChatWithIan";
+import { useRevealOnScroll } from "@/lib/useRevealOnScroll";
 
 const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
 const ChatInboxPage = lazy(() => import("@/pages/ChatInboxPage"));
@@ -56,6 +57,12 @@ function ScrollToTop() {
 }
 
 function Home() {
+  /* Arms the scroll-entrance stagger for every section below the hero: the
+     observer that puts `is-revealed` on each section body, plus the
+     `reveal-ready` gate the hidden state lives behind. See
+     `useRevealOnScroll` for why nothing is hidden without it. */
+  useRevealOnScroll();
+
   return (
     <MainLayout>
       {/* No `space-y-*` here: every child is a min-h-screen section that

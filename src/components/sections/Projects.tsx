@@ -14,7 +14,7 @@ export default function Projects() {
           </div>
 
 
-          <div className="section-shell-body">
+          <div className="section-shell-body" data-reveal-group>
       <h2 className="section-title">projects</h2>
 
         {/* This is the same sentence /projects renders above its grid, and it is

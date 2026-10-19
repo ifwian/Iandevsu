@@ -124,7 +124,7 @@ export default function GithubActivity() {
           </div>
 
 
-          <div className="section-shell-body">
+          <div className="section-shell-body" data-reveal-group>
         {/* Section Heading */}
         <h2 className="section-title">
           github activity

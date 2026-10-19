@@ -54,7 +54,7 @@ export default function BlogSection() {
           </div>
 
 
-          <div className="section-shell-body">
+          <div className="section-shell-body" data-reveal-group>
         {/* Section Heading. This one was `text-2xl sm:text-3xl` -- larger than
             every other section on mobile and tablet -- which is the single most
             visible thing that stopped the section headers reading as a set. */}

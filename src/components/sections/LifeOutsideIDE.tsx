@@ -54,7 +54,7 @@ export default function LifeOutsideIDE() {
            * one dock across the full body width -- more picture, less machinery,
            * and it needs no clipping because nothing leaves its own slice.
            */}
-          <div className="section-shell-body">
+          <div className="section-shell-body" data-reveal-group>
             {/* Main Title */}
             <h2 className="section-title">
               Outside the IDE

@@ -2,8 +2,14 @@ import { Link } from "react-router-dom";
 import { PROJECTS } from "@/content/projects";
 import type { Project } from "@/content/projects";
 import ProjectCard from "@/components/projects/ProjectCard";
+import { useRevealOnScroll } from "@/lib/useRevealOnScroll";
 
 export default function ProjectsPage() {
+  /* The home page arms the scroll-entrance stagger in `Home`; this route is a
+     page of its own, so it arms it itself. Its `[data-reveal-group]` is the
+     one window body below the fold, and it lands with the same beat. */
+  useRevealOnScroll();
+
   const live = PROJECTS.filter((p: Project) => p.tone === "live").length;
   const building = PROJECTS.filter((p: Project) => p.tone === "active").length;
 
@@ -55,7 +61,7 @@ export default function ProjectsPage() {
           </div>
 
 
-          <div className="section-shell-body">
+          <div className="section-shell-body" data-reveal-group>
             {/* `section-title` even though this is an `<h1>`. The class is a type
                 scale, not a heading-level rule, and reusing it is what keeps this
                 page's title on the same size as every section title on the home
