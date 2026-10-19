@@ -318,15 +318,17 @@ body::before {
  * min-height were ever reintroduced on a single section. Horizontal centring is
  * the inner `mx-auto max-w-4xl` wrapper, not this rule.
  *
- * `scroll-snap-align: start` still lines up with the `scroll-margin-top` above,
- * since scroll-margin counts toward snap positions -- so a snapped section
- * clears the fixed mobile top bar rather than hiding its eyebrow underneath it.
+ * No `scroll-snap-align` any more. Sections used to snap (`proximity`, on the
+ * home page only), which magnetises a section into place once the scroll lands
+ * near one -- pleasant in isolation, but it also means the page keeps moving
+ * after the gesture has stopped, and on a trackpad that reads as the page
+ * grabbing at you rather than answering it. The `scroll-margin-top` above is
+ * unaffected: it belongs to anchor navigation, not to snapping.
  */
 .section-frame {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  scroll-snap-align: start;
   /* The mono base every section sits on. It used to be an inline
      `style={{ fontFamily: "var(--font-mono)" }}` repeated on all six section
      tags -- six copies of one rule, and the one thing a section could forget
@@ -334,16 +336,6 @@ body::before {
      `--font-body` (`.section-lede`, `.about-prose`), so this is the shell's
      register, not the page's. */
   font-family: var(--font-mono);
-}
-
-/* True scroll snapping, enabled only on the home page.
-   `proximity` rather than `mandatory`: mandatory traps fast scrolling and
-   feels hostile on a trackpad, whereas proximity still magnetises a section
-   into place once you land near one. Scoped with `:has()` on the page wrapper
-   so /projects and /chat-inbox -- which manage their own scrolling -- are
-   untouched. */
-html:has(.snap-sections) {
-  scroll-snap-type: y proximity;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -359,7 +351,17 @@ body {
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.6;
+  /* `hidden` first and `clip` to override it. Both stop the page panning
+     sideways, but only `clip` does it without making <body> a scroll container.
+     That is not cosmetic: a view progress timeline binds to the nearest scroll
+     container, <body> is the nearest ancestor of every section, and this one
+     has no range to scroll -- its height is its content's. As a scroll
+     container it therefore froze every `animation-timeline: view()` on the page
+     at a fixed progress, which is the scroll-bound entrance in theme.css. A
+     browser old enough to ignore `clip` has no view timelines to freeze, and
+     keeps the `hidden` fallback. */
   overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100vw;
   transition: background-color 0.5s var(--ease-out), color 0.5s var(--ease-out);
 }
@@ -2745,6 +2747,16 @@ select:focus-visible,
   }
 }
 
+/* Shared by both entrances below: the rise is the hero's, the state it starts
+   from is all this needs to declare (a `to` frame would restate what the
+   element already is). */
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
 /* ---------- Scroll-entrance stagger ----------
    The hero's opening beat, replayed as each section scrolls into view.
    `.enter` above animates once on load, for the blocks already on screen;
@@ -2778,8 +2790,79 @@ select:focus-visible,
    The hidden state is scoped to `.reveal-ready` on <html>, which only
    exists when the visitor allows motion AND the observer is armed -- with
    reduced motion, no JavaScript, or no IntersectionObserver, nothing is
-   ever hidden. */
+   ever hidden.
+
+   Where the browser can bind an animation to the scrollbar, it does the job
+   better than the observer can, so the two mechanisms are exclusive: the hook
+   stands down when the `@supports` test below passes, and the hidden state in
+   the fallback block never gets armed. Both entrances are the same motion --
+   fade, 10px of rise, a ladder of starts -- expressed once as a duration and
+   once as scroll distance. */
 @media (prefers-reduced-motion: no-preference) {
+  /* Scroll-bound entrance. A `view()` timeline makes the animation's progress
+     a function of scroll position: the fade and the rise advance exactly as
+     fast as the group moves, so there is no fixed duration to outrun and no
+     way for the motion to still be running once the reader has arrived -- the
+     complaint the fallback's timing was tuned against.
+
+     The range is a fixed 240px of scroll rather than a percentage of a named
+     range. `cover 0px` is the group's top edge crossing the fold, and the
+     entrance then takes the next 240px -- the same distance for a 30px heading
+     and a 600px dock. `entry-crossing 25%` reads like the same idea and is not:
+     Chrome resolves that range against the *subject's own* height, so a heading
+     would get 7px of animation and the dock 150px, which is the
+     height-dependent bug the old `threshold: 0.08` had in a new place. Each
+     child starts 24px further down the scroll, the ladder the fallback spends
+     45ms per step on: at an ordinary flick, 24px of scroll is about 45ms.
+
+     The gate tests `animation-range` and not just `view()`: a browser that
+     took the timeline but not the range names would run the whole animation
+     over the `cover` range, which is several screens of scrolling per section.
+     If either test fails, nothing here matches and the fallback takes over. */
+  @supports (animation-timeline: view()) and (animation-range: cover 0px cover 240px) {
+    [data-reveal-group] > :not(.card) {
+      animation-name: reveal-rise;
+      /* `auto`, not a time: with a view timeline the animation is as long as
+         the range below, and an explicit duration would override it. Longhands
+         rather than the `animation` shorthand, which resets `animation-timeline`
+         back to `auto` and would quietly unhook the animation from the scroll. */
+      animation-duration: auto;
+      animation-timing-function: var(--ease-out);
+      animation-fill-mode: both;
+      animation-timeline: view();
+      animation-range: cover 0px cover 240px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(2) {
+      animation-range: cover 24px cover 264px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(3) {
+      animation-range: cover 48px cover 288px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(4) {
+      animation-range: cover 72px cover 312px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(5) {
+      animation-range: cover 96px cover 336px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(6) {
+      animation-range: cover 120px cover 360px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(7) {
+      animation-range: cover 144px cover 384px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(8) {
+      animation-range: cover 168px cover 408px;
+    }
+  }
+
+  /* Fallback: the one-shot transition, armed by `useRevealOnScroll`. */
   .reveal-ready [data-reveal-group] > :not(.card) {
     opacity: 0;
     transform: translateY(10px);

@@ -12,8 +12,10 @@ import { useLayoutEffect } from "react";
  *
  * The `reveal-ready` gate is the whole safety story: the hidden state only
  * exists while that class is on <html>, and this hook only adds it when the
- * visitor allows motion and the browser has an IntersectionObserver. Without
- * either, the effect simply does not arm and the page renders exactly as it
+ * visitor allows motion, the browser has an IntersectionObserver, and the
+ * browser cannot bind the entrance to the scrollbar itself (in which case
+ * theme.css animates it and this hook stays out of the way). Without all three,
+ * the effect simply does not arm and the page renders exactly as it
  * did before -- nothing is ever hidden by default.
  *
  * `useLayoutEffect`, not `useEffect`: the class has to land before the
@@ -29,6 +31,22 @@ export function useRevealOnScroll() {
   useLayoutEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     if (!("IntersectionObserver" in window)) return;
+
+    /* Where the browser can bind the entrance to the scrollbar, it does the
+       job better than an observer can (see the `@supports` block next to
+       these rules in theme.css). Standing down here rather than arming
+       anyway: the hidden state exists to keep below-the-fold sections out of
+       the first paint, and the animation's own fill does that already -- two
+       mechanisms writing the same opacity would only be a chance for them to
+       disagree. The test is on `animation-range` as well as the timeline,
+       because it is the range names that make the motion short enough to be
+       an entrance; without them the animation would span several screens. */
+    if (
+      window.CSS?.supports?.("animation-timeline: view()") &&
+      window.CSS.supports("animation-range", "cover 0px cover 240px")
+    ) {
+      return;
+    }
 
     const root = document.documentElement;
     root.classList.add("reveal-ready");
