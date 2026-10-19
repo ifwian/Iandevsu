@@ -74,7 +74,7 @@ export const PROJECTS: Project[] = [
     href: "https://thesiftedcafe.vercel.app/",
     image: {
       src: "/images/projects/the-sifted-cafe.webp",
-      alt: "The Sifted Cafe home page: a blue hero reading Good coffee. Good food. Good people., with View Menu and Reserve a Table buttons.",
+      alt: "The Sifted Cafe home page: a cream header bar over a photo of iced coffee drinks, the headline Good coffee. Good food. Good people., and a Reserve a table form card.",
     },
   },
   {
