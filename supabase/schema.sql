@@ -38,6 +38,7 @@ create table if not exists public.chat_conversations (
     check (char_length(device) <= 120),
   current_page text constraint chat_conversations_current_page_len
     check (char_length(current_page) <= 200),
+  archived_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -61,6 +62,12 @@ alter table public.chat_conversations
 
 alter table public.chat_conversations
   add column if not exists current_page text;
+
+-- Admin-side archive marker. NULL = in the inbox, a timestamp = archived. Not a
+-- status value on purpose: statuses are announced to the visitor, archiving is
+-- not. See migrations/20261019010000_add_chat_archived.sql.
+alter table public.chat_conversations
+  add column if not exists archived_at timestamptz;
 
 create table if not exists public.chat_messages (
   id bigint generated always as identity primary key,
@@ -112,6 +119,12 @@ create index if not exists chat_conversations_status_idx
 create index if not exists chat_conversations_unread_idx
   on public.chat_conversations (unread_count desc)
   where unread_count > 0;
+
+-- Partial on the non-null side: almost every row is NULL, and an index over
+-- that is only a bigger empty index.
+create index if not exists chat_conversations_archived_at_idx
+  on public.chat_conversations (archived_at desc)
+  where archived_at is not null;
 
 create index if not exists chat_conversation_notes_conversation_created_at_idx
   on public.chat_conversation_notes (conversation_id, created_at desc);

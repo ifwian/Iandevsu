@@ -201,6 +201,15 @@ interface ConversationRecord {
   device?: string | null;
   /** Route the visitor was last on, reported by the widget. */
   current_page?: string | null;
+  /**
+   * Admin-side archive marker from 20261019010000_add_chat_archived.sql. NULL is
+   * "in the inbox", a timestamp is "archived". Read with the same graceful
+   * fallback as the rest of the optional columns: while the migration is
+   * unapplied the column is absent and every conversation reads as unarchived,
+   * which is the honest degradation -- the alternative is failing the read and
+   * showing an empty inbox.
+   */
+  archived_at?: string | null;
 }
 
 interface StoredReaction {
@@ -255,6 +264,8 @@ type ChatEvent =
   | "admin_takeover"
   | "admin_release"
   | "admin_status"
+  | "admin_archive"
+  | "admin_unarchive"
   | "admin_delete"
   | "admin_read"
   | "admin_note"
@@ -269,6 +280,8 @@ function isChatEvent(value: unknown): value is ChatEvent {
     value === "admin_takeover" ||
     value === "admin_release" ||
     value === "admin_status" ||
+    value === "admin_archive" ||
+    value === "admin_unarchive" ||
     value === "admin_delete" ||
     value === "admin_read" ||
     value === "admin_note" ||
@@ -1164,6 +1177,7 @@ function isConversationRecord(value: unknown): value is ConversationRecord {
     isOptionalText(candidate.device) &&
     isOptionalText(candidate.current_page) &&
     isOptionalText(candidate.first_seen_at) &&
+    isOptionalText(candidate.archived_at) &&
     (candidate.unread_count === undefined ||
       candidate.unread_count === null ||
       typeof candidate.unread_count === "number" ||
@@ -1237,12 +1251,14 @@ const CONVERSATION_COLUMNS =
 
 /**
  * Columns that only exist once a migration has been applied: `mode` from the
- * takeover migrations, the rest from 20260930010000_add_chat_inbox_features.
+ * takeover migrations, `archived_at` from 20261019010000_add_chat_archived,
+ * the rest from 20260930010000_add_chat_inbox_features.
  *
  * They travel as one group so a conversation is read in at most two queries
  * (this set, then the base set) rather than one per missing column.
  */
-const CONVERSATION_OPTIONAL_COLUMNS = "mode,unread_count,first_seen_at,device,current_page";
+const CONVERSATION_OPTIONAL_COLUMNS =
+  "mode,unread_count,first_seen_at,device,current_page,archived_at";
 
 let missingOptionalColumnsReported = false;
 
@@ -1297,7 +1313,7 @@ function withOptionalDefaults(row: ConversationRecord, hasOptional: boolean): Co
       unread_count: typeof row.unread_count === "number" ? row.unread_count : Number(row.unread_count ?? 0) || 0,
     };
   }
-  return { ...row, mode: "ai", device: null, current_page: null };
+  return { ...row, mode: "ai", device: null, current_page: null, archived_at: null };
 }
 
 /**
@@ -1672,6 +1688,33 @@ async function setConversationStatus(
   if (!Array.isArray(result) || result.length === 0) return null;
   const row = result[0] as Record<string, unknown> | undefined;
   return isConversationStatus(row?.status) ? row.status : null;
+}
+
+/**
+ * Sets or clears the admin archive marker.
+ *
+ * A discriminated result rather than `string | null`, because null is a good
+ * outcome here (unarchiving) and has to stay distinguishable from "the write did
+ * not happen" -- a failed unarchive that answered `null` would read as success.
+ */
+type ArchiveWrite = { ok: true; archivedAt: string | null } | { ok: false };
+
+async function setConversationArchived(
+  conversationId: string,
+  archived: boolean
+): Promise<ArchiveWrite> {
+  const archivedAt = archived ? new Date().toISOString() : null;
+  const result = await supabaseRequest(
+    `chat_conversations?id=eq.${encodeURIComponent(conversationId)}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ archived_at: archivedAt }),
+    }
+  );
+  if (!Array.isArray(result) || result.length === 0) return { ok: false };
+  const row = result[0] as Record<string, unknown> | undefined;
+  return { ok: true, archivedAt: typeof row?.archived_at === "string" ? row.archived_at : null };
 }
 
 /** Sets ai/takeover. Returns the updated mode, or null if the column is absent. */
@@ -2704,6 +2747,43 @@ async function handleChat(req: VercelRequest, res: VercelResponse) {
       JSON.stringify({ scope: "ian-chat-status", conversationId, status })
     );
     return res.status(200).json({ ok: true, conversationId, status, announcement });
+  }
+
+  if (event === "admin_archive" || event === "admin_unarchive") {
+    if (!(await hasAdminAccess(req))) {
+      return res.status(401).json({ error: "Admin authorization required" });
+    }
+    if (!hasSupabaseConfig()) {
+      return res.status(503).json(supabaseNotConfiguredBody());
+    }
+
+    const conversationId = typeof body.conversationId === "string" ? body.conversationId.trim() : "";
+    if (!conversationId) {
+      return res.status(400).json({ error: "conversationId is required" });
+    }
+
+    const conversation = await findConversationById(conversationId);
+    if (!conversation) return res.status(404).json({ error: "Conversation not found" });
+
+    const archived = event === "admin_archive";
+    const write = await setConversationArchived(conversationId, archived);
+    if (!write.ok) {
+      // Almost always the missing column: PostgREST rejects the whole PATCH when
+      // `archived_at` is absent, and 20261019010000 is what adds it.
+      return res.status(502).json({
+        error: `Could not ${archived ? "archive" : "restore"} the conversation`,
+        hint: "Run supabase/migrations/20261019010000_add_chat_archived.sql to add the archived_at column.",
+      });
+    }
+
+    /**
+     * No stored system message and no touchConversation call, unlike every other
+     * admin action. Archiving is not part of the conversation: a notice would
+     * show the visitor they had been filed away, and touching the row would
+     * overwrite `last_message_preview`, which exists to preview what the visitor
+     * last said.
+     */
+    return res.status(200).json({ ok: true, conversationId, archivedAt: write.archivedAt });
   }
 
   if (event === "admin_delete") {
