@@ -5,10 +5,10 @@
      - the dark theme's background goes to near-black;
      - one red accent (--accent) replaces ink as the "emphasis" fill: primary
        buttons, selected/pressed states, outgoing chat bubbles, badges,
-       status dots, the scroll-progress bar, text selection, focus rings;
-     - links and card/pill borders turn red on hover.
-   Text, hairlines and the grey ramp stay neutral. The conversation status
-   colours in the admin inbox are left as they were.
+       status dots, the scroll-progress bar, text selection, focus rings, and
+       the gradient circles behind the page;
+     - card and pill borders warm to the accent on hover.
+   Type stays neutral: no heading, label, link or nav item is tinted red.
    Delete this file and its import in main.tsx to get the old look back.
    ========================================================================== */
 
@@ -39,6 +39,74 @@
     --accent: #e5333f;
     --accent-hover: #f0525d;
     --accent-on: #ffffff;
+  }
+}
+
+/* ==========================================================================
+   BACKGROUND: RED GRADIENT CIRCLES
+   Three soft radial washes, fixed to the viewport so they read as depth behind
+   the column rather than as decoration inside any one section. They sit on
+   `body::after` (the grid texture on `body::before` is switched off in
+   minimal.css) at `z-index: -1`.
+
+   `isolation: isolate` on <body> is what makes that work: a negative-z child
+   otherwise paints *below* its parent's own background, and the circles would
+   be hidden behind the opaque `--bg`. Once <body> is a stacking context, its
+   background paints first and the layer sits above it, below the content.
+   ========================================================================== */
+body {
+  isolation: isolate;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: -10vmax;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle 34vmax at 88% 0%,
+      color-mix(in srgb, var(--accent) 52%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 30%, transparent) 35%,
+      transparent 66%
+    ),
+    radial-gradient(
+      circle 26vmax at -4% 58%,
+      color-mix(in srgb, var(--accent) 38%, transparent) 0%,
+      transparent 62%
+    ),
+    radial-gradient(
+      circle 30vmax at 55% 100%,
+      color-mix(in srgb, var(--accent) 42%, transparent) 0%,
+      transparent 64%
+    );
+}
+
+/* On white the same washes read as a pink haze at full strength; half opacity
+   keeps them a tint rather than a stain. */
+:root[data-theme="light"] body::after {
+  opacity: 0.5;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) body::after {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body::after {
+    animation: bg-drift 28s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes bg-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-1.5%, 1.5%, 0) scale(1.06);
   }
 }
 
@@ -110,18 +178,19 @@ span[style*="background-color: var(--ink)"] {
   color: inherit !important;
 }
 
-/* ---------- Links and hover borders ---------- */
+/* ---------- Links and hover borders ----------
+   Red is a surface colour here, never a text colour: links underline to ink and
+   leave the hue to the fills. */
 html :is(
   .text-link:hover,
   .chat-link:hover
 ) {
-  color: var(--accent);
-  text-decoration-color: var(--accent);
+  color: var(--ink);
+  text-decoration-color: var(--ink);
 }
 
 html :is(
   .card:hover,
-  .section-shell:hover,
   .terminal-pill:hover,
   .about-widget:hover,
   .pill:hover,
@@ -136,22 +205,25 @@ html :is(
   a:hover .arrow-glyph,
   .link-arrow:hover
 ) {
-  color: var(--accent);
+  color: var(--ink);
 }
 
-/* ---------- Red accents on existing text ---------- */
+/* ---------- Text is never red ----------
+   The section markers, the hero's primary action, the active nav row and every
+   hover state sit on plain ink. Red stays in the fills, dots, rules and the
+   background, so type reads white on near-black at full contrast. */
 html .section-eyebrow,
 html #home .hero-action-primary,
 html #home .hero-action-arrow,
 html a[aria-current="location"],
 html a[aria-current="location"] span {
-  color: var(--accent) !important;
+  color: var(--ink) !important;
 }
 
 html #home .hero-social-link:hover,
 html #home .hero-stat:hover .hero-stat-arrow,
 html #home .hero-stat:hover {
-  color: var(--accent);
+  color: var(--ink);
 }
 
 /* ---------- Hero: merged into the black background ----------
@@ -184,75 +256,35 @@ html #home .hero-stat:hover {
 
 /* ==========================================================================
    SECTION FRAMES + MOTION
-   Dependency-free equivalents of a few Magic UI effects (border beam, blur
-   fade, shiny text, number ticker, magic-card spotlight). All of it is
-   switched off under prefers-reduced-motion.
+   Dependency-free equivalents of a few Magic UI effects (blur fade, number
+   ticker, magic-card spotlight). All of it is switched off under
+   prefers-reduced-motion.
    ========================================================================== */
 
-/* ---------- Border lines on every section (02-07) ----------
-   The hero is deliberately not framed: it stays merged into the background. */
+/* ---------- Sections 02-07: no frame ----------
+   The hero was already unframed; the rest now follow, so the page reads as one
+   continuous column instead of a stack of bordered windows. The bar keeps its
+   rhythm but loses its rule and its tint, and the body drops the inset padding
+   the border used to justify -- otherwise the content would stay indented
+   against a frame that is no longer drawn. The border beam that used to travel
+   around these shells is gone with them. */
 html .section-shell,
 html .section-shell:hover {
-  border: 1px solid var(--gray-200);
-  border-radius: 14px;
-  background: var(--gray-50);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
 
-html .section-shell:hover {
-  border-color: var(--gray-300);
-}
-
 html .section-shell-bar {
-  border-bottom: 1px solid var(--gray-200);
-  border-radius: 13px 13px 0 0;
-  background: var(--gray-100);
-  padding: 0.5rem 1.1rem;
+  border-bottom: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0 0.75rem;
 }
 
-@media (min-width: 640px) {
-  html .section-shell-bar {
-    padding: 0.5rem 1.5rem;
-  }
-}
-
-/* ---------- Border beam ----------
-   A short red arc that travels once around each section frame. Drawn as a
-   masked conic gradient on the frame's own 1px border, so it never covers
-   content and adds no glow. */
-@property --beam-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-
-html .section-shell::after {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(
-    from var(--beam-angle),
-    transparent 0 84%,
-    var(--accent) 94%,
-    transparent 100%
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box exclude,
-    linear-gradient(#000 0 0);
-  pointer-events: none;
-  animation: beam-spin 9s linear infinite;
-}
-
-@keyframes beam-spin {
-  to {
-    --beam-angle: 360deg;
-  }
+html .section-shell-body {
+  padding: 0;
 }
 
 /* ---------- Blur fade (scroll reveal) ----------
@@ -278,31 +310,14 @@ html .section-shell::after {
   filter: none;
 }
 
-/* ---------- Shiny name ----------
-   One red sweep across the hero name on load, then it rests on plain ink. */
+/* ---------- Hero name: plain ink ----------
+   The sweep used to pass a red band through the name. The name is the largest
+   type on the page, so it is the last place a hue should land: it rests on ink
+   and leaves the red to the portrait and the fills around it. */
 html #home .hero-name {
-  background: linear-gradient(
-    110deg,
-    var(--ink) 40%,
-    var(--accent) 50%,
-    var(--ink) 60%
-  );
-  background-size: 250% 100%;
-  background-position: 100% 0;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  animation: name-shine 2.4s ease-in-out 0.8s 1 both;
-}
-
-@keyframes name-shine {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: 0% 0;
-  }
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  color: var(--ink);
 }
 
 /* ---------- Magic card spotlight + lift ---------- */
@@ -327,16 +342,8 @@ html .project-card:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html .section-shell::after {
+  body::after {
     animation: none;
-    opacity: 0;
-  }
-
-  html #home .hero-name {
-    animation: none;
-    background: none;
-    -webkit-text-fill-color: currentColor;
-    color: var(--ink);
   }
 
   html .project-card:hover {
