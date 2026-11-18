@@ -40,3 +40,7 @@ None (nothing was safe to delete without a build to verify).
 
 ## Setup
 See README.md: Node 20.19+/22.12+, `npm install`, `cp .env.example .env.local`, `npm run dev`. Database: run `supabase/schema.sql` on a fresh Supabase project.
+
+
+## Phase 3 — Theme system
+See TESTING-REPORT.md and HANDOFF.md (Phase 3).

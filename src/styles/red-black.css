@@ -11,27 +11,7 @@
    Delete this file and its import in main.tsx to get the old look back.
    ========================================================================== */
 
-:root {
-  --accent: #0a0a0a;       /* light theme: black fill, white text */
-  --accent-hover: #2b2b30;
-  --accent-on: #ffffff;
-}
-
-:root[data-theme="dark"] {
-  --bg: #09090a;
-  --accent: #f4f4f5;       /* dark theme: near-white fill, black text */
-  --accent-hover: #d4d4d8;
-  --accent-on: #0a0a0a;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-theme="dark"]) {
-    --bg: #09090a;
-    --accent: #f4f4f5;
-    --accent-hover: #d4d4d8;
-    --accent-on: #0a0a0a;
-  }
-}
+/* --accent, --accent-hover and --accent-on are defined per theme in tokens.css. */
 
 /* ==========================================================================
    BACKGROUND: FLAT MONOCHROME

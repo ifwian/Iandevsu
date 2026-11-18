@@ -114,7 +114,9 @@ const WALL_FOR_SIDE = { l: "scratchWallW", r: "scratchWallE", t: "scratchWallN",
  * The guided tour, in reading order. `id` is a section that exists on the home
  * route; `hold` is how long the line stays up before the next stop, in ms.
  * `mobileLine` replaces the opening line where dragging and hover-petting do
- * not exist. The tour only scrolls the document -- it never writes x/y.
+ * not exist. The guide WALKS between stops: the page glides to each section
+ * while she travels to a spot beside its header, then strolls on to the first
+ * card, talking the whole way (see tourStep / tourTick). Nothing teleports.
  */
 const TOUR_STOPS = [
   {
@@ -375,6 +377,10 @@ export function initDos(userOptions = {}) {
   let tourTimer = 0;
   let touring = false;
   let tourIndex = 0;
+  let tour = null; // { stop, wp: [A, B?], phase, t }
+  let tourTarget = null; // where she is walking to right now (viewport px)
+  let tourScroll = null; // { from, to, t0, dur }: the page glide that goes with the walk
+  let returning = false; // walking back to the perch after the tour
   let promptsUntil = 4;
   let bubbleIsPrompt = false;
   let bubbleIsTour = false;
@@ -725,24 +731,6 @@ export function initDos(userOptions = {}) {
     return true;
   }
 
-  /**
-   * Puts the guide in the middle of the part of a section that is actually on
-   * screen. Must run AFTER an instant scroll: `html` has `scroll-behavior:
-   * smooth`, so a plain scrollIntoView() is still animating when the rect is
-   * read and the pet used to land where the section *was*.
-   */
-  function moveGuideTo(el) {
-    const rect = el.getBoundingClientRect();
-    const vw = document.documentElement.clientWidth;
-    const vh = document.documentElement.clientHeight;
-    const top = Math.max(rect.top, 0);
-    const bottom = Math.min(rect.bottom, vh);
-    const cy = bottom > top ? (top + bottom) / 2 : vh / 2;
-    x = clamp(rect.left + rect.width / 2, S / 2, vw - S / 2);
-    y = clamp(cy, S / 2, vh - S / 2);
-    root.style.transform = `translate3d(${Math.round(x - S / 2)}px, ${Math.round(y - S / 2)}px, 0)`;
-  }
-
   /** One tour stop: progress, the line, and a way out. */
   function showTourBubble(content, ticks) {
     const { text, button } = ensureBubbleControls();
@@ -767,6 +755,7 @@ export function initDos(userOptions = {}) {
     if (following) setFollowing(false);
     resetIdle();
     petTicks = 0;
+    returning = false;
     hideBubble();
     touring = true;
     tourIndex = 0;
@@ -774,15 +763,56 @@ export function initDos(userOptions = {}) {
     tourStep();
   }
 
+  const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+  /** Where the page will rest when this section is scrolled to (matches scroll-margin-top). */
+  function scrollTargetFor(el, index) {
+    if (index === 0) return 0;
+    const margin = parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
+    const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    return clamp(Math.round(el.getBoundingClientRect().top + window.scrollY - margin), 0, max);
+  }
+
+  /** A node's rect as it will be once the page has finished scrolling to `finalY`. */
+  function finalRect(node, finalY) {
+    const r = node.getBoundingClientRect();
+    const dy = window.scrollY - finalY;
+    return { left: r.left, right: r.right, width: r.width, height: r.height, top: r.top + dy, bottom: r.bottom + dy };
+  }
+
+  /**
+   * Two places to stand for a stop, in the viewport as it will be when the page
+   * has settled: A beside the section header (alternating sides, so the route
+   * zig-zags), B on the first card/panel, which she strolls to while talking.
+   */
+  function planStop(el, index, finalY) {
+    const vw = document.documentElement.clientWidth;
+    const vh = window.innerHeight;
+    const shell = el.querySelector(".section-shell") || el;
+    const head = el.querySelector(".section-shell-bar, .hero-name, h1, h2") || el;
+    const cr = finalRect(shell, finalY);
+    const hr = finalRect(head, finalY);
+    const right = index % 2 === 0;
+    const A = {
+      x: clamp(right ? cr.right - S * 0.9 : cr.left + S * 0.9, S, vw - S),
+      y: clamp(hr.top + 110, S, vh - S * 1.5),
+    };
+    let B = null;
+    const card = el.querySelector(".card, .project-card, .build-panel, .about-widget");
+    if (card) {
+      const r = finalRect(card, finalY);
+      const by = r.top + Math.min(r.height / 2, 140);
+      if (by > S && by < vh - S) B = { x: clamp(r.left + r.width / 2, S, vw - S), y: by };
+    }
+    if (!B) B = { x: clamp(right ? cr.left + S * 1.5 : cr.right - S * 1.5, S, vw - S), y: clamp(vh * 0.62, S, vh - S) };
+    if (Math.hypot(B.x - A.x, B.y - A.y) < 90) B = null;
+    return [A, B];
+  }
+
   function tourStep() {
     if (!touring) return;
     if (tourIndex >= TOUR_STOPS.length) {
-      touring = false;
-      clearTimeout(tourTimer);
-      tourTimer = 0;
-      say(TOUR_OUTRO, 70);
-      nextSayIn = rand(60, 100);
-      promptsUntil = 5;
+      finishTour();
       return;
     }
 
@@ -793,37 +823,95 @@ export function initDos(userOptions = {}) {
       return;
     }
 
-    if (tourIndex === 0) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-    else el.scrollIntoView({ block: "start", behavior: "instant" });
-    moveGuideTo(el);
+    // The page glides to the section while she walks to her spot beside it, so
+    // the two arrive together instead of the world jumping and she popping in.
+    const finalY = scrollTargetFor(el, tourIndex);
+    const wp = planStop(el, tourIndex, finalY);
+    const walkDist = Math.hypot(wp[0].x - x, wp[0].y - y);
+    const scrollDist = Math.abs(finalY - window.scrollY);
+    const dur = clamp(Math.max(scrollDist * 0.55, (walkDist / 170) * 1000), 1000, 3200);
+    tourScroll = scrollDist > 2 ? { from: window.scrollY, to: finalY, t0: performance.now(), dur } : null;
+    tour = { stop, wp, phase: "walk", t: 0 };
+    tourTarget = { kind: "tour", x: wp[0].x, y: wp[0].y, stop: 10 };
 
+    // She starts talking as she sets off, and the bubble rides along with her.
     const line = idleOnly && stop.mobileLine ? stop.mobileLine : stop.line;
     const step = String(tourIndex + 1).padStart(2, "0");
     const total = String(TOUR_STOPS.length).padStart(2, "0");
-    // Include "by dos" on every stop
-    const bubbleContent = `${step} / ${total}\n${line}\nby dos`;
-    showTourBubble(bubbleContent, Math.max(20, Math.ceil(stop.hold / 100)));
-    hop.vy = -300; // a small hop on every stop, so the guide feels present
+    showTourBubble(`${step} / ${total}\n${line}\nby dos`, 99999);
     tourIndex += 1;
+  }
 
+  /** Runs every logic tick: arrival, the stroll to the card, the hand-off to the next stop. */
+  function tourTick() {
+    if (!touring || !tour) return;
+    const now = performance.now();
+    const arrived = !tourScroll && Math.hypot(x - tourTarget.x, y - tourTarget.y) <= tourTarget.stop + 2;
+    const hold = tour.stop.hold;
+    switch (tour.phase) {
+      case "walk":
+        if (arrived) {
+          tour.phase = "talk";
+          tour.t = now;
+          hop.vy = -300; // a little hop on arrival: "here it is"
+        }
+        break;
+      case "talk":
+        if (tour.wp[1] && now - tour.t > hold * 0.5) {
+          tour.phase = "stroll";
+          tourTarget = { kind: "tour", x: tour.wp[1].x, y: tour.wp[1].y, stop: 10 };
+        } else if (!tour.wp[1] && now - tour.t > hold) {
+          tourStep();
+        }
+        break;
+      case "stroll":
+        if (arrived) {
+          tour.phase = "linger";
+          tour.t = now;
+        }
+        break;
+      case "linger":
+        if (now - tour.t > hold * 0.5) tourStep();
+        break;
+    }
+  }
+
+  function finishTour() {
+    touring = false;
+    tour = null;
+    tourTarget = null;
+    tourScroll = null;
     clearTimeout(tourTimer);
-    tourTimer = window.setTimeout(tourStep, stop.hold);
+    tourTimer = 0;
+    say(TOUR_OUTRO, 70);
+    nextSayIn = rand(60, 100);
+    promptsUntil = 5;
+    returning = true; // walks back to her perch rather than vanishing there
   }
 
   function stopTour(message) {
     if (!touring) return;
     touring = false;
+    tour = null;
+    tourTarget = null;
+    tourScroll = null;
     clearTimeout(tourTimer);
     tourTimer = 0;
     if (message) say(message, 30);
     else hideBubble();
     nextSayIn = rand(60, 100);
     promptsUntil = 5;
+    if (idleOnly) returning = true; // phones keep her on the perch: walk her back
   }
 
   // ---------------------------------------------------------------- behaviour (one tick = 100 ms)
   /** What she is walking toward right now: the cursor (only after a click), or the perch. */
   function computeTarget() {
+    if (touring && tourTarget) return tourTarget;
+    if (returning) {
+      const h = restPosition();
+      return { kind: "home", x: h.x, y: h.y, stop: HOME_SNAP };
+    }
     if (idleOnly) return null;
     if (following) {
       if (!pointer.active) return null;
@@ -850,6 +938,7 @@ export function initDos(userOptions = {}) {
     chaseSpeed = opts.speed; // every chase starts from cruise
     idleTime = v ? 2 : 0; // starting: one alert beat, then she bolts
     restTicks = rand(opts.restEvery[0], opts.restEvery[1]);
+    if (v) returning = false;
     if (v) pointer.t = performance.now();
     else {
       // Follow is over (a click, or the cursor going idle). She stops wherever
@@ -991,6 +1080,9 @@ export function initDos(userOptions = {}) {
       }
     }
 
+    tourTick();
+    if (touring && frameCount % 3 === 0) placeBubble(false);
+
     // She is either following the cursor or sitting still where she was left. Nothing
     // pulls her back to the perch: free placement means she stays put until the
     // visitor moves her, clicks her, or drags her.
@@ -1055,6 +1147,7 @@ export function initDos(userOptions = {}) {
     const dy = y - target.y;
     const dist = Math.hypot(dx, dy);
     if (dist <= target.stop) {
+      if (target.kind === "home") returning = false;
       idleTick(target);
       return;
     }
@@ -1242,6 +1335,7 @@ export function initDos(userOptions = {}) {
     e.preventDefault();
     e.stopPropagation(); // the click belongs to the cat, not to whatever is underneath
     if (bubbleIsPrompt) hideBubble();
+    returning = false;
     if (touring) {
       // Grabbing the guide ends the tour; the same press is allowed to become a
       // drag. A quick click is swallowed in endDrag so it does not also toggle
@@ -1365,8 +1459,15 @@ export function initDos(userOptions = {}) {
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
 
+    // The page glide that accompanies a tour stop (instant writes: the easing is ours).
+    if (tourScroll) {
+      const k = clamp((now - tourScroll.t0) / tourScroll.dur, 0, 1);
+      window.scrollTo({ top: tourScroll.from + (tourScroll.to - tourScroll.from) * easeInOut(k), behavior: "instant" });
+      if (k >= 1) tourScroll = null;
+    }
+
     refreshBounds();
-    if (idleOnly) {
+    if (idleOnly && !touring && !returning) {
       const c = restPosition();
       x = c.x;
       y = c.y;
@@ -1427,7 +1528,7 @@ export function initDos(userOptions = {}) {
       tick();
     }
 
-    if (!idleOnly) {
+    if (!idleOnly || touring || returning) {
       move(dt);
       clampToBounds();
     }

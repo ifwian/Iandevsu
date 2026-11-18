@@ -91,8 +91,8 @@
   --z-overlay: 80;
   --z-modal: 100;
 
-  /* Error state, themed alongside the other status tokens. */
-  --status-error: #6b6b73;
+  /* Colour tokens (bg, ink, grey ramp, status, accent, shadows) live in
+     tokens.css, the single source of truth for both themes. */
 
   /* Breakpoints (documented here because CSS cannot read a custom property
      inside @media). Use these values, nowhere else:
@@ -101,28 +101,10 @@
   --bp-md: 768px;
   --bp-lg: 1024px;
 
-  --bg: #ffffff;
-  --ink: #0a0a0a;
 
-  --gray-50: #fafafa;
-  --gray-100: #f4f4f5;
-  --gray-200: #e4e4e7;
-  --gray-300: #d4d4d8;
-  --gray-400: #6b6b73;
-  --gray-500: #52525a;
-  --gray-600: #3f3f46;
-  --gray-700: #2b2b30;
-  --gray-800: #1f1f23;
-  --gray-900: #131316;
-  --gray-950: #0a0a0a;
 
-  --shadow-color: 0, 0, 0;
-  --shadow-resting: 0 8px 22px -14px rgba(var(--shadow-color), 0.25);
-  --shadow-hover: 0 18px 36px -20px rgba(var(--shadow-color), 0.4);
-  --shadow-modal: 0 40px 90px -20px rgba(var(--shadow-color), 0.35);
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --halftone-dot-color: rgba(10, 10, 10, 0.9);
 
   /*
    * Conversation status colors.
@@ -139,16 +121,11 @@
    * form), so the inbox still reads correctly in monochrome and for a
    * color-blind reader.
    */
-  --status-active: #3f7d3f;
-  --status-waiting: #8a6412;
-  --status-assigned: #3f5aa6;
-  --status-resolved: var(--gray-400);
 
   /* Confirmed/earned, as opposed to "a conversation is active". Aliased rather
      than given its own value so the muted green stays defined in one place --
      the two must not drift. Used by the education section's certification
      ticks, which mark something the visitor has actually passed. */
-  --accent-positive: var(--status-active);
 
   /*
    * Fixed sidebar width. Defined once here because four separate places have
@@ -179,69 +156,6 @@
      page one weight lighter. */
   --font-quote: "Source Serif 4", var(--font-body);
 
-  color-scheme: light;
-}
-
-:root[data-theme="dark"] {
-  --bg: #0c0c0f;
-  --ink: #f4f4f5;
-
-  --gray-50: #18181b;
-  --gray-100: #1e1e22;
-  --gray-200: #2a2a30;
-  --gray-300: #3a3a42;
-  --gray-400: #8a8a92;
-  --gray-500: #a0a0a8;
-  --gray-600: #b5b5bc;
-  --gray-700: #c8c8ce;
-  --gray-800: #dcdce0;
-  --gray-900: #ececee;
-  --gray-950: #f4f4f5;
-
-  --shadow-resting: 0 8px 22px -14px rgba(0, 0, 0, 0.6);
-  --shadow-hover: 0 18px 36px -20px rgba(0, 0, 0, 0.7);
-  --shadow-modal: 0 40px 90px -20px rgba(0, 0, 0, 0.7);
-  --halftone-dot-color: rgba(244, 244, 245, 0.42);
-
-  /* Lifted for dark: the light-mode values are dark enough to read on white
-     and wash out against a near-black --bg. */
-  --status-active: #6ee06e;
-  --status-error: #6b6b73;
-  --status-waiting: #e0b252;
-  --status-assigned: #8ea8f0;
-  --status-resolved: var(--gray-400);
-  --accent-positive: var(--status-active);
-
-  color-scheme: dark;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-theme="dark"]) {
-    --bg: #0c0c0f;
-    --ink: #f4f4f5;
-    --gray-50: #18181b;
-    --gray-100: #1e1e22;
-    --gray-200: #2a2a30;
-    --gray-300: #3a3a42;
-    --gray-400: #8a8a92;
-    --gray-500: #a0a0a8;
-    --gray-600: #b5b5bc;
-    --gray-700: #c8c8ce;
-    --gray-800: #dcdce0;
-    --gray-900: #ececee;
-    --gray-950: #f4f4f5;
-    --shadow-resting: 0 8px 22px -14px rgba(0, 0, 0, 0.6);
-    --shadow-hover: 0 18px 36px -20px rgba(0, 0, 0, 0.7);
-    --shadow-modal: 0 40px 90px -20px rgba(0, 0, 0, 0.7);
-    --halftone-dot-color: rgba(244, 244, 245, 0.42);
-    --status-active: #6ee06e;
-    --status-error: #6b6b73;
-    --status-waiting: #e0b252;
-    --status-assigned: #8ea8f0;
-    --status-resolved: var(--gray-400);
-    --accent-positive: var(--status-active);
-    color-scheme: dark;
-  }
 }
 
 /* The `.kode-mono-regular` helper went with the Kode Mono webfont link.
@@ -417,49 +331,10 @@ body {
   overflow-x: hidden;
   overflow-x: clip;
   max-width: 100vw;
-  transition: background-color 0.5s var(--ease-out), color 0.5s var(--ease-out);
 }
 
-/*
- * Colour crossfade, for browsers with NO view-transition support.
- *
- * This used to read `@supports not (view-transition-name: none)`, which is
- * "where view transitions do not exist" -- so the crossfade only ever applied
- * where the circular reveal in ThemeToggle could not run, and never applied in
- * the browsers that show the reveal. The two mechanisms were effectively
- * exclusive: capable browsers got only the wipe, and the rest got only the fade.
- *
- * With the reveal in place, the wipe is the whole effect, so the fallback fade
- * belongs exactly here. Where view transitions DO work, `.theme-transitioning`
- * below neutralises these transitions for the duration of the reveal, so the two
- * cannot overlap.
- */
-@supports not (view-transition-name: none) {
-  *,
-  *::before,
-  *::after {
-    transition: background-color 0.4s var(--ease-out), border-color 0.4s var(--ease-out), color 0.4s var(--ease-out), fill 0.4s var(--ease-out), stroke 0.4s var(--ease-out);
-  }
-}
-
-/*
- * While the circular reveal plays, hold every colour still.
- *
- * The reveal is a snapshot crossfade: `::view-transition-old(root)` is a static
- * image of the old theme and the new one is revealed through an animated
- * clip-path over it. If the live DOM underneath kept crossfading its colours at
- * the same time, the two animations ran on top of each other and the wipe looked
- * like a stutter rather than a reveal. `transition: none` on the root cancels
- * the fallback fade for exactly as long as the transition is flagged, and the
- * flag is cleared on both the `finished` promise and a timer, so nothing is left
- * disabled if the transition is skipped.
- */
-:root.theme-transitioning,
-:root.theme-transitioning *,
-:root.theme-transitioning *::before,
-:root.theme-transitioning *::after {
-  transition: none !important;
-}
+/* Theme-switch transitions (fade / freeze / view-transition reveal) live in
+   tokens.css, section 3. */
 
 a {
   color: inherit;
@@ -2323,32 +2198,6 @@ select:focus-visible,
   }
 }
 
-/* ---------- Theme-switch reveal ---------- */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-::view-transition-new(root) {
-  animation: theme-reveal 0.65s var(--ease-out);
-}
-
-@keyframes theme-reveal {
-  from {
-    clip-path: circle(0px at var(--theme-toggle-x, 50%) var(--theme-toggle-y, 50%));
-  }
-  to {
-    clip-path: circle(var(--theme-reveal-radius, 150vmax) at var(--theme-toggle-x, 50%) var(--theme-toggle-y, 50%));
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-new(root) {
-    animation: none;
-  }
-}
-
 /* ---------- Sidebar layout ---------- */
 
 /*
@@ -2421,10 +2270,6 @@ main {
 /* Landscape phones: short viewports should scroll, not clip. */
 @media (max-height: 480px) and (orientation: landscape) {
   .chat-panel { max-height: 100dvh; overflow-y: auto; }
-}
-  ::view-transition-old(root), ::view-transition-new(root) {
-    animation: none;
-    mix-blend-mode: normal;
 }
 
 /* Blinking caret for typing-animation.tsx. Plain CSS on purpose: this project

@@ -1,0 +1,68 @@
+/* ==========================================================================
+   SECTION MOTION
+   Entrance animation for every section below the hero, plus the sidebar's
+   active-link marker. Driven by useSectionMotion (adds `motion-ready` to <html>
+   and `in-view` to each section). Nothing is hidden unless `motion-ready` is
+   set, so no-JS and reduced-motion visitors see the page as-is.
+   ========================================================================== */
+
+:root {
+  --motion-dur: 0.7s;
+  --motion-step: 70ms;
+}
+
+@keyframes section-rise {
+  from { opacity: 0; transform: translateY(18px); filter: blur(4px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+/* Hidden until its section is in view. */
+html.motion-ready section[id]:not(#home):not(.in-view) :is(.section-shell-bar, .section-shell-body .card, .section-shell-body .project-card) {
+  opacity: 0;
+}
+
+/* `backwards` (not `forwards`): the element returns to its natural styles when
+   the animation ends, so hover transforms on cards keep working. */
+html.motion-ready section[id]:not(#home).in-view :is(.section-shell-bar, .section-shell-body .card, .section-shell-body .project-card) {
+  animation: section-rise var(--motion-dur) var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * var(--motion-step));
+}
+
+/* Header bar leads; its hairline draws in. */
+html.motion-ready section[id]:not(#home).in-view .section-shell-bar {
+  animation-delay: 0ms;
+}
+
+/* ---------- Sidebar: active marker slides in ---------- */
+.rail__link { position: relative; }
+.rail__link::before {
+  content: "";
+  position: absolute;
+  left: -1.7rem;
+  top: 20%;
+  bottom: 20%;
+  width: 2px;
+  background: var(--ink);
+  border-radius: 2px;
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform 0.3s var(--ease-out);
+}
+.rail__link[aria-current="location"]::before { transform: scaleY(1); }
+.rail__link:hover { transform: translateX(2px); }
+.rail__link { transition: color 0.2s var(--ease-out), transform 0.25s var(--ease-out); }
+
+@media (prefers-reduced-motion: reduce) {
+  html.motion-ready section[id] :is(.section-shell-bar, .card, .project-card) {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+  .rail__link:hover { transform: none; }
+}
+
+@media print {
+  html.motion-ready section[id] :is(.section-shell-bar, .card, .project-card) {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+}

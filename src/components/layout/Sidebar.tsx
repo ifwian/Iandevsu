@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Menu, X } from "lucide-react";
+import { FileText, MapPin, Menu, X } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { SOCIAL_ITEMS } from "@/lib/socials";
 import { PROFILE } from "@/content/profile";
 import ThemeToggle from "./ThemeToggle";
+import "./sidebar.css";
 
 interface SidebarProps {
   /** Section that is highlighted until the scroll-spy reports a different one. */
@@ -13,80 +14,45 @@ interface SidebarProps {
 }
 
 const SECTION_IDS = NAV_ITEMS.map((item) => item.href);
+const pad = (n: number) => String(n).padStart(2, "0");
 
-/** Wordmark: name with a solid border dot. */
-function Brand() {
+/** Name + tagline. Shared by the rail and the mobile bar (tagline rail-only). */
+function Brand({ withTagline = false }: { withTagline?: boolean }) {
   return (
-    <a
-      href="#home"
-      aria-label="Back to top"
-      className="inline-flex items-baseline gap-[4px] text-lg tracking-tight"
-      style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}
-    >
-      Marianne Napaño
-      <span
-        aria-hidden="true"
-        className="inline-block h-[8px] w-[8px] rounded-full border border-[var(--ink)]"
-        style={{ backgroundColor: "var(--ink)" }}
-      />
-    </a>
+    <div>
+      <a href="#home" aria-label="Back to top" className="rail__name">
+        {PROFILE.name}
+      </a>
+      {withTagline ? <p className="rail__tag">{PROFILE.tagline}</p> : null}
+    </div>
   );
 }
 
-/** The numbered list (1-7). Shared by the desktop rail and the mobile menu. */
-function NavList({
-  active,
-  onNavigate,
-  mobile = false,
-}: {
-  active: string;
-  onNavigate: (href: string) => void;
-  mobile?: boolean;
-}) {
+/** Numbered section list (01, 02 ...). Shared by the rail and the mobile menu. */
+function NavList({ active, onNavigate }: { active: string; onNavigate: (href: string) => void }) {
   return (
-    <nav
-      aria-label="Primary navigation"
-      className="flex flex-col border-b border-[var(--gray-200)] py-5"
-    >
-      {NAV_ITEMS.map((item, index) => {
-        const isActive = active === item.href;
-
-        return (
-          <a
-            key={item.href}
-            href={item.href}
-            aria-current={isActive ? "location" : undefined}
-            onClick={() => onNavigate(item.href)}
-            className={`group relative flex items-baseline gap-[0.35rem] py-[0.45rem] text-[13px] leading-normal tracking-[0.2px] transition-colors ${
-              mobile ? "rounded-md pr-3" : ""
-            }`}
-            style={{
-              paddingLeft: "1.1rem",
-              color: isActive ? "var(--ink)" : "var(--gray-500)",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            <span
-              aria-hidden="true"
-              className={`absolute left-0 top-[0.45rem] text-sm transition-all duration-200 ${
-                isActive ? "opacity-100" : "opacity-0 -translate-x-1 group-hover:translate-x-0 group-hover:opacity-100"
-              }`}
-            >
-              {index + 1}
-            </span>
-            <span className="min-w-[1.5rem] text-[11px]" style={{ fontFamily: "var(--font-display)" }}>
-              {item.label}
-            </span>
-          </a>
-        );
-      })}
+    <nav aria-label="Primary navigation" className="flex flex-col">
+      {NAV_ITEMS.map((item, index) => (
+        <a
+          key={item.href}
+          href={item.href}
+          aria-current={active === item.href ? "location" : undefined}
+          onClick={() => onNavigate(item.href)}
+          className="rail__link"
+        >
+          <span aria-hidden="true" className="rail__link-num">
+            {pad(index + 1)}
+          </span>
+          {item.label}
+        </a>
+      ))}
     </nav>
   );
 }
 
 function Socials() {
   return (
-    <ul className="flex items-center gap-3">
+    <ul className="rail__socials">
       {SOCIAL_ITEMS.map(({ label, href, Icon }) => (
         <li key={label}>
           <a
@@ -95,9 +61,9 @@ function Socials() {
             rel="noopener noreferrer"
             aria-label={label}
             title={label}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--gray-200)] text-[var(--gray-500)] transition-colors hover:text-[var(--ink)]"
+            className="rail__icon"
           >
-            <Icon size={15} />
+            <Icon size={17} />
           </a>
         </li>
       ))}
@@ -105,17 +71,28 @@ function Socials() {
   );
 }
 
+function ResumeButton() {
+  const resume = PROFILE.links.resume;
+  if (!resume) return null; // no dead link until a URL is set in profile.ts
+  return (
+    <a href={resume} target="_blank" rel="noopener noreferrer" className="rail__resume">
+      <FileText size={13} aria-hidden="true" />
+      view resume
+    </a>
+  );
+}
+
 /**
- * Site chrome: a fixed left rail from `lg` up, and a fixed top bar with a menu
- * below it (the 68px bar height is what `section[id]`'s scroll-margin in
- * theme.css assumes). Both read the same NAV_ITEMS. The highlighted item is
- * driven by an IntersectionObserver over the sections, not by a prop.
+ * Site chrome: a fixed left rail from `lg` up (name, status, numbered sections,
+ * resume, socials + theme switch) and a fixed top bar with a menu below it (the
+ * 68px bar height is what `section[id]`'s scroll-margin in theme.css assumes).
+ * Both read the same NAV_ITEMS; the highlighted item comes from an
+ * IntersectionObserver over the sections.
  */
 export default function Sidebar({ active = "#home" }: SidebarProps) {
   const [current, setCurrent] = useState<string>(active);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Scroll-spy: the section crossing a band near the top third of the viewport.
   useEffect(() => {
     if (!("IntersectionObserver" in window)) return;
     const visible = new Map<string, number>();
@@ -127,7 +104,6 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
           if (entry.isIntersecting) visible.set(id, entry.boundingClientRect.top);
           else visible.delete(id);
         }
-        // Several can be inside the band at once; take the first in page order.
         const first = SECTION_IDS.find((id) => visible.has(id));
         if (first) setCurrent(first);
       },
@@ -141,7 +117,6 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
     return () => observer.disconnect();
   }, []);
 
-  // Escape closes the mobile menu.
   useEffect(() => {
     if (!menuOpen) return;
     const onKey = (event: KeyboardEvent) => {
@@ -156,55 +131,48 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
     setMenuOpen(false);
   };
 
-  const resume = PROFILE.links.resume;
-
   return (
     <>
       {/* Desktop rail */}
-      <aside
-        className="fixed inset-y-0 left-0 z-30 hidden flex-col overflow-y-auto px-6 py-10 lg:flex"
-        style={{ width: "var(--sidebar-w)" }}
-      >
-        <Brand />
-        <p
-          className="mt-2 text-[12px] leading-snug"
-          style={{ color: "var(--gray-500)", fontFamily: "var(--font-mono)" }}
-        >
-          {PROFILE.headline}
-        </p>
+      <aside className="rail" aria-label="Site sidebar">
+        <div className="rail__block rail__block--brand">
+          <Brand withTagline />
+        </div>
 
-        <div className="mt-8">
+        <div className="rail__block rail__block--tight">
+          {PROFILE.availability ? (
+            <p className="rail__meta">
+              <span className="rail__dot" aria-hidden="true" />
+              {PROFILE.availability}
+            </p>
+          ) : null}
+          <p className="rail__meta">
+            <MapPin size={13} aria-hidden="true" />
+            {PROFILE.location.toLowerCase()}
+          </p>
+        </div>
+
+        <div className="rail__block rail__block--nav">
           <NavList active={current} onNavigate={go} />
         </div>
 
-        <div className="mt-auto flex flex-col gap-4 pt-8">
-          {resume ? (
-            <a
-              href={resume}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex w-fit items-center rounded-full border border-[var(--gray-200)] px-3 py-1 text-[12px] text-[var(--gray-500)] transition-colors hover:text-[var(--ink)]"
-              style={{ fontFamily: "var(--font-mono)" }}
-            >
-              view resume
-            </a>
-          ) : null}
-          <Socials />
-          <div className="flex items-center justify-between">
-            <ThemeToggle />
-            <div className="flex items-center gap-2">
-              <ThemeToggle compact />
-            </div>
+        {PROFILE.links.resume ? (
+          <div className="rail__block">
+            <ResumeButton />
+          </div>
+        ) : null}
+
+        <div className="rail__block rail__block--last">
+          <div className="rail__foot">
+            <Socials />
+            <ThemeToggle bare compact />
           </div>
         </div>
       </aside>
 
       {/* Mobile top bar */}
-      <header
-        className="fixed inset-x-0 top-0 z-40 lg:hidden"
-        style={{ backgroundColor: "var(--bg)", borderBottom: "1px solid var(--gray-200)" }}
-      >
-        <div className="flex items-center justify-between px-5 py-4">
+      <header className="topbar">
+        <div className="topbar__row">
           <Brand />
           <div className="flex items-center gap-2">
             <ThemeToggle compact />
@@ -214,7 +182,7 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
               aria-expanded={menuOpen}
               aria-controls="mobile-nav"
               onClick={() => setMenuOpen((open) => !open)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--gray-200)] text-[var(--gray-500)] transition-colors hover:text-[var(--ink)]"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)] transition-colors hover:text-[var(--ink)]"
             >
               {menuOpen ? <X size={16} strokeWidth={1.7} /> : <Menu size={16} strokeWidth={1.7} />}
             </button>
@@ -222,9 +190,9 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
         </div>
 
         {menuOpen ? (
-          <div id="mobile-nav" className="px-5 pb-4">
-            <NavList active={current} onNavigate={go} mobile />
-            <div className="pt-4">
+          <div id="mobile-nav" className="topbar__menu">
+            <NavList active={current} onNavigate={go} />
+            <div className="rail__block" style={{ borderBottom: 0 }}>
               <Socials />
             </div>
           </div>

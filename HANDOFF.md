@@ -54,3 +54,24 @@ State: `npm run typecheck` and `npm run build` both PASS.
 - [ ] <1024px: top bar + menu opens/closes, anchors land below the bar
 - [ ] Take the tour: Dos sits mid-section at each stop, "by dos" shows; Esc/wheel/grab stops it
 - [ ] Dots sit behind content, not over text
+
+## Phase 3: theme system
+- Colours now live ONLY in `src/styles/tokens.css` (dark is the un-attributed default, `:root[data-theme="light"]` overrides). theme.css / minimal.css / red-black.css no longer declare colour tokens and the duplicate `prefers-color-scheme` palette copies are gone.
+- `src/lib/theme.tsx`: `ThemeProvider` + `useTheme()` (`theme`, `resolvedTheme`, `setTheme`), localStorage key `theme` (`dark|light|system`, default dark), cross-tab sync, theme-color meta sync. No new dependency.
+- `ThemeToggle` follows Magic UI's documented usage: `<AnimatedThemeToggler theme={resolvedTheme} onThemeChange={setTheme} />`.
+- `index.html` inline script resolves the theme before first paint; keep it in step with `theme.tsx`.
+- Fixed: two ThemeToggles rendered in the desktop rail; toggler flipped a `dark` class blindly; missing `::view-transition-group` duration (reveal was cut to ~250ms); `.theme-fading` / `.theme-transitioning` were referenced but never set; permanent global `*` transitions in old browsers.
+
+## Phase 4: Kim-style left sidebar
+- `src/components/layout/Sidebar.tsx` + new `sidebar.css`: 16rem rail with hairline right border, lowercase display-font name, uppercase mono tagline, "open to opportunities" status + location, numbered 01-07 section list (your own sections from `lib/navigation.ts`), optional `view resume` button, socials + theme toggle in the footer. Mobile keeps the top bar + numbered menu.
+- Edit the copy in `src/content/profile.ts`: `tagline`, `availability` ("" hides the status line), `location`, `links.resume` (button appears only when set).
+
+## Phase 5: section motion
+- `src/lib/useSectionMotion.ts` + `src/styles/motion.css`: every section below the hero eases in (header bar, then cards in a 70 ms stagger: fade, 18px lift, slight blur) the first time it is reached. Sidebar link gets a sliding active marker and a small hover nudge.
+- Gated by `html.motion-ready` (only set when motion is allowed): reduced-motion, no-JS and print show everything immediately. Tune with `--motion-dur` / `--motion-step`.
+- Works alongside the existing `useRevealOnScroll` child stagger inside section bodies.
+
+## Phase 6: walking guided tour (src/dos/dos.js)
+- The tour no longer teleports. At each stop the page glides (eased, our own rAF scroll) while the guide walks with the normal walk-cycle to a spot beside the section header, talking as she goes (bubble rides with her), hops on arrival, strolls to the first card, then moves on. After the last stop she walks back to her perch. Works on phones too (idle-only mode now walks during the tour).
+- Tested in Chromium with the real dos.js: all 7 stops visited, no position jumps, max speed ~290 px/s.
+- NOT done: kokonutui `activity-terrain` for the GitHub section (see chat).

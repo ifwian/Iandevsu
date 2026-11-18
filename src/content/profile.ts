@@ -9,6 +9,10 @@ export const PROFILE = {
   name: "Marianne Napaño",
   goesBy: "Ian",
   headline: "Computer Science student & web developer",
+  /** Short uppercase line under the name in the sidebar. */
+  tagline: "CS STUDENT · WEB DEV",
+  /** Sidebar status line. Set to "" to hide it. */
+  availability: "open to opportunities",
   location: "Calamba, Philippines",
   bio: [
     "Computer Science student at City College of Calamba (2025-2029), exploring web development and software engineering.",

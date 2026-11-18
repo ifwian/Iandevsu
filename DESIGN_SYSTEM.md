@@ -48,6 +48,7 @@ These are the rules the codebase actually follows. Most are enforced by conventi
 
 | File | Role |
 |---|---|
+| `src/styles/tokens.css` | **Theme tokens: single source of truth for colour** (dark default + light, semantic tokens, switch transitions, view-transition reveal). Imported first. `src/lib/theme.tsx` holds `ThemeProvider` / `useTheme`. |
 | `src/styles/theme.css` | **The design system.** 2,327 lines. All colour tokens, both themes, all global component classes, reset, keyframes, reduced-motion guards. Imported once from `src/main.tsx`. |
 | `index.html` | Google Fonts link, **Tailwind Play CDN `<script>`**, no-flash theme bootstrap. |
 | `components/ui/*.css` | 3 scoped files: `DepthCarousel.css`, `Stack.module.css`, `PixelTransition.module.css`. No tokens of their own. |

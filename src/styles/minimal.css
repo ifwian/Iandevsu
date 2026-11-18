@@ -84,22 +84,7 @@ html .status-dot { animation: none; }
 html #home .hero-stats { background: transparent; border-top: 1px solid var(--gray-200); }
 html #home .hero-stats > * { background: transparent; }
 
-/* ==========================================================================
-   SMOOTH THEME SWITCH
-   Added to <html> by ThemeToggle for the length of the change.
-   ========================================================================== */
-html.theme-fading,
-html.theme-fading *,
-html.theme-fading *::before,
-html.theme-fading *::after {
-  transition:
-    background-color 0.45s ease,
-    border-color 0.45s ease,
-    color 0.45s ease,
-    fill 0.45s ease,
-    stroke 0.45s ease !important;
-}
-html { background-color: var(--bg); }
+/* Theme-switch transitions and the html background: see tokens.css. */
 
 /* ==========================================================================
    REFINEMENTS

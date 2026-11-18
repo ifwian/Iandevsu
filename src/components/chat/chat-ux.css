@@ -27,7 +27,7 @@
   padding: 0.45rem 0.75rem;
   resize: none;
   overflow-y: auto;
-  border: 1px solid var(--gray-300);
+  border: 1px solid var(--input-border);
   border-radius: 0.5rem;
   background-color: var(--gray-100);
   color: var(--ink);
@@ -148,7 +148,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   letter-spacing: 0.05em;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+  box-shadow: var(--shadow-toast);
 }
 
 /* ---------- Keyboard focus ---------- */

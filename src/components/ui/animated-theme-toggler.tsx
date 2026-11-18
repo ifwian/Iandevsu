@@ -231,18 +231,22 @@ export const AnimatedThemeToggler = ({
 
     const applyTheme = () => {
       const newTheme = !isDark
-      // Always toggle the class synchronously so the View Transitions API
-      // snapshots the new theme inside the startViewTransition callback.
-      document.documentElement.classList.toggle("dark")
+      // Controlled: the parent (ThemeProvider) writes the DOM, synchronously,
+      // so the View Transitions API snapshots the new theme inside the
+      // startViewTransition callback. Uncontrolled: toggle the class here.
       if (isControlled) {
         onThemeChange?.(newTheme ? "dark" : "light")
       } else {
+        document.documentElement.classList.toggle("dark")
         setInternalIsDark(newTheme)
         localStorage.setItem("theme", newTheme ? "dark" : "light")
       }
     }
 
-    if (typeof document.startViewTransition !== "function") {
+    if (
+      typeof document.startViewTransition !== "function" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
       applyTheme()
       return
     }

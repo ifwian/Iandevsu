@@ -25,6 +25,7 @@
      wants to be seen (a field's border while focused, an outlined button). */
   --ui-edge: var(--gray-200);
   --ui-edge-strong: var(--gray-300);
+  --ui-field-edge: var(--input-border);
   /* Quiet text. --gray-400 is dark enough on --bg in light mode and light
      enough on --bg in dark mode, so it is the only one needed. */
   --ui-muted: var(--gray-400);
@@ -131,7 +132,7 @@
 .ui-textarea {
   width: 100%;
   min-width: 0;
-  border: 1px solid var(--ui-edge);
+  border: 1px solid var(--ui-field-edge);
   border-radius: var(--ui-radius-sm);
   background-color: var(--bg);
   color: var(--ink);
@@ -379,7 +380,7 @@
   position: fixed;
   inset: 0;
   z-index: var(--z-overlay);
-  background-color: rgba(6, 6, 8, 0.45);
+  background-color: var(--overlay);
   animation: ui-fade-in 0.12s ease;
 }
 

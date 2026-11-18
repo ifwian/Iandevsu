@@ -1,0 +1,199 @@
+/* ==========================================================================
+   THEME TOKENS: the single source of truth for colour.
+   Imported first in main.tsx. Nothing else in the project declares a theme
+   colour: theme.css, minimal.css, red-black.css and the component sheets only
+   *consume* these variables, so a theme is retuned in this file and nowhere
+   else.
+
+   How a theme is selected
+     <html data-theme="dark|light"> is the switch. `ThemeProvider`
+     (src/lib/theme.tsx) owns it, and the inline script in index.html sets it
+     before first paint so there is no wrong-theme flash.
+
+   Dark is the default. The un-attributed `:root` IS the dark theme, so the page
+   is dark even before JavaScript runs or if the attribute is missing. Light is
+   the override. There is deliberately no `prefers-color-scheme` copy of the
+   palette: the provider resolves "system" to a concrete attribute in JS, which
+   removes the second (drift-prone) copy of every value that used to live here.
+
+   Layers
+     1. Primitives   --bg, --ink, --gray-50..950, status + accent colours
+     2. Semantic     --surface, --border, --text-muted ... what components use
+     3. Mechanics    colour-scheme, switch transitions, view-transition reveal
+   ========================================================================== */
+
+/* ---------- 1. Primitives: DARK (default) ---------- */
+:root {
+  color-scheme: dark;
+
+  --bg: #09090a;
+  --ink: #f4f4f5;
+
+  --gray-50: #18181b;
+  --gray-100: #1e1e22;
+  --gray-200: #2a2a30;
+  --gray-300: #3a3a42;
+  --gray-400: #8a8a92;
+  --gray-500: #a0a0a8;
+  --gray-600: #b5b5bc;
+  --gray-700: #c8c8ce;
+  --gray-800: #dcdce0;
+  --gray-900: #ececee;
+  --gray-950: #f4f4f5;
+
+  /* Emphasis fill (primary buttons, selected states, outgoing bubbles). */
+  --accent: #f4f4f5;
+  --accent-hover: #d4d4d8;
+  --accent-on: #0a0a0a;
+
+  /* Conversation status. The one sanctioned departure from monochrome: muted
+     tones, lifted here so they hold 4.5:1 on a near-black ground. */
+  --status-active: #6ee06e;
+  --status-waiting: #e0b252;
+  --status-assigned: #8ea8f0;
+  --status-error: #f08a8a;
+  --status-resolved: var(--gray-400);
+  --accent-positive: var(--status-active);
+
+  --shadow-color: 0, 0, 0;
+  --shadow-resting: 0 8px 22px -14px rgba(0, 0, 0, 0.6);
+  --shadow-hover: 0 18px 36px -20px rgba(0, 0, 0, 0.7);
+  --shadow-modal: 0 40px 90px -20px rgba(0, 0, 0, 0.7);
+  --halftone-dot-color: rgba(244, 244, 245, 0.42);
+
+  /* Modal scrim and the "toast" shadow. */
+  --overlay: rgba(0, 0, 0, 0.6);
+  --shadow-toast: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- 1. Primitives: LIGHT ---------- */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #ffffff;
+  --ink: #0a0a0a;
+
+  --gray-50: #fafafa;
+  --gray-100: #f4f4f5;
+  --gray-200: #e4e4e7;
+  --gray-300: #d4d4d8;
+  --gray-400: #6b6b73;
+  --gray-500: #52525a;
+  --gray-600: #3f3f46;
+  --gray-700: #2b2b30;
+  --gray-800: #1f1f23;
+  --gray-900: #131316;
+  --gray-950: #0a0a0a;
+
+  --accent: #0a0a0a;
+  --accent-hover: #2b2b30;
+  --accent-on: #ffffff;
+
+  --status-active: #2f6f2f;
+  --status-waiting: #8a6412;
+  --status-assigned: #3f5aa6;
+  --status-error: #b42323;
+
+  --shadow-color: 0, 0, 0;
+  --shadow-resting: 0 8px 22px -14px rgba(0, 0, 0, 0.25);
+  --shadow-hover: 0 18px 36px -20px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 40px 90px -20px rgba(0, 0, 0, 0.35);
+  --halftone-dot-color: rgba(10, 10, 10, 0.9);
+
+  --overlay: rgba(10, 10, 12, 0.45);
+  --shadow-toast: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ---------- 2. Semantic tokens ----------
+   Declared once, on :root. They alias the primitives, so they follow the active
+   theme without a second per-theme block. Components should prefer these names
+   over reaching into the grey ramp. */
+:root {
+  --surface: var(--gray-50);          /* cards, panels, assistant bubbles   */
+  --surface-raised: var(--gray-100);  /* inputs, hovered rows, chips        */
+  --border: var(--gray-200);          /* hairlines                          */
+  --border-strong: var(--gray-300);   /* a control that wants to be seen    */
+  --text-muted: var(--gray-500);      /* secondary copy                     */
+  --text-subtle: var(--gray-400);     /* captions, placeholders (>=4.5:1)   */
+  --focus-ring: var(--ink);
+}
+
+/* Field borders carry meaning (where to type), so WCAG 1.4.11 asks for 3:1
+   against the surface. The decorative hairline above does not meet that, so
+   inputs get their own token. */
+:root { --input-border: #6b6b75; }
+:root[data-theme="light"] { --input-border: #85858d; }
+
+/* ---------- 3. Mechanics ---------- */
+html {
+  background-color: var(--bg);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+}
+
+/*
+ * Smooth switch, without a permanent `transition` on every element.
+ *
+ * Three cases, chosen by ThemeProvider at the moment of the change:
+ *  - Magic UI view-transition reveal (circular wipe): the toggler marks
+ *    <html data-magicui-theme-vt>. The live DOM must NOT also fade underneath,
+ *    or the new-theme snapshot is captured mid-fade. Transitions are held off.
+ *  - No view-transition support: `theme-fading` adds a short colour crossfade.
+ *  - prefers-reduced-motion: `theme-freeze` swaps instantly for one frame.
+ */
+:root.theme-fading,
+:root.theme-fading *,
+:root.theme-fading *::before,
+:root.theme-fading *::after {
+  transition:
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    color 0.35s ease,
+    fill 0.35s ease,
+    stroke 0.35s ease,
+    box-shadow 0.35s ease !important;
+}
+
+:root.theme-freeze,
+:root.theme-freeze *,
+:root.theme-freeze *::before,
+:root.theme-freeze *::after,
+:root[data-magicui-theme-vt],
+:root[data-magicui-theme-vt] *,
+:root[data-magicui-theme-vt] *::before,
+:root[data-magicui-theme-vt] *::after {
+  transition: none !important;
+}
+
+/* Magic UI animated-theme-toggler: the component animates the clip-path of the
+   new snapshot from JS; this is the CSS half it expects. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+:root[data-magicui-theme-vt="active"]::view-transition-group(root) {
+  animation-duration: var(--magicui-theme-toggle-vt-duration, 400ms);
+}
+
+:root[data-magicui-theme-vt="active"]::view-transition-old(root) {
+  z-index: 1;
+}
+
+:root[data-magicui-theme-vt="active"]::view-transition-new(root) {
+  z-index: 2;
+  clip-path: var(--magicui-theme-vt-clip-from);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root.theme-fading,
+  :root.theme-fading *,
+  :root.theme-fading *::before,
+  :root.theme-fading *::after {
+    transition: none !important;
+  }
+}

@@ -5,9 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Marianne Napaño ― Computer Science Student &amp; Web Developer</title>
   <meta name="description" content="Portfolio of Marianne Napaño, a Computer Science student and web developer building projects with HTML, CSS, and JavaScript." />
-  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
-  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#09090a" />
+  <meta name="color-scheme" content="dark light" />
 
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://iandevs.vercel.app/" />
@@ -56,6 +55,7 @@
        Must stay after the CDN script, which is what defines `tailwind.config`
        in the first place. */
     tailwind.config = {
+      darkMode: ["selector", '[data-theme="dark"]'],
       theme: {
         extend: {
           fontFamily: {
@@ -75,14 +75,14 @@
           colors: {
             background: "var(--bg)",
             foreground: "var(--ink)",
-            border: "var(--gray-200)",
-            input: "var(--gray-300)",
-            ring: "var(--ink)",
-            card: { DEFAULT: "var(--gray-50)", foreground: "var(--ink)" },
+            border: "var(--border)",
+            input: "var(--input-border)",
+            ring: "var(--focus-ring)",
+            card: { DEFAULT: "var(--surface)", foreground: "var(--ink)" },
             primary: { DEFAULT: "var(--ink)", foreground: "var(--bg)" },
-            secondary: { DEFAULT: "var(--gray-100)", foreground: "var(--ink)" },
-            muted: { DEFAULT: "var(--gray-100)", foreground: "var(--gray-500)" },
-            accent: { DEFAULT: "var(--gray-100)", foreground: "var(--ink)" },
+            secondary: { DEFAULT: "var(--surface-raised)", foreground: "var(--ink)" },
+            muted: { DEFAULT: "var(--surface-raised)", foreground: "var(--text-muted)" },
+            accent: { DEFAULT: "var(--surface-raised)", foreground: "var(--ink)" },
           },
         },
       },
@@ -132,34 +132,35 @@
     crossorigin
   />
 
-  <!-- No-flash theme init: read the stored/system preference before
-       first paint, so there's no light dark flash on load. -->
+  <!-- No-flash theme init. Runs before first paint, so the page never shows the
+       wrong theme. Same resolution as ThemeProvider (src/lib/theme.tsx):
+       stored "dark" | "light" | "system", default DARK. Keep the two in step.
+       The inline <style> covers the gap before the CSS bundle applies (dev
+       server, slow networks) and mirrors --bg in src/styles/tokens.css. -->
+  <style>
+    html { background: #09090a; color-scheme: dark; }
+    html[data-theme="light"] { background: #ffffff; color-scheme: light; }
+  </style>
   <script>
     (function () {
+      var root = document.documentElement;
+      var theme = "dark";
       try {
         var stored = localStorage.getItem("theme");
-        /* Red-and-black look: dark unless the visitor has chosen light. */
-        document.documentElement.setAttribute("data-theme", stored === "light" ? "light" : "dark");
+        if (stored === "light" || stored === "dark" || stored === "system") theme = stored;
       } catch (e) {}
-
-      /* Keep the browser chrome (mobile address bar) in step with the active
-         theme: one theme-color meta whose value is read from the --bg token,
-         re-synced whenever data-theme changes or the system scheme flips. */
-      function syncThemeColor() {
-        var bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
-        if (!bg) return;
-        var metas = document.querySelectorAll('meta[name="theme-color"]');
-        for (var i = 1; i < metas.length; i++) metas[i].parentNode.removeChild(metas[i]);
-        var m = metas[0] || document.head.appendChild(document.createElement("meta"));
-        m.setAttribute("name", "theme-color");
-        m.removeAttribute("media");
-        m.setAttribute("content", bg);
+      var resolved = theme;
+      if (theme === "system") {
+        resolved = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
       }
-      window.addEventListener("DOMContentLoaded", function () {
-        syncThemeColor();
-        new MutationObserver(syncThemeColor).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-        if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", syncThemeColor);
-      });
+      root.setAttribute("data-theme", resolved);
+      root.classList.toggle("dark", resolved === "dark");
+      root.style.colorScheme = resolved;
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) {
+        meta.removeAttribute("media");
+        meta.setAttribute("content", resolved === "light" ? "#ffffff" : "#09090a");
+      }
     })();
   </script>
 </head>

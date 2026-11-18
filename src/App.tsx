@@ -13,6 +13,7 @@ import Blog from "@/components/sections/Blog";
 import { DotPattern } from "@/components/ui/dot-pattern";
 import { useRevealOnScroll } from "@/lib/useRevealOnScroll";
 import { useSpotlight } from "@/lib/useSpotlight";
+import { useSectionMotion } from "@/lib/useSectionMotion";
 import ChatWithIan from "@/components/chat/ChatWithIan";
 
 const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
@@ -50,6 +51,8 @@ function Home() {
      `reveal-ready` gate the hidden state lives behind. See
      `useRevealOnScroll` for why nothing is hidden without it. */
   useRevealOnScroll();
+  /* Header bars and cards of every section ease in as it is reached. */
+  useSectionMotion();
 
   return (
     <MainLayout>
