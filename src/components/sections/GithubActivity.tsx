@@ -1,0 +1,299 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+const GITHUB_USERNAME = "ifwian";
+
+interface ContributionDay {
+  date: string;
+  count: number;
+  level: number;
+}
+
+interface ApiResponse {
+  contributions?: ContributionDay[];
+  total?: Record<string, number> | number;
+}
+
+const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "short" });
+
+function toWeeks(days: ContributionDay[]): (ContributionDay | null)[][] {
+  const weeks: (ContributionDay | null)[][] = [];
+  let current: (ContributionDay | null)[] = [];
+
+  days.forEach((day, i) => {
+    const weekday = new Date(`${day.date}T00:00:00`).getDay();
+    if (i === 0) {
+      for (let pad = 0; pad < weekday; pad++) current.push(null);
+    }
+    current.push(day);
+    if (weekday === 6 || i === days.length - 1) {
+      while (current.length < 7) current.push(null);
+      weeks.push(current);
+      current = [];
+    }
+  });
+
+  return weeks;
+}
+
+/**
+ * Dot radius per contribution level.
+ *
+ * The bryl-minimal contribution grid encodes volume as a *size*, not a colour:
+ * an empty day is a hairline dot, a busy day is a filled disc, and the ramp
+ * between them is read at a glance because area scales with count. Colour still
+ * moves with it so the grid stays monochrome -- one ink, stepping up through the
+ * gray ramp -- rather than introducing an accent the rest of the page avoids.
+ *
+ * The values are percentages of the cell, so the grid holds its proportions at
+ * any width instead of needing a breakpoint per level.
+ */
+const DOT_SCALE: Record<number, { size: number; fill: string }> = {
+  0: { size: 22, fill: "var(--gray-200)" },
+  1: { size: 38, fill: "var(--gray-300)" },
+  2: { size: 54, fill: "var(--gray-400)" },
+  3: { size: 70, fill: "var(--gray-500)" },
+  4: { size: 86, fill: "var(--accent)" },
+};
+
+/** The same ramp for the legend, so it previews the scale rather than a colour set. */
+const LEVEL_COUNT = 5;
+
+export default function GithubActivity() {
+  const [weeks, setWeeks] = useState<(ContributionDay | null)[][] | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`https://github-contributions-api.jogruber.de/v4/${GITHUB_USERNAME}?y=2026`);
+        if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+        const data: ApiResponse = await res.json();
+        const contributions = data.contributions ?? [];
+        if (!contributions.length) throw new Error("No contribution data returned");
+        if (cancelled) return;
+
+        setWeeks(toWeeks(contributions));
+        const calculatedTotal = contributions.reduce((sum, day) => sum + day.count, 0);
+        setTotal(calculatedTotal);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const monthLabels = weeks
+    ? weeks.reduce<{ text: string; weekIndex: number }[]>((acc, week, i) => {
+        const firstDay = week.find((d) => d !== null);
+        if (!firstDay) return acc;
+        const monthText = monthFormatter.format(new Date(`${firstDay.date}T00:00:00`));
+        if (acc.length === 0 || acc[acc.length - 1].text !== monthText) {
+          acc.push({ text: monthText, weekIndex: i });
+        }
+        return acc;
+      }, [])
+    : [];
+
+  const totalWeeks = weeks?.length ?? 53;
+
+  return (
+    <section 
+      id="github" 
+      className="section-frame px-5 py-16 lg:px-6"
+    >
+      <div className="w-full max-w-4xl mx-auto">
+        <div className="section-shell">
+          {/* Eyebrow and profile link share the title bar, so the handle sits on
+              the same baseline as the label rather than beside the heading. */}
+          <div className="section-shell-bar">
+            <p className="section-eyebrow">06 &mdash; github</p>
+            <a
+              href={`https://github.com/${GITHUB_USERNAME}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="section-shell-action"
+            >
+              @{GITHUB_USERNAME} <span>&#8599;</span>
+            </a>
+          </div>
+
+
+          <div className="section-shell-body" data-reveal-group>
+        {/* Section Heading */}
+        <h2 className="section-title">
+          github activity
+        </h2>
+
+        {/* Description. Was `text-xs sm:text-sm` -- 12px on a phone, under the
+            site's own floor for reading copy, and two steps below every other
+            section's lede. */}
+        <p className="section-lede">
+          A snapshot of my contribution history for 2026.
+        </p>
+
+        {/* Card Container. `.card` is the whole treatment: it already carries the
+            `--gray-50` ground, the `--gray-200` hairline, a 16px radius and the
+            resting/hover shadow pair. The utilities that restated those are gone
+            -- and so is their `hover:bg-[var(--gray-100)]`, which fought the
+            card's own hover by darkening the surface underneath it. The
+            `hover:shadow-[...]` note that used to be here is still true, and
+            still why nothing hardcoded is back. */}
+        <div className="card flex flex-col p-4 sm:p-6 lg:p-8">
+          {/**
+           * Horizontal scroller for the month labels and the grid together.
+           *
+           * A year is 53 columns and the day cells are `1fr` with a 2-3px gap.
+           * Squeezing that into a phone width left each day around 2.7px -- not
+           * an overflow, but a graph nobody could read or tap, and `hover:scale-125`
+           * on a 2.7px cell does nothing at all.
+           *
+           * So the pair scrolls instead of shrinking: the inner block holds a
+           * floor width that keeps the cells legible, and below that the card
+           * scrolls sideways. At `sm` and up there is more room than the floor
+           * needs, so it never actually scrolls and the card looks untouched.
+           *
+           * The labels live inside the scroller rather than above it because they
+           * are positioned as a percentage of the grid's width -- outside, they
+           * would stay put while the grid moved and drift off their months.
+           *
+           * `pb-1` keeps the last row of cells off the scrollbar edge, and
+           * `overscroll-x-contain` stops a sideways flick here from hijacking the
+           * page's own vertical scroll.
+           */}
+          <div className="w-full overflow-x-auto overscroll-x-contain pb-1">
+            <div className="min-w-[22rem] sm:min-w-0">
+              {/* Month Labels */}
+              <div 
+                className="relative h-4 w-full mb-3 text-[11px] text-[var(--gray-400)] uppercase"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {monthLabels.map((m) => {
+                  /**
+                   * Each label is anchored to the week its month starts on, as a
+                   * percentage. December's anchor is around 98% of the width, and
+                   * `whitespace-nowrap` means the label cannot reflow -- so the
+                   * default left-anchored render ran the full width of the word
+                   * past the right edge.
+                   *
+                   * Fixed by pulling the trailing labels back by their own width,
+                   * so their right edge lands on the anchor instead of their left.
+                   * Three steps rather than a binary flip, because a single month
+                   * is narrower than the space the last two or three share.
+                   */
+                  const ratio = m.weekIndex / totalWeeks;
+                  const pullBack = ratio > 0.94 ? "-translate-x-full" : ratio > 0.86 ? "-translate-x-1/2" : "";
+
+                  return (
+                    <span
+                      key={m.text + m.weekIndex}
+                      className={`absolute whitespace-nowrap ${pullBack}`.trim()}
+                      style={{ left: `${ratio * 100}%` }}
+                    >
+                      {m.text}
+                    </span>
+                  );
+                })}
+              </div>
+
+              {/* Contribution Grid. `auto-rows-fr` is not used here because the
+                  cells are square by `aspect-square` and the row height is set
+                  by the seven-row track list below. */}
+              <div
+                className="grid w-full gap-[2px] sm:gap-[3px]"
+                style={{
+                  gridTemplateColumns: `repeat(${totalWeeks}, 1fr)`,
+                  gridTemplateRows: "repeat(7, 1fr)",
+                  gridAutoFlow: "column",
+                }}
+              >
+              {weeks?.map((week, wi) =>
+                week.map((day, di) => {
+                  // A padding cell (outside the fetched year) stays empty. An empty
+                  // *real* day still gets level 0's small dot -- the difference
+                  // between "nothing happened" and "no such day" is the size.
+                  if (!day) {
+                    return <div key={`${wi}-${di}`} className="aspect-square" />;
+                  }
+
+                  const dot = DOT_SCALE[day.level] ?? DOT_SCALE[0];
+
+                  return (
+                    <div
+                      key={`${wi}-${di}`}
+                      title={`${day.count} contribution${day.count === 1 ? "" : "s"} on ${day.date}`}
+                      className="flex aspect-square cursor-pointer items-center justify-center transition-transform duration-200 ease-out hover:scale-110"
+                      style={{ transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)" }}
+                    >
+                      <span
+                        className="block rounded-full transition-colors duration-200"
+                        style={{
+                          width: `${dot.size}%`,
+                          height: `${dot.size}%`,
+                          backgroundColor: dot.fill,
+                        }}
+                      />
+                    </div>
+                  );
+                })
+              )}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Summary & Legend */}
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--gray-400)] pt-3 border-t border-[var(--gray-200)]">
+            <p 
+              style={{ 
+                fontFamily: total !== null ? "var(--font-display)" : "var(--font-mono)"
+              }}
+            >
+              {error
+                ? "Couldn't load live GitHub activity right now — check back later."
+                : total !== null
+                  ? `${total.toLocaleString()} contributions in 2026`
+                  : "Loading contribution activity…"}
+            </p>
+
+            {/* Legend */}
+<div 
+              className="flex items-center gap-2 text-[11px] text-[var(--gray-400)]"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              <span>Less</span>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: LEVEL_COUNT }, (_, level) => {
+                  const dot = DOT_SCALE[level] ?? DOT_SCALE[0];
+                  return (
+                    <span
+                      key={level}
+                      className="flex h-3 w-3 items-center justify-center"
+                    >
+                      <span
+                        className="block rounded-full"
+                        style={{
+                          width: `${dot.size}%`,
+                          height: `${dot.size}%`,
+                          backgroundColor: dot.fill,
+                        }}
+                      />
+                    </span>
+                  );
+                })}
+              </div>
+              <span>More</span>
+            </div>
+          </div>
+            
+        </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

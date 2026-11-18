@@ -1,0 +1,212 @@
+/* Chat widget usability styles. Pairs with ChatTextarea and ChatNotice and the
+ * hooks in src/lib.
+ *
+ * Plain CSS with the site's own tokens (--ink, --bg, --gray-*), written as
+ * ordinary classes rather than Tailwind utilities, so it applies the same
+ * whether or not the Tailwind runtime has generated anything. Rules that must
+ * beat an existing Tailwind utility are scoped under `html` (specificity 0,2,x),
+ * which wins over a single utility class regardless of stylesheet order.
+ *
+ * The inbox has its own sheets now (`components/ui/ui.css` and
+ * `components/inbox/inbox.css`); nothing here is loaded by it. ChatText's
+ * formatting, which both surfaces use, lives in theme.css. */
+
+/* ---------- Message box (ChatTextarea) ---------- */
+.chat-field {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-field-input {
+  display: block;
+  width: 100%;
+  min-height: 2.25rem;
+  max-height: 7.5rem;
+  padding: 0.45rem 0.75rem;
+  resize: none;
+  overflow-y: auto;
+  border: 1px solid var(--gray-300);
+  border-radius: 0.5rem;
+  background-color: var(--gray-100);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.chat-field-input:focus {
+  border-color: var(--ink);
+}
+
+.chat-field-input:disabled {
+  opacity: 0.5;
+}
+
+/* Characters left, only once the visitor is close to the limit. At the site's
+   11px label floor rather than the 10px this started at: the counter sits in
+   the corner of a 15px field, and one step below the floor read as a rendering
+   artefact rather than as small type. */
+.chat-counter {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.2rem;
+  color: var(--gray-400);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.chat-counter[data-low="true"] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---------- Notice (ChatNotice) ---------- */
+.chat-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--ink);
+  border-radius: 0.5rem;
+  color: var(--ink);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.chat-notice-mark {
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.1rem;
+  border-radius: 9999px;
+  background-color: var(--ink);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.chat-notice-text {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.chat-notice-dismiss {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: -0.15rem -0.2rem 0 0;
+  border-radius: 0.25rem;
+  color: var(--gray-500);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.chat-notice-dismiss:hover {
+  color: var(--ink);
+}
+
+/* The one thing the visitor can do about it, e.g. "Try again". */
+.chat-notice-action {
+  flex: none;
+  padding: 0 0.45rem;
+  border: 1px solid var(--ink);
+  border-radius: 0.25rem;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.7;
+}
+
+.chat-notice-action:hover {
+  background-color: var(--ink);
+  color: var(--bg);
+}
+
+/* ---------- "New messages" button (useStickToBottom) ---------- */
+.chat-jump {
+  position: sticky;
+  bottom: 0.25rem;
+  display: block;
+  margin: 0.25rem auto 0;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--ink);
+  border-radius: 9999px;
+  background-color: var(--ink);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.05em;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+}
+
+/* ---------- Keyboard focus ---------- */
+html .chat-panel :is(button, a):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* ---------- Phones: the panel takes the whole screen ----------
+   A 360px card pinned to a corner leaves a sliver of page on a phone, and the
+   keyboard then covers half of what is left. Full height with the safe-area
+   insets respected is how every messenger does it. */
+@media (max-width: 639px) {
+  html .chat-panel {
+    inset: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border-width: 0;
+    border-radius: 0;
+  }
+}
+
+/* ---------- Touch: bigger targets ----------
+   The header buttons are 36px, below what a thumb can reliably hit. */
+@media (pointer: coarse) {
+  html .chat-panel button[aria-label="Close chat"],
+  html .chat-panel button[aria-label="Start a new chat"] {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  html .chat-panel button[aria-label^="Remove "] {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .chat-notice-dismiss {
+    width: 2rem;
+    height: 2rem;
+  }
+}
+
+/* ---------- Scroll containment ----------
+   Two scroll regions in the widget: the thread and the welcome step. Neither
+   declared `overscroll-behavior`, so reaching either end handed the rest of the
+   gesture to the page behind -- the panel is `fixed`, but the scroll chain still
+   walks out to the document, and on the home page that used to spin the page to
+   the next section while the pointer was sitting in the chat. `contain` keeps
+   the gesture where it was made; the page scrolls exactly as it did once the
+   pointer is outside the panel.
+
+   The inbox transcript had the same fix and no longer needs it here: its
+   `ui-scroll` region declares it. */
+.chat-panel [aria-label="Chat messages"],
+.chat-panel .chat-welcome {
+  overscroll-behavior: contain;
+}
