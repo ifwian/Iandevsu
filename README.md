@@ -32,7 +32,7 @@
     </td>
     <td width="33%" align="center" valign="top">
       <a href="https://thesiftedcafe.vercel.app/">
-        <img src="./assets/projects/the-sifted-cafe.webp" width="240" alt="The Sifted Café home page" />
+        <img src="./assets/projects/the-sifted-cafe.webp?v=2" width="240" alt="The Sifted Café home page" />
       </a>
       <br/><br/>
       <a href="https://thesiftedcafe.vercel.app/"><b>The Sifted Café</b></a>
