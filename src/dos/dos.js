@@ -725,6 +725,24 @@ export function initDos(userOptions = {}) {
     return true;
   }
 
+  /**
+   * Puts the guide in the middle of the part of a section that is actually on
+   * screen. Must run AFTER an instant scroll: `html` has `scroll-behavior:
+   * smooth`, so a plain scrollIntoView() is still animating when the rect is
+   * read and the pet used to land where the section *was*.
+   */
+  function moveGuideTo(el) {
+    const rect = el.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    const top = Math.max(rect.top, 0);
+    const bottom = Math.min(rect.bottom, vh);
+    const cy = bottom > top ? (top + bottom) / 2 : vh / 2;
+    x = clamp(rect.left + rect.width / 2, S / 2, vw - S / 2);
+    y = clamp(cy, S / 2, vh - S / 2);
+    root.style.transform = `translate3d(${Math.round(x - S / 2)}px, ${Math.round(y - S / 2)}px, 0)`;
+  }
+
   /** One tour stop: progress, the line, and a way out. */
   function showTourBubble(content, ticks) {
     const { text, button } = ensureBubbleControls();
@@ -735,19 +753,6 @@ export function initDos(userOptions = {}) {
     bubbleTicks = ticks;
     bubble.classList.add("is-visible", "is-interactive");
     bubble.removeAttribute("aria-hidden");
-    // When touring, move Dos to the current section's center
-    const stop = TOUR_STOPS[tourIndex];
-    const el = document.getElementById(stop.id);
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      const vw = document.documentElement.clientWidth;
-      const vh = document.documentElement.clientHeight;
-      const newX = clamp(rect.left + rect.width / 2, S / 2, vw - S / 2);
-      const newY = clamp(rect.top + rect.height / 2, S / 2, vh - S / 2);
-      x = newX;
-      y = newY;
-      root.style.transform = `translate3d(${Math.round(x - S / 2)}px, ${Math.round(y - S / 2)}px, 0)`;
-    }
     placeBubble(true);
   }
 
@@ -788,18 +793,9 @@ export function initDos(userOptions = {}) {
       return;
     }
 
-    if (tourIndex === 0) window.scrollTo({ top: 0 });
-    else el.scrollIntoView({ block: "start" });
-
-    // Move Dos to the center of the current section
-    const rect = el.getBoundingClientRect();
-    const vw = document.documentElement.clientWidth;
-    const vh = document.documentElement.clientHeight;
-    const newX = clamp(rect.left + rect.width / 2, S / 2, vw - S / 2);
-    const newY = clamp(rect.top + rect.height / 2, S / 2, vh - S / 2);
-    x = newX;
-    y = newY;
-    root.style.transform = `translate3d(${Math.round(x - S / 2)}px, ${Math.round(y - S / 2)}px, 0)`;
+    if (tourIndex === 0) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    else el.scrollIntoView({ block: "start", behavior: "instant" });
+    moveGuideTo(el);
 
     const line = idleOnly && stop.mobileLine ? stop.mobileLine : stop.line;
     const step = String(tourIndex + 1).padStart(2, "0");

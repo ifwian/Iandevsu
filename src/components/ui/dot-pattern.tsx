@@ -136,21 +136,41 @@ export function DotPattern({
     return () => window.removeEventListener("resize", updateDimensions)
   }, [])
 
-  const dots = Array.from(
-    {
-      length:
-        Math.ceil(dimensions.width / width) *
-        Math.ceil(dimensions.height / height),
-    },
-    (_, i) => {
-      const col = i % Math.ceil(dimensions.width / width)
-      const row = Math.floor(i / Math.ceil(dimensions.width / width))
-      return {
-        x: col * width + cx + x,
-        y: row * height + cy + y,
-      }
-    }
-  )
+  // Static mode (the default) is a single SVG <pattern>: the browser tiles it, so
+  // there are no per-dot React nodes. Only `glow` needs real circles to animate.
+  if (!glow) {
+    return (
+      <svg
+        ref={containerRef}
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-0 h-full w-full text-neutral-400/80",
+          className
+        )}
+        {...props}
+      >
+        <defs>
+          <pattern
+            id={`${id}-dots`}
+            width={width}
+            height={height}
+            patternUnits="userSpaceOnUse"
+            x={x}
+            y={y}
+          >
+            <circle cx={cx} cy={cy} r={cr} fill="currentColor" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#${id}-dots)`} />
+      </svg>
+    )
+  }
+
+  const cols = Math.ceil(dimensions.width / width)
+  const dots = Array.from({ length: cols * Math.ceil(dimensions.height / height) }, (_, i) => ({
+    x: (i % cols) * width + cx + x,
+    y: Math.floor(i / cols) * height + cy + y,
+  }))
 
   return (
     <svg

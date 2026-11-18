@@ -132,7 +132,7 @@
 }
 
 .dos__bubble-button:focus-visible {
-  outline: 2px solid var(--accent, #b3202a);
+  outline: 2px solid var(--accent, currentColor);
   outline-offset: 2px;
 }
 

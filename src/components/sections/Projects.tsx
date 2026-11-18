@@ -1,9 +1,26 @@
 import { Link } from "react-router-dom";
 import { PROJECTS } from "@/content/projects";
 import ProjectCard from "@/components/projects/ProjectCard";
+import { Tree, type TreeViewElement } from "@/components/ui/file-tree";
 
 export default function Projects() {
   const preview = PROJECTS.slice(0, 4);
+
+  // The same projects as a browsable tree: each folder holds its role and stack.
+  const treeElements: TreeViewElement[] = [
+    {
+      id: "projects",
+      name: "~/projects",
+      children: PROJECTS.map((project) => ({
+        id: project.title,
+        name: project.title,
+        children: [
+          { id: `${project.title}/role`, name: `role: ${project.role}` },
+          { id: `${project.title}/stack`, name: `stack: ${project.stack.join(", ")}` },
+        ],
+      })),
+    },
+  ];
 
   return (
     <section id="projects" className="section-frame px-5 py-16 lg:px-6">
@@ -28,6 +45,15 @@ export default function Projects() {
           {preview.map((project, index) => (
             <ProjectCard key={project.title} project={project} index={index} />
           ))}
+        </div>
+
+        <div className="card mt-6 p-4 sm:p-6">
+          <Tree
+            className="text-[13px]"
+            elements={treeElements}
+            initialExpandedItems={["projects"]}
+            style={{ fontFamily: "var(--font-mono)" }}
+          />
         </div>
 
         <div className="mt-8 flex justify-center">

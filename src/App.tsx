@@ -89,6 +89,17 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      {/* Monochrome dot-pattern background. `fixed` + negative z-index keeps it
+          behind every section (it was `absolute z-0` after the routes, which
+          painted it over the content). `body` is an isolated stacking context,
+          so -z-10 sits above the page colour and below the theme grid. */}
+      <DotPattern
+        className="pointer-events-none fixed inset-0 -z-10 opacity-30"
+        style={{
+          maskImage: "radial-gradient(ellipse at center, #000 30%, transparent 80%)",
+          WebkitMaskImage: "radial-gradient(ellipse at center, #000 30%, transparent 80%)",
+        }}
+      />
       {/* Inside the router: it reads the location, so it has to be a descendant
           of whichever router is in play. */}
       <ScrollToTop />
@@ -108,8 +119,6 @@ export default function App() {
           cannot inherit a route's `overflow` or stacking context and be clipped
           by it. */}
       <VisitorChat />
-      {/* Monochrome dot-pattern background */}
-      <DotPattern className="pointer-events-none absolute inset-0 z-0 opacity-80" />
     </BrowserRouter>
   );
 }

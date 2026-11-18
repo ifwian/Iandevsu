@@ -1,5 +1,5 @@
 /* ==========================================================================
-   RED & BLACK LAYER
+   MONOCHROME LAYER (file keeps its old name; no red remains)
    Loaded after theme.css and minimal.css. Layout, type, spacing and content
    are untouched; this file only changes colour:
      - the dark theme's background goes to near-black;
@@ -12,24 +12,24 @@
    ========================================================================== */
 
 :root {
-  --accent: #000000;       /* pure black accent - fully monochrome */
-  --accent-hover: #333333;
-  --accent-on: #ffffff;    /* text on a black fill */
+  --accent: #0a0a0a;       /* light theme: black fill, white text */
+  --accent-hover: #2b2b30;
+  --accent-on: #ffffff;
 }
 
 :root[data-theme="dark"] {
   --bg: #09090a;
-  --accent: #000000;
-  --accent-hover: #333333;
-  --accent-on: #ffffff;
+  --accent: #f4f4f5;       /* dark theme: near-white fill, black text */
+  --accent-hover: #d4d4d8;
+  --accent-on: #0a0a0a;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
     --bg: #09090a;
-    --accent: #000000;
-    --accent-hover: #333333;
-    --accent-on: #ffffff;
+    --accent: #f4f4f5;
+    --accent-hover: #d4d4d8;
+    --accent-on: #0a0a0a;
   }
 }
 

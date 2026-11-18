@@ -1,4 +1,5 @@
 import { HERO } from "@/content/hero";
+import { TypingAnimation } from "@/components/ui/typing-animation";
 
 /**
  * The role eyebrow, the name, the pitch.
@@ -21,7 +22,14 @@ import { HERO } from "@/content/hero";
 export default function HeroIntro() {
   return (
     <>
-      <p className="hero-role">{HERO.role}</p>
+      <TypingAnimation
+        as="p"
+        className="hero-role leading-[inherit] tracking-[inherit]"
+        duration={45}
+        cursorStyle="underscore"
+      >
+        {HERO.role}
+      </TypingAnimation>
       <h1 className="hero-name">Marianne Napaño</h1>
       <p className="hero-pitch">{HERO.pitch}</p>
     </>

@@ -30,8 +30,6 @@
    self-hosted from /public/fonts with its OFL licence beside it -- the same
    arrangement the reference uses. */
 
-@custom-variant dark (&:is(.dark *));
-
 @font-face {
   font-family: "Geist Pixel";
   src: url("/fonts/GeistPixel-Square.woff2") format("woff2");
@@ -2429,14 +2427,18 @@ main {
     mix-blend-mode: normal;
 }
 
-@theme inline {
-  --animate-blink-cursor: blink-cursor 1.2s step-end infinite;
-  @keyframes blink-cursor {
-  0%, 49% {
-    opacity: 1;
-    }
-  50%, 100% {
-    opacity: 0;
-    }
-  }
+/* Blinking caret for typing-animation.tsx. Plain CSS on purpose: this project
+   gets its utilities from the Tailwind Play CDN (index.html), which does not read
+   v4 `@theme` blocks, so `animate-blink-cursor` has to be defined by hand. */
+@keyframes blink-cursor {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.animate-blink-cursor {
+  animation: blink-cursor 1.2s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-blink-cursor { animation: none; }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatedSpan, Terminal, TypingAnimation } from "@/components/ui/terminal";
 
 const GITHUB_USERNAME = "ifwian";
 
@@ -289,8 +290,17 @@ export default function GithubActivity() {
               <span>More</span>
             </div>
           </div>
-            
+
         </div>
+
+        <Terminal className="mt-6 max-h-none max-w-full border-[var(--gray-200)] bg-[var(--gray-50)]">
+          <TypingAnimation className="text-[13px]">{`$ whoami`}</TypingAnimation>
+          <AnimatedSpan className="text-[13px] text-[var(--gray-500)]">{GITHUB_USERNAME}</AnimatedSpan>
+          <TypingAnimation className="text-[13px]">{`$ git log --graph --since=2026-01-01`}</TypingAnimation>
+          <AnimatedSpan className="text-[13px] text-[var(--gray-500)]">↑ the contribution graph, above</AnimatedSpan>
+          <TypingAnimation className="text-[13px]">{`$ echo "keep committing"`}</TypingAnimation>
+          <AnimatedSpan className="text-[13px] text-[var(--gray-500)]">keep committing</AnimatedSpan>
+        </Terminal>
           </div>
         </div>
       </div>
