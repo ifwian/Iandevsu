@@ -14,26 +14,26 @@ interface SidebarProps {
 
 const SECTION_IDS = NAV_ITEMS.map((item) => item.href);
 
-/** Wordmark: the initials with a solid dot. */
+/** Wordmark: name with a solid border dot. */
 function Brand() {
   return (
     <a
       href="#home"
-      aria-label="MRN, back to top"
-      className="inline-flex items-baseline gap-[2px] text-lg tracking-tight"
+      aria-label="Back to top"
+      className="inline-flex items-baseline gap-[4px] text-lg tracking-tight"
       style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}
     >
-      MRN
+      Marianne Napaño
       <span
         aria-hidden="true"
-        className="inline-block h-[6px] w-[6px] rounded-full"
+        className="inline-block h-[8px] w-[8px] rounded-full border border-[var(--ink)]"
         style={{ backgroundColor: "var(--ink)" }}
       />
     </a>
   );
 }
 
-/** The numbered list (01-07). Shared by the desktop rail and the mobile menu. */
+/** The numbered list (1-7). Shared by the desktop rail and the mobile menu. */
 function NavList({
   active,
   onNavigate,
@@ -72,12 +72,11 @@ function NavList({
                 isActive ? "opacity-100" : "opacity-0 -translate-x-1 group-hover:translate-x-0 group-hover:opacity-100"
               }`}
             >
-              →
+              {index + 1}
             </span>
             <span className="min-w-[1.5rem] text-[11px]" style={{ fontFamily: "var(--font-display)" }}>
-              {String(index + 1).padStart(2, "2")}
+              {item.label}
             </span>
-            <span>{item.label}</span>
           </a>
         );
       })}
