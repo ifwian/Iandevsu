@@ -15,20 +15,49 @@
 
 </div>
 
-## 🧣 About me
-
-I'm a Computer Science student who enjoys building frontend and backend applications and learning new technologies.
-I learn by shipping practical projects: make it, break it, fix it.
+## 🚀 Featured projects
 
 <table>
   <tr>
-    <td align="center" width="33%"><b>🎓 Studying</b><br/><sub>Computer Science</sub></td>
-    <td align="center" width="33%"><b>🔨 Building</b><br/><sub>Dear, in Stereo</sub></td>
-    <td align="center" width="33%"><b>🎧 Off the clock</b><br/><sub>Photography · Badminton · Music · Games</sub></td>
+    <td width="33%" align="center" valign="top">
+      <a href="https://lmscompanion.vercel.app/">
+        <img src="./assets/projects/lms-notifier.webp" width="240" alt="LMS Companion landing page" />
+      </a>
+      <br/><br/>
+      <a href="https://lmscompanion.vercel.app/"><b>LMS Companion</b></a>
+      <br/>
+      <sub>Checks your LMS for new announcements<br/>and pings you when something lands.</sub>
+      <br/><br/>
+      <sub><code>Python</code></sub>
+    </td>
+    <td width="33%" align="center" valign="top">
+      <a href="https://thesiftedcafe.vercel.app/">
+        <img src="./assets/projects/the-sifted-cafe.webp" width="240" alt="The Sifted Café home page" />
+      </a>
+      <br/><br/>
+      <a href="https://thesiftedcafe.vercel.app/"><b>The Sifted Café</b></a>
+      <br/>
+      <sub>Café site with a menu, table reservations<br/>and an admin dashboard.</sub>
+      <br/><br/>
+      <sub><code>React</code> <code>Node</code> <code>PostgreSQL</code></sub>
+    </td>
+    <td width="33%" align="center" valign="top">
+      <a href="https://dearinstereo.vercel.app/">
+        <img src="./assets/projects/dear-in-stereo.webp" width="240" alt="Dear, in Stereo landing page" />
+      </a>
+      <br/><br/>
+      <a href="https://dearinstereo.vercel.app/"><b>Dear, in Stereo</b></a>
+      <br/>
+      <sub>Send a song as a letter: pick a track,<br/>write the note, share a private link.</sub>
+      <br/><br/>
+      <sub><code>React</code> <code>Tailwind</code> <code>Supabase</code></sub>
+    </td>
   </tr>
 </table>
 
 <div align="center">
+
+<a href="https://iandevs.vercel.app/#projects"><b>See all projects →</b></a>
 
 <img src="./assets/divider.svg" width="100%" alt="" />
 
@@ -62,7 +91,7 @@ I learn by shipping practical projects: make it, break it, fix it.
 
 <br/>
 
-<a href="https://iandevs.vercel.app/"><b>🔴 Live Site</b></a> &nbsp;·&nbsp; <a href="https://github.com/ifwian/Iandevsu"><b>GitHub Repository</b></a>
+<a href="https://iandevs.vercel.app/"><b>🔴 Live Site</b></a> &nbsp;·&nbsp; <a href="https://github.com/ifwian/Iandevsu"><b>Source Code</b></a>
 
 <img src="./assets/divider.svg" width="100%" alt="" />
 
