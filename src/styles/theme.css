@@ -1297,9 +1297,9 @@ h1, h2, h3, h4, h5, h6 {
    paragraphs rendering in mono, and reading like a terminal rather than like
    prose. Naming `--font-body` is what puts it back.
 
-   Everything else in this section keeps its mono on purpose: the spec panel's
-   keys and values, its `profile.spec` bar, the technical pills and the widget
-   labels are all metadata, and metadata is the monospace register on this site. */
+   Everything else in this section keeps its mono on purpose: the widget labels
+   and their values are metadata, and metadata is the monospace register on this
+   site. */
 .about-prose {
   font-family: var(--font-body);
   font-size: var(--text-lg);
@@ -1333,77 +1333,6 @@ h1, h2, h3, h4, h5, h6 {
   text-decoration-color: color-mix(in srgb, var(--ink) 30%, transparent);
   text-underline-offset: 0.18em;
   text-decoration-thickness: 1px;
-}
-
-/* ---------- Specs block ----------
-   A `key ....... value` dump rather than prose, so the right column gives facts
-   the left column is too long to state. It is the one place on the page that
-   format: a spec sheet is the only place a dotted leader belongs.
-
-   Reuses `.build-panel` for the box and `.build-panel-bar` for the chrome --
-   the same window vocabulary as the hero's "i like to build" panel and the
-   section shells, so it reads as the same component at a third depth rather
-   than as a new invention. It is not interactive, so unlike the widgets below
-   it carries no hover state: lifting on hover would imply a click. */
-/* `font-size` is here, not on the rows: `.build-panel` sets no size, so without
-   this the key/value rows below would inherit the body's 15px and read as body
-   copy inside a panel of chrome. 11px is the floor `.micro-label` documents. */
-.about-specs {
-  font-size: var(--text-xs);
-}
-
-/* Overrides `.build-panel-bar`'s 10px, which is below the 11px floor
-   `.micro-label` sets, and widens its tracking to match `.section-eyebrow`.
-   Equal specificity, later in the file, so it wins without a fight. */
-.about-specs-bar {
-  font-size: var(--text-xs);
-  letter-spacing: 0.14em;
-}
-
-.about-specs-rows {
-  padding: 0.85rem 0.9rem;
-}
-
-.about-specs-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  line-height: 1.5;
-}
-
-.about-specs-row + .about-specs-row {
-  margin-top: 0.6rem;
-}
-
-.about-specs-key {
-  flex: none;
-  color: var(--gray-500);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-/* The dotted leader. A flex child that grows to fill the gap between key and
-   value, with its own bottom border, so the rule is always exactly as long as
-   the free space and the value stays flush right without a per-row width. */
-.about-specs-leader {
-  flex: 1 1 auto;
-  min-width: 0.75rem;
-  align-self: center;
-  margin: 0 0.1rem;
-  border-bottom: 1px dotted var(--gray-300);
-}
-
-.about-specs-value {
-  flex: none;
-  color: var(--ink);
-  text-align: right;
-}
-
-/* The stack tags under the rows. `.pill` unchanged -- it is the project's
-   existing tag primitive and its hover is the only state these have. */
-.about-specs-stack {
-  border-top: 1px solid var(--gray-200);
-  padding: 0.85rem 0.9rem 0.9rem;
 }
 
 /* ---------- Fact widgets ----------

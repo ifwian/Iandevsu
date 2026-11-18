@@ -44,29 +44,6 @@ const FACTS: Fact[] = [
   { label: "when not coding", value: "Photography · Badminton · Music", tight: true, Icon: Sparkles },
 ];
 
-/**
- * The `key ..... value` readout that pairs with the narrative column.
- *
- * These are deliberately a DIFFERENT set of facts from the four widgets below.
- * The earlier arrangement put nothing here, and the tempting move -- copying
- * "based in" and "currently" up into this column -- would have had the same two
- * facts printed twice inside one 850px window, which is worse than either
- * layout alone. So the widgets own the four personal facts and this block owns
- * the ones only the narrative mentions in passing: where the degree comes from,
- * when it finishes, and what the time is going into.
- *
- * Every value is already stated elsewhere in this codebase (`Education.tsx` for
- * the school, the dates and the stack; this file's own second paragraph for the
- * focus), so nothing here asserts a new claim about the person.
- */
-const SPEC_ROWS: { key: string; value: string }[] = [
-  { key: "school", value: "City College of Calamba" },
-  { key: "duration", value: "2025 — 2029" },
-  { key: "focus", value: "frontend · backend · databases" },
-];
-
-const STACK: string[] = ["HTML", "CSS", "JavaScript", "Java", "C++", "C#", "Python", "SQL"];
-
 export default function AboutMe() {
   return (
     <section 
@@ -95,19 +72,10 @@ export default function AboutMe() {
           <span>about me</span>
         </h2>
 
-        {/* Two columns at `lg` and up, one below.
-
-            The 1.45fr/1fr split is doing the real work: the narrative keeps a
-            ~480px measure at 17px prose, which lands at roughly 62 characters a
-            line -- the comfortable band for this size. An even split would put
-            the prose at ~400px and start breaking lines mid-phrase, and a 2fr/1fr
-            would let the measure stretch past where the eye wants it.
-
-            `items-start` so the specs block takes its own height instead of
-            stretching to match the prose; a right column of stacked key/value
-            rows stretched to 400px reads as a list that has been left out too
-            long. */}
-        <div className="mt-6 grid grid-cols-1 items-start gap-7 lg:grid-cols-[1.45fr_1fr] lg:gap-8">
+        {/* The narrative owns the row now that the spec panel is gone. The
+            measure is set on `.about-prose` (62ch), so the text does not run
+            the full width of the 4xl column. */}
+        <div className="mt-6">
           <div className="about-prose">
             <p>
               I&rsquo;m a second-year Computer Science student based in{" "}
@@ -126,52 +94,6 @@ export default function AboutMe() {
               <span className="about-em">frontend development, backend development, and databases</span>, and
               the tools behind modern web applications.
             </p>
-          </div>
-
-          {/* A terminal spec dump. `.build-panel` + `.build-panel-bar` rather than
-              a new box, so this is the same window chrome as the hero's "i like
-              to build" panel at one more depth. */}
-          <div className="build-panel about-specs relative">
-            <div className="build-panel-bar about-specs-bar">
-              <span className="flex shrink-0 items-center gap-1" aria-hidden="true">
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: "var(--gray-300)" }}
-                />
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: "var(--gray-300)" }}
-                />
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: "var(--gray-300)" }}
-                />
-              </span>
-              <span className="min-w-0 truncate">profile.spec</span>
-            </div>
-
-            <div className="about-specs-rows">
-              {SPEC_ROWS.map((row) => (
-                /* The leader is decorative: a screen reader reads the pair off
-                   the markup, so announcing a row of dots would be noise. */
-                <div key={row.key} className="about-specs-row">
-                  <span className="about-specs-key">{row.key}</span>
-                  <span className="about-specs-leader" aria-hidden="true" />
-                  <span className="about-specs-value">{row.value}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="about-specs-stack">
-              <p className="micro-label mb-2.5">technical foundation</p>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {STACK.map((item) => (
-                  <span key={item} className="pill">
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
 
