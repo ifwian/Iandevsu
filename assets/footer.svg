@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 120" width="900" height="120" role="img" aria-label="Tatakae">
+  <rect width="900" height="120" fill="#0d0d0f"/>
+  <path fill="#b3202a" opacity=".35"><animate attributeName="d" dur="7s" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"
+    values="M0 70 C150 40 300 100 450 70 S750 40 900 70 L900 120 L0 120Z;M0 60 C150 95 300 45 450 70 S750 95 900 60 L900 120 L0 120Z;M0 70 C150 40 300 100 450 70 S750 40 900 70 L900 120 L0 120Z"/></path>
+  <path fill="#b3202a" opacity=".7"><animate attributeName="d" dur="5s" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"
+    values="M0 92 C200 68 340 112 500 92 S780 68 900 92 L900 120 L0 120Z;M0 84 C200 112 340 70 500 92 S780 112 900 84 L900 120 L0 120Z;M0 92 C200 68 340 112 500 92 S780 68 900 92 L900 120 L0 120Z"/></path>
+  <text x="450" y="52" text-anchor="middle" fill="#c9c9c9" font-family="'Segoe UI',Arial,sans-serif" font-size="20" letter-spacing="10" font-weight="600">TATAKAE<animate attributeName="opacity" values=".55;1;.55" dur="3s" repeatCount="indefinite"/></text>
+</svg>

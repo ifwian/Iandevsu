@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675" role="img" aria-label="Portfolio placeholder preview">
+  <rect width="1200" height="675" fill="#0d0d0f"/>
+  <rect x="0" y="0" width="1200" height="48" fill="#17171a"/>
+  <circle cx="28" cy="24" r="7" fill="#b3202a"/><circle cx="52" cy="24" r="7" fill="#444"/><circle cx="76" cy="24" r="7" fill="#444"/>
+  <rect x="300" y="12" width="600" height="24" rx="12" fill="#0d0d0f"/>
+  <text x="600" y="29" text-anchor="middle" fill="#8a8a90" font-family="Arial,sans-serif" font-size="14">iandevs.vercel.app</text>
+  <text x="90" y="300" fill="#b3202a" font-family="Arial,sans-serif" font-size="22" letter-spacing="8" font-weight="600">PORTFOLIO</text>
+  <text x="86" y="400" fill="#f4f4f6" font-family="Arial,sans-serif" font-size="110" font-weight="800">Ian<tspan fill="#b3202a">.</tspan></text>
+  <text x="90" y="450" fill="#c9c9c9" font-family="Arial,sans-serif" font-size="28">Computer Science Student · Full-Stack Developer</text>
+  <rect x="90" y="480" width="220" height="5" fill="#b3202a"/>
+  <path d="M0 640 C300 590 500 690 800 640 S1100 600 1200 640 L1200 675 L0 675Z" fill="#b3202a" opacity=".7"/>
+</svg>

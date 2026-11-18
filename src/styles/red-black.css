@@ -1,0 +1,291 @@
+/* ==========================================================================
+   RED & BLACK LAYER
+   Loaded after theme.css and minimal.css. Layout, type, spacing and content
+   are untouched; this file only changes colour:
+     - the dark theme's background goes to near-black;
+     - one accent (--accent) replaces ink as the "emphasis" fill: primary
+       buttons, selected/pressed states, outgoing chat bubbles, badges,
+       status dots, the scroll-progress bar, text selection and focus rings;
+     - card and pill borders warm to the accent on hover.
+   Type stays neutral: no heading, label, link or nav item is tinted accent.
+   Delete this file and its import in main.tsx to get the old look back.
+   ========================================================================== */
+
+:root {
+  --accent: #000000;       /* pure black accent - fully monochrome */
+  --accent-hover: #333333;
+  --accent-on: #ffffff;    /* text on a black fill */
+}
+
+:root[data-theme="dark"] {
+  --bg: #09090a;
+  --accent: #000000;
+  --accent-hover: #333333;
+  --accent-on: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --bg: #09090a;
+    --accent: #000000;
+    --accent-hover: #333333;
+    --accent-on: #ffffff;
+  }
+}
+
+/* ==========================================================================
+   BACKGROUND: FLAT MONOCHROME
+   The page ground is the theme's own --bg, with the monochrome grid from
+   theme.css above it. There is deliberately no tinted ambient layer here: the
+   background stays black in dark mode and white in light mode.
+   ========================================================================== */
+body {
+  /* `body::before` paints the theme's grid at z-index -1. Isolating <body>
+     makes it a stacking context, so the grid sits above the page background
+     and below every descendant. */
+  isolation: isolate;
+}
+
+/* ---------- Selection, focus, scroll progress ---------- */
+::selection {
+  background: var(--accent);
+  color: var(--accent-on);
+}
+
+html :focus-visible,
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline-color: var(--accent);
+}
+
+@supports (animation-timeline: scroll()) {
+  html::after {
+    background: var(--accent);
+  }
+}
+
+/* ---------- Emphasis fills: ink -> accent ---------- */
+html :is(
+  .ui-button--default,
+  .ui-badge--default,
+  .btn-primary,
+  .skip-link,
+  .pill-inverted,
+  .status-dot,
+  .building-seg[data-on="true"],
+  .chat-notice-mark,
+  .chat-notice-action:hover,
+  .chat-jump,
+  .chat-typing-bubble,
+  .chat-reaction-chip[aria-pressed="true"],
+  .inbox-seg-item[aria-pressed="true"],
+  .inbox-msg[data-side="out"] .inbox-bubble,
+  .about-widget:hover .about-widget-dot
+) {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-on);
+}
+
+html :is(
+  .ui-button--default:hover,
+  .btn-primary:hover
+) {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+/* The same fills where React sets them inline or through a Tailwind
+   arbitrary-value class (scroll-to-top, send button, sidebar and stat dots,
+   palette's active row, chat session pill, error-boundary button). */
+[style*="background-color: var(--ink)"],
+[style*="background-color:var(--ink)"],
+[class*="bg-[var(--ink)]"] {
+  background-color: var(--accent) !important;
+  color: var(--accent-on) !important;
+}
+
+/* Dots and rings are fills with no text; keep them solid. */
+span[style*="background-color: var(--ink)"] {
+  color: inherit !important;
+}
+
+/* ---------- Links and hover borders ----------
+   Accent is a surface colour here, never a text colour: links underline to ink and
+   leave the hue to the fills. */
+html :is(
+  .text-link:hover,
+  .chat-link:hover
+) {
+  color: var(--ink);
+  text-decoration-color: var(--ink);
+}
+
+html :is(
+  .card:hover,
+  .terminal-pill:hover,
+  .about-widget:hover,
+  .pill:hover,
+  .ui-button--outline:hover,
+  .ui-input:focus,
+  .ui-textarea:focus
+) {
+  border-color: var(--accent);
+}
+
+html :is(
+  a:hover .arrow-glyph,
+  .link-arrow:hover
+) {
+  color: var(--ink);
+}
+
+/* ---------- Text is never red ----------
+   The section markers, the hero's primary action, the active nav row and every
+   hover state sit on plain ink. Accent stays in the fills, dots, rules, focus
+   rings and border hovers, so type keeps full contrast. */
+html .section-eyebrow,
+html #home .hero-action-primary,
+html #home .hero-action-arrow,
+html a[aria-current="location"],
+html a[aria-current="location"] span {
+  color: var(--ink) !important;
+}
+
+html #home .hero-social-link:hover,
+html #home .hero-stat:hover .hero-stat-arrow,
+html #home .hero-stat:hover {
+  color: var(--ink);
+}
+
+/* ---------- Hero: merged into the black background ----------
+   No card, no haze, no lines. The pale halo around the hero is the frame's
+   box-shadow; the lines are the portrait's border and the stat strip's
+   rules. The image itself, and its light background on hover, are untouched. */
+html #home .hero-frame,
+html #home .hero-frame:hover {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html #home .hero-portrait,
+html #home .hero-portrait:hover,
+html #home .hero-portrait:focus-visible {
+  border: 0;
+  box-shadow: none;
+  outline: none;
+}
+
+/* `!important`: the strip's divider rules are written with :nth-child /
+   :not() selectors that out-rank any plain override. */
+html #home .hero-stats,
+html #home .hero-stats > .hero-stat,
+html #home .hero-stat:hover {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ==========================================================================
+   SECTION FRAMES + MOTION
+   Dependency-free equivalents of a few Magic UI effects (blur fade, number
+   ticker, magic-card spotlight). All of it is switched off under
+   prefers-reduced-motion.
+   ========================================================================== */
+
+/* ---------- Sections 02-07: no frame ----------
+   The hero was already unframed; the rest now follow, so the page reads as one
+   continuous column instead of a stack of bordered windows. The bar keeps its
+   rhythm but loses its rule and its tint, and the body drops the inset padding
+   the border used to justify -- otherwise the content would stay indented
+   against a frame that is no longer drawn. The border beam that used to travel
+   around these shells is gone with them. */
+html .section-shell,
+html .section-shell:hover {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html .section-shell-bar {
+  border-bottom: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0 0.75rem;
+}
+
+html .section-shell-body {
+  padding: 0;
+}
+
+/* ---------- Blur fade (scroll reveal) ----------
+   The existing rise-and-fade gains a soft blur that resolves as it lands. */
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(6px);
+  }
+}
+
+.reveal-ready [data-reveal-group] > :not(.card) {
+  filter: blur(6px);
+  transition:
+    opacity 0.7s var(--ease-out),
+    transform 0.7s var(--ease-out),
+    filter 0.7s var(--ease-out),
+    text-shadow 0.4s var(--ease-out);
+}
+
+.reveal-ready [data-reveal-group].is-revealed > :not(.card) {
+  filter: none;
+}
+
+/* ---------- Hero name: plain ink ----------
+   The sweep used to pass a red band through the name. The name is the largest
+   type on the page, so it is the last place a hue should land: it rests on ink
+   and leaves the accent to the portrait and the fills around it. */
+html #home .hero-name {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  color: var(--ink);
+}
+
+/* ---------- Magic card spotlight + lift ----------
+   The pointer-following glow is accent, so it stays monochrome: ink at low
+   alpha lights the card in dark mode and gently shades it in light mode. The
+   accent remains in the border and the rest of the UI. */
+html .card:hover,
+html .project-card:hover {
+  background-image: radial-gradient(
+    320px circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--ink) 12%, transparent),
+    transparent 70%
+  );
+}
+
+html .project-card {
+  transition:
+    transform 0.35s var(--ease-out),
+    border-color 0.35s var(--ease-out);
+}
+
+html .project-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html .project-card:hover {
+    transform: none;
+  }
+
+  .reveal-ready [data-reveal-group] > :not(.card) {
+    filter: none;
+  }
+}

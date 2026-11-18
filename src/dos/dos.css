@@ -1,0 +1,206 @@
+/* Dos desktop pet. Pairs with dos.js.
+ *
+ * The bubble is white in light AND dark mode on purpose (a retro "dialog box":
+ * white ring, dark line, white fill). Re-theme it by overriding the custom
+ * properties from your own stylesheet:
+ *   .dos { --dos-bubble-bg: #f4f4f5; --dos-bubble-fg: #1b1b1f; --dos-bubble-line: #3a3a3e; --dos-font: var(--font-mono);
+ *          --dos-font-size: 13px; --dos-bubble-max-width: 200px; }
+ * The defaults use :where() so any rule you write wins without a specificity fight.
+ */
+
+/* The root never catches the mouse. dos.js turns pointer events on for the sprite
+   only while the cursor is over an opaque pixel of the cat (.is-hot). */
+.dos {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--dos-size, 72px);
+  height: var(--dos-size, 72px);
+  z-index: 40;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  will-change: transform;
+}
+
+.dos__sprite {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  /* pixel art: no smoothing when scaled 2x */
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  touch-action: none;
+  pointer-events: none;
+}
+
+.dos__sprite.is-hot {
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.dos__sprite.is-dragging {
+  cursor: grabbing;
+}
+
+/* Little hop when he notices the cursor. Uses `translate` so it never fights the
+   inline `transform` that dos.js uses for the poke / drop hop. */
+.dos__sprite.is-alert {
+  animation: dos-hop 0.28s ease-out;
+}
+
+@keyframes dos-hop {
+  0% { translate: 0 0; }
+  40% { translate: 0 -6px; }
+  100% { translate: 0 0; }
+}
+
+/* While carried, the whole page shows the grabbing cursor and ignores text selection. */
+.dos-dragging,
+.dos-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+/* ---------------------------------------------------------------- speech bubble */
+
+:where(.dos) {
+  --dos-bubble-bg: #f4f4f5;
+  --dos-bubble-fg: #1b1b1f;
+  --dos-bubble-line: #3a3a3e;
+  --dos-font: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+.dos__bubble {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: var(--dos-bubble-max-width, 200px);
+  padding: 7px 12px;
+  /* white ring, then a dark line just inside it, then the white fill */
+  border: 3px solid var(--dos-bubble-bg);
+  border-radius: 0;
+  background: var(--dos-bubble-bg);
+  box-shadow: inset 0 0 0 2px var(--dos-bubble-line);
+  color: var(--dos-bubble-fg);
+  font: 500 var(--dos-font-size, 13px)/1.35 var(--dos-font);
+  text-align: center;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  pointer-events: none; /* a bubble must never block a click */
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.12s steps(2, end),
+    visibility 0s linear 0.12s;
+}
+
+.dos__bubble.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.12s steps(2, end),
+    visibility 0s;
+}
+
+/* Only the control in an interactive bubble (the tour prompt / stop button)
+   opts back into pointer events; the text behind it stays click-through. */
+.dos__bubble-button {
+  display: block;
+  min-height: 28px;
+  margin: 7px auto 0;
+  padding: 4px 10px;
+  border: 2px solid var(--dos-bubble-line);
+  border-radius: 0;
+  background: var(--dos-bubble-line);
+  color: var(--dos-bubble-bg);
+  font: 600 11px/1.2 var(--dos-font);
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dos__bubble-button:hover {
+  border-color: var(--dos-bubble-fg);
+  background: var(--dos-bubble-fg);
+}
+
+.dos__bubble-button:focus-visible {
+  outline: 2px solid var(--accent, #b3202a);
+  outline-offset: 2px;
+}
+
+/* Tail: a small solid triangle in the ring colour, pointing at the cat.
+   --dos-tail is set by dos.js to the cat's position along the bubble edge. */
+.dos__bubble::after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
+  border: 7px solid transparent;
+}
+
+.dos__bubble[data-side="top"]::after {
+  bottom: -16px;
+  left: var(--dos-tail, 50%);
+  margin-left: -7px;
+  border-top-color: var(--dos-bubble-bg);
+}
+
+.dos__bubble[data-side="bottom"]::after {
+  top: -16px;
+  left: var(--dos-tail, 50%);
+  margin-left: -7px;
+  border-bottom-color: var(--dos-bubble-bg);
+}
+
+.dos__bubble[data-side="right"]::after {
+  left: -16px;
+  top: var(--dos-tail, 50%);
+  margin-top: -7px;
+  border-right-color: var(--dos-bubble-bg);
+}
+
+.dos__bubble[data-side="left"]::after {
+  right: -16px;
+  top: var(--dos-tail, 50%);
+  margin-top: -7px;
+  border-left-color: var(--dos-bubble-bg);
+}
+
+/* Hearts that float up out of her when the cursor rests on her long enough.
+   Ported from Vurios/portfolio (oneko.js, MIT). Fixed so they cannot be
+   selected, and pointer-events: none so they never intercept a click. */
+.dos-heart {
+  position: fixed;
+  z-index: 46;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  background: var(--gray-400, #a1a1aa);
+  /* A heart, drawn with two circles and a rotated square. */
+  clip-path: path("M5 9 C5 9 0 5.5 0 2.75 A2.75 2.75 0 0 1 5 2 A2.75 2.75 0 0 1 10 2.75 C10 5.5 5 9 5 9 Z");
+  animation: dos-heart-rise 1.1s ease-out forwards;
+}
+
+@keyframes dos-heart-rise {
+  0% { transform: translateY(0) scale(0.5); opacity: 0; }
+  20% { opacity: 0.9; }
+  100% { transform: translateY(-34px) scale(1); opacity: 0; }
+}
+
+/* dos.js already refuses to start with reduced motion; this covers the CSS side too. */
+@media (prefers-reduced-motion: reduce), print {
+  .dos,
+  .dos-heart {
+    display: none !important;
+  }
+}

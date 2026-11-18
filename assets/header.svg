@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 190" width="900" height="190" role="img" aria-label="Ian — Computer Science Student, Web Developer">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0d0d0f"/><stop offset="1" stop-color="#1c0c10"/></linearGradient>
+    <linearGradient id="sc" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7a1019" stop-opacity="0"/><stop offset=".5" stop-color="#b3202a"/><stop offset="1" stop-color="#e03a45"/></linearGradient>
+  </defs>
+  <rect width="900" height="190" fill="url(#bg)"/>
+  <!-- floating embers -->
+  <g fill="#b3202a">
+    <circle cx="120" cy="170" r="2"><animate attributeName="cy" values="180;20" dur="6s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;.9;0" dur="6s" repeatCount="indefinite"/></circle>
+    <circle cx="340" cy="180" r="1.6"><animate attributeName="cy" values="190;30" dur="7.5s" begin="1s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;.8;0" dur="7.5s" begin="1s" repeatCount="indefinite"/></circle>
+    <circle cx="560" cy="175" r="2.2"><animate attributeName="cy" values="185;15" dur="5.5s" begin="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;.9;0" dur="5.5s" begin="2s" repeatCount="indefinite"/></circle>
+    <circle cx="760" cy="180" r="1.8"><animate attributeName="cy" values="190;25" dur="6.8s" begin=".5s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;.8;0" dur="6.8s" begin=".5s" repeatCount="indefinite"/></circle>
+    <circle cx="880" cy="170" r="2"><animate attributeName="cy" values="180;20" dur="7s" begin="3s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;.9;0" dur="7s" begin="3s" repeatCount="indefinite"/></circle>
+  </g>
+  <g font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" text-anchor="middle">
+    <text x="450" y="78" fill="#f4f4f6" font-size="54" font-weight="800" letter-spacing="3">IAN<tspan fill="#b3202a">.</tspan></text>
+    <!-- rotating role lines -->
+    <g font-size="22" fill="#c9c9c9" letter-spacing="1">
+      <text x="450" y="118" opacity="1">Computer Science Student<animate attributeName="opacity" values="1;1;0;0;0;0;1" keyTimes="0;.28;.33;.62;.66;.95;1" dur="12s" repeatCount="indefinite"/></text>
+      <text x="450" y="118" opacity="0">Web Developer<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;.30;.36;.62;.68;1" dur="12s" repeatCount="indefinite"/></text>
+      <text x="450" y="118" opacity="0">I build things that actually ship<animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;.64;.70;.95;1" dur="12s" repeatCount="indefinite"/></text>
+    </g>
+  </g>
+  <!-- scarf -->
+  <path fill="none" stroke="url(#sc)" stroke-width="10" stroke-linecap="round">
+    <animate attributeName="d" dur="5s" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"
+      values="M0 158 C150 128 300 188 450 158 S750 128 900 158;M0 150 C150 182 300 130 450 158 S750 182 900 150;M0 158 C150 128 300 188 450 158 S750 128 900 158"/>
+  </path>
+  <path fill="none" stroke="#b3202a" stroke-width="3" opacity=".45" stroke-linecap="round">
+    <animate attributeName="d" dur="6.5s" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"
+      values="M0 176 C180 150 330 200 480 176 S760 150 900 176;M0 168 C180 196 330 150 480 176 S760 196 900 168;M0 176 C180 150 330 200 480 176 S760 150 900 176"/>
+  </path>
+</svg>

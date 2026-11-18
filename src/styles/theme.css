@@ -1,0 +1,2442 @@
+/* ---------- Fonts ----------
+   Three real faces, so nothing mixes, adopted from Vurios/portfolio
+   (github.com/Vurios/portfolio) -- the same bryl-minimal design language this
+   site was built on, carrying its type system rather than one invented here:
+
+     Sans    -- Geist        headings, body copy, prose, values
+     Mono    -- Geist Mono   labels, nav, badges, dates, pills, code
+     Display -- Geist Pixel  brand name, section titles, index numbers
+
+   The role tokens keep their separate names for the same reason they always
+   did: they mean different things (a 10px badge vs. a section title), and
+   collapsing them to one name would make the markup lie about intent. What
+   changed is what each resolves to.
+
+   There is no serif role any more. Source Serif 4 is gone, and prose is set in
+   the sans, which is what the reference does -- its `.prose` and `.hero__intro`
+   carry no font-family at all and simply inherit the body face. So
+   `--font-serif` is not repointed at a serif; it is gone, and the call sites
+   that used it were moved to `--font-body`.
+
+   Geist Pixel ships at weight 400 only, and the reference never sets a weight
+   on it either. That is why no `font-semibold` survives at a --font-display
+   call site: asking a single-weight face for 600 does not make it bolder, it
+   makes the browser synthesise a faux bold by smearing the outline. The weight
+   that used to carry the heading hierarchy now comes from size and colour.
+
+   Geist and Geist Mono are requested once from Google Fonts in index.html, so
+   there are no @font-face blocks for them. Geist Pixel is the exception: it is
+   not on Google Fonts at all (the CSS2 API rejects the family), so it is
+   self-hosted from /public/fonts with its OFL licence beside it -- the same
+   arrangement the reference uses. */
+
+@custom-variant dark (&:is(.dark *));
+
+@font-face {
+  font-family: "Geist Pixel";
+  src: url("/fonts/GeistPixel-Square.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  /* swap, not block: the face is only 27KB and it paints the brand name, so
+     blocking would trade a visible blank for a barely-perceptible delay. */
+  font-display: swap;
+}
+
+/* =========================================================
+   BRYL-MINIMAL DESIGN TOKENS
+   Ported from https://github.com/bryllim/bryl-minimal-design
+   Monochrome, typography-first. No accent color, ever.
+   ========================================================= */
+
+:root {
+  /* =========================================================
+     DESIGN TOKENS: type, space, radius, layering, breakpoints
+     One place to retune the whole site. Everything below is rem-based, so it
+     follows the visitor's browser font-size, and the display sizes are fluid
+     (clamp) so they scale smoothly between phone and desktop instead of
+     jumping at a breakpoint.
+     ========================================================= */
+
+  /* Type scale (11px is the legibility floor for uppercase mono chrome). */
+  --text-2xs: 0.625rem;   /* 10px */
+  --text-xs: 0.6875rem;   /* 11px */
+  --text-sm: 0.75rem;     /* 12px */
+  --text-base: 0.8125rem; /* 13px */
+  --text-md: 0.875rem;    /* 14px */
+  --text-lg: 0.9375rem;   /* 15px */
+  --text-xl: 1rem;        /* 16px */
+  --text-2xl: 1.0625rem;  /* 17px */
+  --text-display: clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem);
+  --text-title: clamp(1.25rem, 1.05rem + 1vw, 1.75rem);
+
+  /* Spacing scale. */
+  --space-0-5: 0.125rem;  /* 2px */
+  --space-1: 0.25rem;     /* 4px */
+  --space-1-5: 0.375rem;  /* 6px */
+  --space-2: 0.5rem;      /* 8px */
+  --space-2-5: 0.625rem;  /* 10px */
+  --space-3: 0.75rem;     /* 12px */
+  --space-4: 1rem;        /* 16px */
+  --space-6: 1.5rem;      /* 24px */
+  --page-gutter: clamp(1rem, 0.5rem + 2.5vw, 2rem);
+
+  /* Radius scale. */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-pill: 999px;
+
+  /* Layering. */
+  --z-raised: 1;
+  --z-sticky: 60;
+  --z-overlay: 80;
+  --z-modal: 100;
+
+  /* Error state, themed alongside the other status tokens. */
+  --status-error: #6b6b73;
+
+  /* Breakpoints (documented here because CSS cannot read a custom property
+     inside @media). Use these values, nowhere else:
+       sm 640px   md 768px   lg 1024px   (hero card: 720px, inbox panes: 900px) */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+
+  --bg: #ffffff;
+  --ink: #0a0a0a;
+
+  --gray-50: #fafafa;
+  --gray-100: #f4f4f5;
+  --gray-200: #e4e4e7;
+  --gray-300: #d4d4d8;
+  --gray-400: #6b6b73;
+  --gray-500: #52525a;
+  --gray-600: #3f3f46;
+  --gray-700: #2b2b30;
+  --gray-800: #1f1f23;
+  --gray-900: #131316;
+  --gray-950: #0a0a0a;
+
+  --shadow-color: 0, 0, 0;
+  --shadow-resting: 0 8px 22px -14px rgba(var(--shadow-color), 0.25);
+  --shadow-hover: 0 18px 36px -20px rgba(var(--shadow-color), 0.4);
+  --shadow-modal: 0 40px 90px -20px rgba(var(--shadow-color), 0.35);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --halftone-dot-color: rgba(10, 10, 10, 0.9);
+
+  /*
+   * Conversation status colors.
+   *
+   * The one sanctioned exception to the monochrome rule, and deliberately so:
+   * the admin inbox has to separate four triage states at a glance down a list
+   * of 50 rows, and "emphasis through inversion alone" cannot tell `active`
+   * from `assigned` when both are rendered as small pills. They are muted,
+   * desaturated tones rather than a brand hue, and `resolved` resolves to a
+   * gray token so the closed state recedes instead of competing.
+   *
+   * A status is never the *only* carrier of meaning: every pill also spells the
+   * state out in text (or in a screen-reader-only label, for the compact list
+   * form), so the inbox still reads correctly in monochrome and for a
+   * color-blind reader.
+   */
+  --status-active: #3f7d3f;
+  --status-waiting: #8a6412;
+  --status-assigned: #3f5aa6;
+  --status-resolved: var(--gray-400);
+
+  /* Confirmed/earned, as opposed to "a conversation is active". Aliased rather
+     than given its own value so the muted green stays defined in one place --
+     the two must not drift. Used by the education section's certification
+     ticks, which mark something the visitor has actually passed. */
+  --accent-positive: var(--status-active);
+
+  /*
+   * Fixed sidebar width. Defined once here because four separate places have
+   * to agree on it: the sidebar's own width, the offset that pushes the main
+   * content past it in MainLayout and ProjectsPage, and the position of the
+   * expanded chat panel. 16rem matches the reference layout.
+   */
+  --sidebar-w: 16rem;
+
+  /* Adopted from Vurios/portfolio, stacks copied from its css/styles.css so the
+     two projects resolve an unavailable face identically. Geist Mono and Geist
+     Pixel are quoted before their generic fallbacks on purpose: a pixel face
+     falling back to a pixel system font would look worse than falling back to
+     the mono, which is what the reference does too. */
+  --font-body: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-display: "Geist Pixel", "Geist Mono", ui-monospace, monospace;
+  /* Quote-only. Not a general prose role -- prose is the sans, and there was a
+     time when this token was the body face for every paragraph on the site,
+     which is not what it is for now. It exists because the hero's pull quote is
+     set in a serif on purpose, and one element is a different decision from a
+     type system.
+
+     The fallback is the sans, deliberately, and not a generic `serif`: a bare
+     `serif` keyword resolves to Times New Roman on Windows and Georgia on older
+     macOS, so a blocked font request would silently re-render the quote in a
+     stranger's face. Landing on Geist instead means the worst case is the same
+     page one weight lighter. */
+  --font-quote: "Source Serif 4", var(--font-body);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0c0c0f;
+  --ink: #f4f4f5;
+
+  --gray-50: #18181b;
+  --gray-100: #1e1e22;
+  --gray-200: #2a2a30;
+  --gray-300: #3a3a42;
+  --gray-400: #8a8a92;
+  --gray-500: #a0a0a8;
+  --gray-600: #b5b5bc;
+  --gray-700: #c8c8ce;
+  --gray-800: #dcdce0;
+  --gray-900: #ececee;
+  --gray-950: #f4f4f5;
+
+  --shadow-resting: 0 8px 22px -14px rgba(0, 0, 0, 0.6);
+  --shadow-hover: 0 18px 36px -20px rgba(0, 0, 0, 0.7);
+  --shadow-modal: 0 40px 90px -20px rgba(0, 0, 0, 0.7);
+  --halftone-dot-color: rgba(244, 244, 245, 0.42);
+
+  /* Lifted for dark: the light-mode values are dark enough to read on white
+     and wash out against a near-black --bg. */
+  --status-active: #6ee06e;
+  --status-error: #6b6b73;
+  --status-waiting: #e0b252;
+  --status-assigned: #8ea8f0;
+  --status-resolved: var(--gray-400);
+  --accent-positive: var(--status-active);
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --bg: #0c0c0f;
+    --ink: #f4f4f5;
+    --gray-50: #18181b;
+    --gray-100: #1e1e22;
+    --gray-200: #2a2a30;
+    --gray-300: #3a3a42;
+    --gray-400: #8a8a92;
+    --gray-500: #a0a0a8;
+    --gray-600: #b5b5bc;
+    --gray-700: #c8c8ce;
+    --gray-800: #dcdce0;
+    --gray-900: #ececee;
+    --gray-950: #f4f4f5;
+    --shadow-resting: 0 8px 22px -14px rgba(0, 0, 0, 0.6);
+    --shadow-hover: 0 18px 36px -20px rgba(0, 0, 0, 0.7);
+    --shadow-modal: 0 40px 90px -20px rgba(0, 0, 0, 0.7);
+    --halftone-dot-color: rgba(244, 244, 245, 0.42);
+    --status-active: #6ee06e;
+    --status-error: #6b6b73;
+    --status-waiting: #e0b252;
+    --status-assigned: #8ea8f0;
+    --status-resolved: var(--gray-400);
+    --accent-positive: var(--status-active);
+    color-scheme: dark;
+  }
+}
+
+/* The `.kode-mono-regular` helper went with the Kode Mono webfont link.
+   Headings now use var(--font-display) directly, so the class
+   had no remaining callers. */
+
+/* ---------- Reset & base ---------- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+/* ---------- Background grid ----------
+   The page's ground texture: a hairline lattice in both axes, faded out toward
+   the edges by a radial mask. It replaces the horizontal scanline texture this
+   project used to carry, which was drawn once per section inside every bordered
+   shell. Two problems with that, both structural rather than taste:
+
+   - Repeating it per shell meant nine copies of the same animated gradient on
+     the page at once, each drifting on its own 7s cycle.
+   - A horizontal-only texture reads as a CRT scan, which fights the flat
+     monochrome surfaces it sits on. A two-axis hairline grid reads as a drawing
+     surface, and it is what the palette can actually carry without introducing
+     a hue.
+
+   One layer for the whole document, on `body::before`, rather than a `.grid-*`
+   class repeated in every section. That is what makes the fade coherent: the
+   mask is a single ellipse over the viewport, so the grid dissolves evenly
+   toward the edges and the bottom instead of each card fading at its own border
+   and leaving a visible seam where two of them meet.
+
+   `z-index: -1` puts it above the body's own background and below every
+   descendant, so nothing has to opt in and no component can be painted over it
+   by accident. Fixed rather than absolute so it does not scroll away and does
+   not repeat per section; `pointer-events: none` so it can never intercept a
+   click, and `aria` does not apply because a pseudo-element is not in the
+   accessibility tree at all.
+
+   The lines are `--ink` at 7%, mixed rather than hardcoded: the palette has no
+   separate grid token, and deriving from ink means the lattice retints itself
+   between light and dark, where a fixed rgba would read as a grey smudge on
+   near-black instead of a line. 7% is a hairline that survives on both grounds;
+   the old scanlines were 3% of a repeating 1px-in-4px stripe, which at that
+   density read as a texture rather than a line.
+
+   `repeating-linear-gradient` twice, not a single one with two stops: one axis
+   per gradient, because `background-image` takes a list and each layer paints
+   independently.
+
+   The mask is `black` in the middle and `transparent` at the rim, which is the
+   direction that fades *out* toward the edges. (`-webkit-mask-image` is
+   repeated because Safari still needs the prefixed property; `mask-repeat:
+   no-repeat` stops the gradient tiling across the box.) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--ink) 7%, transparent) 0 1px,
+      transparent 1px 44px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--ink) 7%, transparent) 0 1px,
+      transparent 1px 44px
+    );
+  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, black 0%, transparent 78%);
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, black 0%, transparent 78%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* A 44px cell is 3rem of lattice, which is about the smallest gap the eye still
+   reads as a grid rather than as hatching. Below `sm` that density turns to
+   hatching on a phone held at arm's length, so the cell halves and the lines
+   drop to 5% -- present as texture, not as a pattern competing with the text. */
+@media (max-width: 639px) {
+  body::before {
+    background-image:
+      repeating-linear-gradient(
+        to right,
+        color-mix(in srgb, var(--ink) 5%, transparent) 0 1px,
+        transparent 1px 24px
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--ink) 5%, transparent) 0 1px,
+        transparent 1px 24px
+      );
+  }
+}
+
+/* ---------- Section framing / anchor navigation ----------
+   The sidebar and top bar both link to bare `#id` anchors, so the target has
+   to be offset by whatever fixed chrome floats above it. Below lg the top bar
+   is fixed and 68px tall (py-4 = 16px x2, plus the h-9 toggle), so without
+   this a tapped link scrolls the section heading underneath it. At lg+ the
+   top bar is hidden and the sidebar is a left rail, so no offset is needed. */
+@media (max-width: 1023px) {
+  section[id] {
+    scroll-margin-top: 68px;
+  }
+}
+
+/*
+ * One place defines section framing, rather than each <section> repeating
+ * `flex flex-col`.
+ *
+ * Sections are their natural height. They used to be pinned to `100svh` --
+ * `svh` rather than `vh` because on mobile browsers `100vh` includes the space
+ * behind the URL bar, so a full-height section got its footer clipped -- which
+ * meant every section was a viewport-sized panel with a short paragraph
+ * floating in the middle of it and a lot of dead space between sections. At
+ * natural height the page reads as one continuous column.
+ *
+ * `justify-content: center` is retained even though it does nothing at natural
+ * height: it is a no-op now, and it is what would still centre the content if a
+ * min-height were ever reintroduced on a single section. Horizontal centring is
+ * the inner `mx-auto max-w-4xl` wrapper, not this rule.
+ *
+ * No `scroll-snap-align` any more. Sections used to snap (`proximity`, on the
+ * home page only), which magnetises a section into place once the scroll lands
+ * near one -- pleasant in isolation, but it also means the page keeps moving
+ * after the gesture has stopped, and on a trackpad that reads as the page
+ * grabbing at you rather than answering it. The `scroll-margin-top` above is
+ * unaffected: it belongs to anchor navigation, not to snapping.
+ */
+.section-frame {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* The mono base every section sits on. It used to be an inline
+     `style={{ fontFamily: "var(--font-mono)" }}` repeated on all six section
+     tags -- six copies of one rule, and the one thing a section could forget
+     and then render all of its chrome in the body face. Prose opts back out to
+     `--font-body` (`.section-lede`, `.about-prose`), so this is the shell's
+     register, not the page's. */
+  font-family: var(--font-mono);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Anchors must still work, they just must not animate. */
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  line-height: 1.6;
+  /* `hidden` first and `clip` to override it. Both stop the page panning
+     sideways, but only `clip` does it without making <body> a scroll container.
+     That is not cosmetic: a view progress timeline binds to the nearest scroll
+     container, <body> is the nearest ancestor of every section, and this one
+     has no range to scroll -- its height is its content's. As a scroll
+     container it therefore froze every `animation-timeline: view()` on the page
+     at a fixed progress, which is the scroll-bound entrance in theme.css. A
+     browser old enough to ignore `clip` has no view timelines to freeze, and
+     keeps the `hidden` fallback. */
+  overflow-x: hidden;
+  overflow-x: clip;
+  max-width: 100vw;
+  transition: background-color 0.5s var(--ease-out), color 0.5s var(--ease-out);
+}
+
+/*
+ * Colour crossfade, for browsers with NO view-transition support.
+ *
+ * This used to read `@supports not (view-transition-name: none)`, which is
+ * "where view transitions do not exist" -- so the crossfade only ever applied
+ * where the circular reveal in ThemeToggle could not run, and never applied in
+ * the browsers that show the reveal. The two mechanisms were effectively
+ * exclusive: capable browsers got only the wipe, and the rest got only the fade.
+ *
+ * With the reveal in place, the wipe is the whole effect, so the fallback fade
+ * belongs exactly here. Where view transitions DO work, `.theme-transitioning`
+ * below neutralises these transitions for the duration of the reveal, so the two
+ * cannot overlap.
+ */
+@supports not (view-transition-name: none) {
+  *,
+  *::before,
+  *::after {
+    transition: background-color 0.4s var(--ease-out), border-color 0.4s var(--ease-out), color 0.4s var(--ease-out), fill 0.4s var(--ease-out), stroke 0.4s var(--ease-out);
+  }
+}
+
+/*
+ * While the circular reveal plays, hold every colour still.
+ *
+ * The reveal is a snapshot crossfade: `::view-transition-old(root)` is a static
+ * image of the old theme and the new one is revealed through an animated
+ * clip-path over it. If the live DOM underneath kept crossfading its colours at
+ * the same time, the two animations ran on top of each other and the wipe looked
+ * like a stutter rather than a reveal. `transition: none` on the root cancels
+ * the fallback fade for exactly as long as the transition is flagged, and the
+ * flag is cleared on both the `finished` promise and a timer, so nothing is left
+ * disabled if the transition is skipped.
+ */
+:root.theme-transitioning,
+:root.theme-transitioning *,
+:root.theme-transitioning *::before,
+:root.theme-transitioning *::after {
+  transition: none !important;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+.text-link {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--ink) 25%, transparent);
+  text-underline-offset: 2px;
+  transition: text-decoration-color 0.2s ease;
+}
+.text-link:hover {
+  text-decoration-color: var(--ink);
+}
+
+::selection {
+  background-color: var(--ink);
+  color: var(--bg);
+}
+
+/* Slim scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-300) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--gray-300);
+  border-radius: var(--radius-pill);
+}
+
+/* ---------- Visually hidden ----------
+   Plain CSS rather than Tailwind's `sr-only` on purpose: this project's
+   utilities are generated by the Play CDN at runtime and cannot be verified
+   from `npm run build`, and a utility that silently fails to generate in an
+   accessibility affordance means the text is simply gone. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Micro-label ----------
+   The site's smallest readable step. Was 9px, which is below the point where
+   uppercase mono with wide tracking stays legible -- especially on the dark
+   theme, where thin strokes disappear at that size. 11px is the floor for
+   badge/label text; see `.section-eyebrow` for section markers. */
+.micro-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+/* Section markers ("05 -- education").
+   14px / text-sm, matching the reference implementation's section header
+   (`text-sm text-gray-400`). Was 11px, and every call site also carried a
+   `text-xs` utility that overrode the class anyway, so the size is defined
+   here once and the per-call overrides were removed.
+
+   The margin and letter-spacing now live here too, for the same reason. Eight
+   call sites had drifted across five different `mb-*` values (0, 1, 1.5, 2 and
+   6 -- a 24px gap on one section and none at all on another), and four of them
+   added `tracking-wider`, which is `letter-spacing: 0.05em` -- about 0.7px at
+   this size, so it was quietly *reducing* the 1px defined here rather than
+   increasing it. Two more added `font-medium`. Every one of those was an
+   override fighting this rule, and which one won depended on stylesheet order:
+   Tailwind is loaded from the Play CDN at runtime here, so `theme.css` and the
+   utilities are both unlayered and precedence falls to injection order.
+
+   Fixing it at the source rather than standardising the call sites means the
+   per-site utilities are gone, nothing is left to fight, and every section
+   inherits the same rhythm from one place. */
+.section-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  line-height: 1.3;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gray-500);
+  margin-bottom: 0.75rem;
+  font-weight: 400;
+}
+
+/* Section headings ("about me", "tech stack").
+   Same reasoning as `.section-eyebrow`, one step further down: seven sections
+   had each spelled their own heading out of raw utilities and drifted into four
+   different shapes.
+
+   Concretely, before this existed:
+     - blog       was text-2xl / sm:text-3xl, so on a phone and a tablet its
+                  heading rendered LARGER than all six other sections'
+     - about + life carried an extra lg:text-3xl step, so on desktop those two
+                  grew while the other five stayed at sm:text-2xl
+     - weight was font-semibold in three places and font-bold in four
+     - leading-tight was on four headings and absent on three
+     - the bottom margin was mb-2, mb-4 and mb-6 across the set
+
+   So the eyebrow lined up but the block underneath it did not, which is what
+   made the section headers read as unrelated to one another. Fixing the class
+   rather than the call sites means the next section added inherits the scale
+   instead of picking one of the four that were already in use.
+
+   `font-weight: 600` matches the hero's h1, so the name and the section
+   headings sit in the same weight family. The hero's h1 deliberately does NOT
+   use this class -- it is the page's one large title, not a section heading. */
+.section-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  margin-bottom: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .section-title {
+    font-size: 1.5rem;
+  }
+}
+
+/* The one-line description under a section title.
+   Every section had spelled this out in utilities, and they had drifted: three
+   said `--gray-500` and two `--gray-400`, three stopped at 15px while two
+   stepped up to 17px at `sm`, and the bottom margin was 6, 8 or 10 depending on
+   the section -- so the same sentence sat at a different size, colour and
+   distance from its heading depending on which section rendered it, and the
+   identical line on `/` and `/projects` did not match itself.
+
+   `--gray-400` because that is what the site's other prose uses
+   (`.about-prose`, `.project-card-summary`): the larger the text, the lower the
+   weight it needs, and a description at 15-17px does not need the contrast a
+   13px label needs. Prose lives on the body face and this is prose. */
+.section-lede {
+  max-width: 32rem;
+  margin-bottom: 2rem;
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  line-height: 1.7;
+  color: var(--gray-400);
+}
+
+@media (min-width: 640px) {
+  .section-lede {
+    font-size: var(--text-2xl);
+    line-height: 1.75;
+  }
+}
+
+/* ---------- Cards ---------- */
+.card {
+  background-color: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-resting);
+  transition: transform 0.42s var(--ease-out), box-shadow 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
+}
+
+.card:hover {
+  box-shadow:
+    var(--shadow-hover),
+    0 0 0 1px color-mix(in srgb, var(--ink) 6%, transparent);
+  transform: translateY(-2px);
+  border-color: var(--gray-300);
+  }
+
+@media (prefers-reduced-motion: reduce) {
+  .card:hover {
+    transform: none;
+  }
+}
+
+/* ---------- Hero tree ----------
+   The hero's information block: a named "file" and a small tree of
+   key/value rows under it, drawn with box-drawing connectors.
+
+   Plain text and a grid, no box. The hero already has one bordered surface --
+   the window frame -- and a second panel around the metadata is what made the
+   old quote-plus-pills arrangement feel like two competing cards. The tree
+   earns its structure from the connectors instead of from a border.
+
+   The connectors are real characters in the markup rather than `::before`
+   content, on purpose: a screen reader reading a generated box-drawing glyph
+   out loud is worse than one that hears nothing, so each is `aria-hidden` and
+   the row's meaning comes from the `<dt>`/`<dd>` pairing.
+
+   `.hero-tree-row--last` swaps the `├──` the markup renders for a `└──`, which
+   is what makes it read as a tree rather than as a list with decoration. The
+   choice is in the markup rather than in CSS because the two glyphs are the
+   same character in a different place -- deciding it with a modifier class
+   would need the character to exist somewhere it could be hidden from. */
+
+.hero-tree {
+  width: 100%;
+  max-width: 34rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--gray-500);
+}
+
+.hero-tree-file {
+  margin-bottom: 0.5rem;
+  font-size: var(--text-xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gray-400);
+}
+
+.hero-tree-list {
+  margin: 0;
+}
+
+/* One gap between blocks rather than a margin on the second. A margin here
+   collapses unpredictably against the `<dl>` above it, and the space belongs
+   between the blocks, not inside either. */
+.hero-tree-block + .hero-tree-block {
+  margin-top: 1.75rem;
+}
+
+/* Each row is its own grid so the key column is a fixed gutter and every value
+   starts on the same vertical line down the block, which is what the tree
+   needs to read as aligned. `minmax(0, 1fr)` on the value is load-bearing: it
+   is a grid item, and with the default `1fr` a long value refuses to shrink
+   and pushes the row wider than the column instead of wrapping inside it.
+
+   The key gutter is 5.5rem rather than ems because these keys are uppercase
+   and tracked -- `STATUS` is the longest at six characters, and it has to fit
+   without colliding with its value at every size the tree is read at. */
+.hero-tree-row {
+  display: grid;
+  grid-template-columns: 1.6em 5.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0 0.1rem;
+}
+
+/* A narrower gutter on a phone. The keys are short and the values are not, so
+   at 390px the full-size gutter was taking a third of the column and wrapping
+   "building modern, high-performance web applications" onto three lines. The
+   connector tightens with it, which keeps the tree's left edge aligned. */
+@media (max-width: 639px) {
+  .hero-tree-row {
+    grid-template-columns: 1.4em 4.25rem minmax(0, 1fr);
+  }
+}
+
+.hero-tree-key,
+.hero-tree-value {
+  margin: 0;
+  font-weight: inherit;
+}
+
+/* The key: mono, dimmed, uppercased. `uppercase` because these are field names
+   in a listing, not sentences, and it is the same treatment `.micro-label`
+   gives every other label on the site. */
+.hero-tree-key {
+  color: var(--gray-400);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Values are in the body's sans, not the mono of the key beside them. This is
+   the one place in the hero where a mono figure would be wrong: these are
+   sentences a person wrote, and a monospaced sentence is measurably harder to
+   scan -- the same argument that puts visitor messages in the sans in the chat
+   transcript. */
+.hero-tree-value {
+  grid-column: 3;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--gray-500);
+}
+
+/* The pull quote, now the body of `quote.txt` rather than a paragraph floating
+    under the blocks. It sits in the value column so its left edge lines up with
+    the values above it, and the block gap above it comes from
+    `.hero-tree-block + .hero-tree-block` like every other block.
+
+    `grid-column: 3` and `margin: 0` are declared here rather than by also
+    applying `.hero-tree-value`: both that rule and this one are a single class, so
+    sharing them would leave the winner decided by which happens to be written
+    later in the file. This is a value-shaped element with a different face, and
+    the two properties that make it value-shaped are its own.
+
+    The quote shares the body's sans face, the same register the rest of the
+    hero and sidebar use: mono for chrome, sans for anything a person wrote.
+    Removing the serif and italic lets it read as prose rather than as a terminal
+    annotation, matching the builds values directly. `antialiased`, because
+    Geist has open counters and renders crisply at this size. And
+    `font-synthesis: none`, because the fallback is the sans and a browser
+    handed an italic it has no italic cut for will shear the upright to fake
+    one -- the real italic is requested from Google Fonts, so nothing here should
+    ever be synthesised. */
+.hero-tree-quote {
+  grid-column: 3;
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: var(--gray-500);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
+}
+
+/* Below `sm` the value column is already the narrow one, and a 13px sans on two
+   lines wants the full width it can get. Letting it start at the key column
+   instead gives it ~4.25rem more and stops "Too curious to stick to one thing."
+   breaking mid-phrase. */
+@media (max-width: 639px) {
+  .hero-tree-quote {
+    grid-column: 2 / -1;
+  }
+}
+
+/* The branch connector. A real character in the markup, `aria-hidden` there, so
+   nothing is generated for a screen reader to stumble over. Dimmed to the same
+   grey as the keys: it is punctuation for the eye, not information. */
+.hero-tree-branch {
+  color: var(--gray-300);
+  font-family: var(--font-mono);
+  user-select: none;
+}
+
+/* ---------- Hero frame ----------
+   The hero is the one block that gets terminal chrome: a window title bar and an
+   inner glow. Every other section stays a plain column, which is what makes the
+   hero reading as the "screen" the rest of the page is displayed on.
+
+   The glows are built from `--ink` with `color-mix` rather than a literal
+   `rgba(0,0,0,.3)`, for two reasons. `.clinerules` forbids hardcoding a colour;
+   and deriving the alpha from the ink token means the glow retints itself between
+   light and dark, where a fixed black alpha reads as a grey smudge against a
+   near-black background instead of a glow.
+
+   The glow is monochrome on purpose. `--ink` at low alpha *is* light, so it reads
+   as a lit edge without introducing a hue -- the palette has no accent colour,
+   and a coloured border here would be the one thing on the page breaking that
+   rule. */
+.hero-frame {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  background-color: var(--gray-50);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ink) 5%, transparent),
+    0 20px 60px -30px color-mix(in srgb, var(--ink) 45%, transparent);
+}
+
+/* The hero's section marker ("01 -- who am i?"), which sits ABOVE the window
+   rather than inside a `.section-shell-bar` the way 02-08 sit inside theirs.
+
+   Two things it has to own, and neither can be left to a utility:
+
+   1. `.section-eyebrow` carries `margin-bottom: 0.75rem` of its own, and the
+      `.section-shell-bar .section-eyebrow` rule that cancels it only reaches
+      markers inside a bar. With this marker outside the frame nothing cancelled
+      it, so it stacked with the wrapper's own `mb-6` -- 24px + 12px = a 36px
+      gulf between the marker and the top of the terminal window, which read as
+      two separate blocks rather than a label sitting above a window. Zeroed
+      here, at the higher specificity, so the single value below is the real gap.
+
+   2. A Tailwind `mb-*` on the same element would lose to (or win against) this
+      file depending on injection order, since the Play CDN's utilities and
+      theme.css are both unlayered. The spacing is declared here instead.
+
+   1rem rather than the marker's own 0.75rem, so the marker is visibly tied to
+   the window below it; the same 0.5rem scale the bar and body paddings use. */
+.hero-eyebrow-row {
+  margin-bottom: 1rem;
+}
+
+.hero-eyebrow-row .section-eyebrow {
+  margin-bottom: 0;
+}
+
+.hero-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-bottom: 1px solid var(--gray-200);
+  background-color: var(--gray-100);
+  /* Horizontal padding steps WITH the body's own, at each breakpoint. The bar is
+     flush with the frame's edge while the body below it carries the frame's
+     padding, so a fixed 1.25rem here lined the path up with the name underneath
+     on a phone (body `p-5` = 20px) and then drifted by 8px at `sm` and 16px at
+     `lg` as the body grew to `p-7`/`p-9`. One shared scale, three steps, so the
+     two rows stay on the same left edge at every width. */
+  padding: 0.5rem 1.25rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.5px;
+  color: var(--gray-500);
+}
+
+@media (min-width: 640px) {
+  .hero-titlebar {
+    padding: 0.5rem 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-titlebar {
+    padding: 0.5rem 2rem;
+  }
+}
+
+/* ---------- Portrait indicator ----------
+   The "hover me / click me !" line and the arrow above the portrait.
+
+   Grey tokens rather than the `text-white/60` and `border-white/20` this was
+   asked for with, because those are light-theme literals: on the dark theme
+   `--bg` is #0c0c0f, so `text-white/60` lands near-white on a near-black card
+   and stops being muted at all -- it becomes the brightest thing on the
+   portrait. `--gray-400` is #404040 in light and #8a8a92 in dark, which is the
+   same "muted, same relative weight" intent in both themes, and it is the
+   palette's own value rather than a colour invented at a call site.
+
+   `nowrap` is load-bearing. The wrapper is exactly as wide as the portrait, so
+   a hint allowed to wrap would break onto two lines and push the arrow down
+   instead of sitting over the photograph. */
+
+.hero-portrait-hint {
+  margin-bottom: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1.4;
+  letter-spacing: 0.1em;
+  color: var(--gray-400);
+  white-space: nowrap;
+  transition: color 0.35s var(--ease-out);
+}
+
+/* 14px clears the portrait's own ring: `.hero-portrait` draws a 5px spread plus
+   a 26px blur outside its edge on hover, and an arrow sitting inside that reads
+   as part of the glow rather than as an arrow.
+
+   `--gray-400`, the same value as the label above it and not `--gray-300`: on
+   the dark theme `--gray-300` is #3a3a42 against a #18181b card, which measured
+   out at a contrast so low the arrow was effectively invisible rather than
+   subtle. Same muted intent, one step up, and it now reads as a drawn mark. */
+.hero-portrait-arrow {
+  margin-bottom: 0.875rem;
+  color: var(--gray-400);
+  transition: color 0.35s var(--ease-out), transform 0.35s var(--ease-out);
+}
+
+/* Warm with the portrait. Both are `color` transitions so they land in the same
+   350ms as `.hero-portrait`'s own border and glow -- the indicator and the thing
+   it points at have to arrive together or the page looks broken for a moment. */
+.hero-portrait-wrap:hover .hero-portrait-hint,
+.hero-portrait-wrap:hover .hero-portrait-arrow {
+  color: var(--ink);
+}
+
+/* The arrow takes one step toward the photograph it is pointing at. A single
+   2px nudge: more would be a loop, and this is a hint rather than an invitation
+   to wait. Guarded, because it is a transform and this file guards those. */
+.hero-portrait-wrap:hover .hero-portrait-arrow {
+  transform: translateY(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-portrait-arrow {
+    transition: color 0.35s var(--ease-out);
+  }
+
+  .hero-portrait-wrap:hover .hero-portrait-arrow {
+    transform: none;
+  }
+}
+
+/* Portrait treatment. The doubled ring is a `box-shadow` spread rather than a
+   second border so it draws outside the element's own 1px edge and does not
+   change its box size -- a real border here would push the 5:6 frame out of
+   proportion and shift the flex row beside it. */
+.hero-portrait {
+  border: 1px solid var(--gray-300);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--bg) 55%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--ink) 6%, transparent);
+  transition:
+    border-color 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out);
+}
+
+.hero-portrait:hover {
+  border-color: var(--ink);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--bg) 55%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--ink) 11%, transparent),
+    0 0 26px -4px color-mix(in srgb, var(--ink) 32%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-portrait {
+    transition: none;
+  }
+}
+
+/* The name. Bumped a step from the `text-3xl sm:text-4xl` it had inline, with a
+   negative letter-spacing to stop the display font's wide metrics from opening
+   gaps in the word, and its own line-height so the subtitle below can be spaced
+   off the baseline rather than by a magic margin. */
+.hero-name {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+@media (min-width: 640px) {
+  .hero-name {
+    font-size: 2.5rem;
+  }
+}
+
+/* Subtitle, as a small-caps-ish mono strapline under the name rather than body
+   copy: it is a label, so it takes the mono register, and the tracked-out
+   lowercase at 11px reads as terminal chrome next to the display name. */
+.hero-subtitle {
+  margin-top: 0.65rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+@media (min-width: 640px) {
+  .hero-subtitle {
+    font-size: var(--text-sm);
+  }
+}
+
+/* ---------- Terminal pill ----------
+   The site's shared action-chip shape, used by the hero's social buttons
+   (github / linkedin / instagram) and the "i like to build" items.
+
+   Extracted from the social buttons' own utility list rather than written fresh,
+   so the two match *exactly* instead of approximately -- the values here are
+   those utilities' values, and having both surfaces read from one rule is what
+   stops them drifting apart the way the section eyebrows and headings did.
+
+   `transition` is written out longhand because the utilities it replaces were
+   `transition-colors`, whose default is 150ms on cubic-bezier(0.4,0,0.2,1) --
+   spelled out here so the two really are the same curve. No
+   `prefers-reduced-motion` guard, matching what these buttons always did: a
+   colour fade is not vestibular motion, and the guards in this file are for
+   transforms and looping animation. */
+.terminal-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  /* No `line-height` here on purpose. The body sets 1.6, and the utilities this
+     rule replaced left the buttons inheriting it; specifying 1.2 -- the tighter
+     value a chip usually wants -- would have quietly made the social buttons
+     about 4px shorter than before. Inheriting keeps them identical and keeps the
+     build items identical to them, which is the whole point. */
+  letter-spacing: 0.04em;
+  /* `text-transform: none`, matching the `normal-case` these buttons carried.
+     Worth being explicit: `.pill` and `.micro-label` both uppercase, and without
+     this line a chip reading "websites" would render "WEBSITES" and stop
+     matching the social buttons next to it. */
+  text-transform: none;
+  color: var(--gray-500);
+  transition:
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.terminal-pill:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+/* ---------- Build panel ("i like to build") ----------
+   A self-contained terminal panel: a title bar, then the three items as a
+   horizontal badge row. This replaced a loose tracked label with free-floating
+   pills, which read as three unrelated chips rather than one list -- there was
+   no shared edge saying they belonged together.
+
+   Sits inside `.hero-frame`, so it is a panel within the window. It reuses that
+   window's own vocabulary deliberately: same 8px radius scaled to 10px, same
+   `--gray-200` hairline, same `--gray-100` bar for the title row. The dot marks
+   are the same trio as the hero's title bar, so the two chrome rows read as the
+   same component at two depths. */
+.build-panel {
+  position: relative;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  background-color: var(--gray-50);
+  overflow: hidden;
+}
+
+.build-panel-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--gray-200);
+  background-color: var(--gray-100);
+  padding: 0.4rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1.4;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+/* Centred below 768px, flush left from tablet up, matching the hero column and
+   the `.terminal-pill` chips inside it. */
+.build-panel-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .build-panel-body {
+    justify-content: flex-start;
+  }
+}
+
+/* ---------- Section shell ----------
+   The bordered window every section from 02 to 08 sits in, so the page reads as
+   one terminal rather than the hero being the only decorated block.
+
+   Deliberately quieter than `.hero-frame`, which keeps its glow. The hero is the
+   one screen you are looking *at*; the sections are what it displays, and eight
+   equally-glowing boxes would flatten that and make the page monotonous. Same
+   hairline, same radius family, same `--gray-50` ground, same title-bar
+   treatment as `.build-panel` -- so the vocabulary is shared even though the
+   emphasis is not.
+
+   No `overflow: hidden`, which the hero frame does carry. The Life section's
+   photo `Stack` rotates its cards up to about 21 degrees around a 90%/90% origin,
+   which throws a card corner roughly 70px outside its own 280px box; a clipping
+   shell would slice those corners off. Nothing needs clipping: a `border-radius`
+   already clips its own element's background, and the page-level grid sits
+   behind every shell rather than inside it. */
+.section-shell {
+  position: relative;
+  border: 1px solid var(--gray-200);
+  border-radius: 14px;
+  background-color: var(--gray-50);
+  box-shadow: var(--shadow-resting);
+  transition:
+    border-color 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out);
+}
+
+/* "Light up slightly" for the shell: the border warms and a faint ink ring
+   appears, the same pair `.build-panel:hover` and `.card:hover` use. One
+   vocabulary for every bordered surface on the site. */
+.section-shell:hover {
+  border-color: var(--gray-300);
+  box-shadow:
+    var(--shadow-resting),
+    0 0 0 1px color-mix(in srgb, var(--ink) 7%, transparent),
+    0 18px 48px -28px color-mix(in srgb, var(--ink) 40%, transparent);
+}
+
+.section-shell-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-bottom: 1px solid var(--gray-200);
+  /* Rounds the bar's own top corners to the shell's, since the shell no longer
+     clips. 13px rather than 14px: the bar sits inside the shell's 1px border,
+     so matching the outer radius exactly leaves a hairline of background at each
+     corner. */
+  border-radius: 13px 13px 0 0;
+  background-color: var(--gray-100);
+  padding: 0.5rem 1.1rem;
+  min-width: 0;
+}
+
+/* The eyebrow sits in the bar, so its own bottom margin would pad the bar
+   asymmetrically. Zeroed here; the bar's padding owns the spacing. */
+.section-shell-bar .section-eyebrow {
+  margin-bottom: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Slot for a section's own control at the right of the bar -- the "view all
+   stack" toggle and the GitHub handle both live here, which is what keeps them
+   on the eyebrow's baseline instead of beside the heading. */
+.section-shell-action {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--gray-500);
+  transition: color 0.2s var(--ease-out);
+}
+
+.section-shell-action:hover,
+.section-shell-action:focus-visible {
+  color: var(--ink);
+}
+
+.section-shell-body {
+  position: relative;
+  padding: 1.5rem 1.1rem 1.75rem;
+}
+
+@media (min-width: 640px) {
+  .section-shell-bar {
+    padding: 0.5rem 1.5rem;
+  }
+  .section-shell-body {
+    padding: 1.75rem 1.5rem 2rem;
+  }
+}
+
+/* ---------- Section 02: About ----------
+   The interior of the About window. The window itself (`.section-shell`, its
+   bar, its body padding) is untouched and shared with 03-08 -- only what sits
+   inside the body is section-specific, and it is all scoped under `.about-*` so
+   none of it can reach another section.
+
+   COLOUR IS THE CONSTRAINT. The tokens above are monochrome by design ("no
+   accent colour, ever"), and the glow here follows `.hero-frame`'s existing
+   answer to that: `--ink` at low alpha, via `color-mix`. `--ink` at low alpha
+   *is* light, so the border reads as lit rather than tinted, and it retints
+   itself between light and dark for free. A literal green or cyan here would be
+   the one thing on the page breaking that rule, and would render the same in
+   both themes -- a fixed hex is a fixed hex whether the background is white or
+   near-black, so it would either vanish or glare depending on the visitor's
+   system setting. If a green accent is ever wanted, it belongs as a new token
+   aliased to `--status-active` in all three theme blocks, the way
+   `--accent-positive` is, not as a value typed into a rule here.
+
+   The heading deliberately does NOT resize. It keeps `.section-title`, so it
+   stays on the same scale as the six other section headings; bumping About's
+   alone is the drift `.section-title`'s own comment records having already
+   fixed once (blog rendering larger than everything else on a phone). What
+   changed here is the cursor and the hover, not the type size.
+
+   `.title-row` / `.title-cursor` below are deliberately NOT `.about-*`. They
+   started here, but /projects needs the identical treatment for its own h1, and
+   a second copy of a blinking-cursor keyframe under a second name is two things
+   to keep in step for no reason. */
+.title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.1em;
+  /* `text-shadow` is inherited, so this reaches the heading's text span but not
+     the cursor block beside it (that is a background, not glyphs). */
+  transition: text-shadow 0.4s var(--ease-out);
+}
+
+/* Two haloes rather than one: the tight one is the lit edge, the wide one is
+   the falloff. A single shadow at this radius reads as a grey smudge in light
+   mode, because that is exactly what a wide black-ish alpha over white is. */
+.title-row:hover {
+  text-shadow:
+    0 0 14px color-mix(in srgb, var(--ink) 34%, transparent),
+    0 0 34px color-mix(in srgb, var(--ink) 16%, transparent);
+}
+
+/* The block cursor after a heading. A background block, not an underscore
+   character: `_` is not in every mono face the project loads, and a missing
+   glyph renders as tofu. Sized in `em` off the heading so it tracks the
+   heading's own step rather than a fixed pixel height -- which is why the h1 on
+   /projects and the h2 here can share one rule at two different type sizes.
+
+   `steps(1, end)` makes it a hard on/off, which is what a terminal cursor is;
+   an eased fade would read as a soft glow rather than a cursor blinking.
+
+`aria-hidden` at every call site: it is decoration implying "editable", and
+   these are static reads -- announcing a cursor would be a false claim.
+
+/* ---------- Prose ----------
+   The narrative column. No font-family here on purpose: prose is set in the
+   body's sans, which is what the reference does -- its `.prose` carries no
+   family either. The serif role this column used to declare is gone with
+   Source Serif 4, and re-adding a font-family just to name the body's own face
+   would be a second place to keep in sync.
+
+   `line-height: 1.75` at 15px and 1.8 at 17px: this size needs more leading
+   than the 1.6 the body sets, or adjacent lines crowd on a dark background. The
+   measure is capped so the column does not stretch to the full max-w-4xl and
+   break lines at awkward points. */
+/* Prose is set in the body's sans, and that has to be stated here even though it
+   looks like the default. It is not: `.section-frame` sets `--font-mono` on the
+   section element, so anything inside it that does not name a family inherits
+   the monospace. This rule used to name the serif and, when the serif role was
+   retired, the family was dropped rather than repointed -- which left the About
+   paragraphs rendering in mono, and reading like a terminal rather than like
+   prose. Naming `--font-body` is what puts it back.
+
+   Everything else in this section keeps its mono on purpose: the widget labels
+   and their values are metadata, and metadata is the monospace register on this
+   site. */
+.about-prose {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  line-height: 1.75;
+  color: var(--gray-400);
+  max-width: 62ch;
+}
+
+@media (min-width: 640px) {
+  .about-prose {
+    font-size: var(--text-2xl);
+    line-height: 1.8;
+  }
+}
+
+.about-prose p + p {
+  margin-top: 1rem;
+}
+
+/* The phrase highlights inside the prose. Lifts the words from `--gray-400` to
+   `--ink` -- a jump from about 5:1 to full contrast against the shell -- and
+   underlines them in the same thin ink rule `.text-link` already uses, so the
+   two marks are the same gesture and not two different ideas.
+
+   The underline is `underline` at an offset with a 30%-ink colour rather than
+   a solid one, for the reason `.text-link` gives: a full-strength rule under
+   17px text competes with the glyphs. */
+.about-em {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--ink) 30%, transparent);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+
+/* ---------- Fact widgets ----------
+   The four quick facts, upgraded from `.card` boxes into terminal micro-widgets.
+
+   Same hover vocabulary as `.card` and `.section-shell` -- border to `--ink`
+   plus the two-part ink-alpha ring-and-falloff shadow -- so they are still
+   recognisably the same objects as the cards elsewhere on the page, just
+   better lit. Nothing here is clickable, so (as with the Education `.pill` row)
+   the hover is a border and glow, never a fill or a cursor: a pointer or a
+   colour wash would promise an action that does not exist. */
+.about-widget {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  /* Translucent, which is what makes the `backdrop-filter` below do anything
+     at all: a blur behind an opaque fill is invisible. At this alpha the fill
+     is still solidly legible as a surface, and the page grid shows faintly
+     through it, so the widget reads as frosted glass over the ground the whole
+     page already sits on. */
+  background-color: color-mix(in srgb, var(--gray-50) 74%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 0.85rem 0.9rem 0.95rem;
+  transition:
+    border-color 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out),
+    transform 0.35s var(--ease-out),
+    background-color 0.35s var(--ease-out);
+}
+
+.about-widget:hover {
+  border-color: var(--ink);
+  background-color: color-mix(in srgb, var(--gray-100) 82%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent),
+    0 16px 40px -24px color-mix(in srgb, var(--ink) 45%, transparent);
+  transform: translateY(-2px);
+}
+
+/* A 2px lift is the same distance `.card:hover` moves, and is guarded the same
+   way below. A widget is not interactive, so this is the whole of the depth
+   cue -- no scale, which would make four boxes jitter against a static grid. */
+@media (prefers-reduced-motion: reduce) {
+  .about-widget:hover {
+    transform: none;
+  }
+}
+
+.about-widget-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.about-widget-icon {
+  flex: none;
+  color: var(--gray-400);
+  transition: color 0.35s var(--ease-out);
+}
+
+.about-widget:hover .about-widget-icon {
+  color: var(--ink);
+}
+
+/* The label. `text-wrap: nowrap` plus `overflow: hidden` rather than letting it
+   wrap: "first line of code" is the longest label, and at 11px with this
+   tracking it needs a wide box to stay on one line -- wrapping it to two would
+   misalign the icon against the other three headers. The two longest labels get
+   a slightly tighter tracking from `.about-widget-label-tight` rather than a
+   font-size drop, so all four stay on the same optical scale. */
+.about-widget-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.about-widget-label-tight {
+  letter-spacing: 0.06em;
+}
+
+/* The indicator dot at the far end of the header. Same idea as the hero title
+   bar's chrome dots and the hero's live stat, minus the pulse: a pulsing dot
+   implies a state that is changing, and these four facts are not. */
+.about-widget-dot {
+  margin-left: auto;
+  flex: none;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background-color: var(--gray-300);
+  transition: background-color 0.35s var(--ease-out);
+}
+
+.about-widget:hover .about-widget-dot {
+  background-color: var(--ink);
+}
+
+.about-widget-value {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  /* Full-opacity `--ink`, not the `--gray-400` the prose uses: this is the one
+     thing in the widget the visitor is actually here to read, and it is 14px
+     against a translucent fill, so it takes the strongest contrast on the
+     page. `tabular-nums` because "2nd Year" and "Age 17" are the values most
+     likely to sit next to other digits, and proportional figures would make the
+     hover re-flow. */
+  font-variant-numeric: tabular-nums;
+  margin-top: auto;
+}
+
+/* ---------- Project card ----------
+   One component, two call sites: the 03 PROJECTS preview on the home page and
+   the full /projects index. Both sit inside a `.section-shell`, so the card is
+   a panel within a window, and it borrows the same chrome vocabulary as
+   `.build-panel` and the hero frame -- hairline, `--gray-100` bar, trio of dots.
+
+   It keeps `.card` for its resting/hover pair, because `.card:hover` is the
+   site's one shared "light up slightly" treatment and re-deriving it here would
+   be a second definition that could drift. Only the additions are new. */
+.project-card {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+}
+
+/* The card's own title bar, so a card reads as a window rather than as a
+   bordered box with a picture in it. This is what "card header" means here.
+
+   Same 8px vertical / 1rem horizontal as `.section-shell-bar`, and the same
+   `min-width: 0` requirement, because the path beside the dots is a flex child
+   that has to be allowed to `truncate`. */
+.project-card-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  border-bottom: 1px solid var(--gray-200);
+  background-color: var(--gray-100);
+  padding: 0.5rem 1rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+  color: var(--gray-500);
+}
+
+/* The `01` / `02` gutter marker. `tabular-nums` and a `2.4ch` floor so the path
+   text does not shift sideways as the index changes width. */
+.project-card-index {
+  flex: none;
+  min-width: 2.4ch;
+  font-variant-numeric: tabular-nums;
+  color: var(--gray-400);
+}
+
+.project-card:hover .project-card-index {
+  color: var(--ink);
+}
+
+.project-card-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.3s var(--ease-out);
+}
+
+.project-card:hover .project-card-path {
+  color: var(--ink);
+}
+
+/* The preview area. Still a placeholder rather than a screenshot -- nothing in
+   `content/projects.ts` has a thumbnail to show -- but the giant washed-out
+   first letter this used to centre is gone, replaced by a hairline grid and a
+   corner tick, which reads as "no preview" without shouting. */
+.project-card-preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-bottom: 1px solid var(--gray-200);
+  background-color: var(--gray-100);
+}
+
+.project-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+@media (min-width: 640px) {
+  .project-card-body {
+    padding: 1.15rem 1.35rem 1.25rem;
+  }
+}
+
+.project-card-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  /* `min-width: 0` is load-bearing, not decorative: the status tag beside it is
+     `flex: none`, so without this the heading absorbs all the shrinking and a
+     long single-word title pushes the row past the card's edge instead of
+     wrapping. */
+  min-width: 0;
+}
+
+.project-card-role {
+  margin-top: 0.3rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+/* The body's sans, because this is prose describing a project rather than a
+   label -- stated as a family anyway, since the card sits inside a project grid
+   whose other text is set by the components around it. */
+.project-card-summary {
+  margin-top: 0.6rem;
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: 1.7;
+  color: var(--gray-400);
+}
+
+/* The outline mark row. `aria-hidden` is on each icon in the markup; the stack is
+   decorative next to a prose description that already names the technologies in
+   words, so nothing is lost to a screen reader. */
+.project-card-stack {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+/* Sized in the markup by the `size` prop, not here: these are SVGs, so
+   `font-size` does nothing to them the way it sized the Devicon glyphs this
+   replaced. What this rule owns is colour and motion -- a mark that inherits
+   `currentColor` from the card, dimmed at rest and lifted on hover with the
+   rest of the card's contents. */
+.project-card-stack svg {
+  color: var(--gray-500);
+  opacity: 0.85;
+  flex: none;
+  transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out), color 0.3s var(--ease-out);
+}
+
+.project-card:hover .project-card-stack svg {
+  color: var(--ink);
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+/* The card's big preview mark. Same treatment as the row, one step heavier:
+   44px of 1.25px stroke carries more ink than 15px of 1.6px, so it sits at
+   `--gray-400` and only reaches ink with the card. */
+.project-card-mark {
+  color: var(--gray-400);
+  opacity: 0.9;
+  transition: color 0.3s var(--ease-out), opacity 0.3s var(--ease-out);
+}
+
+.project-card:hover .project-card-mark {
+  color: var(--ink);
+  opacity: 1;
+}
+
+.project-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: auto;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--gray-200);
+}
+
+/* ---------- Status tag ----------
+   `.pill` with ONE deliberate difference: the project's status is a state, and
+   the home-page 03 preview and the /projects index both need to be scannable
+   for "which of these are actually live". So the tag is a `.pill` that can carry
+   a tone, rather than a pile of utilities re-stating what `.pill` already sets.
+
+   That pile was the previous implementation and it fought the class on six axes
+   (`rounded` vs `border-radius: 999px`, `border-[var(--gray-200)]` vs the
+   class's `gray-300`, `px-2 py-0.5` vs `2px 8px`, `bg-[var(--gray-100)]`,
+   `text-[var(--gray-500)]`, and an inline `fontFamily` that beat the class's own
+   face). Whichever won depended on stylesheet order, since the Tailwind CDN and
+   this file are both unlayered. The tone now comes from one attribute here.
+
+   The selector is `.pill.project-tag`, not `.project-tag`, and it is compound on
+   purpose. `.pill` is defined LATER in this file than the rules below, and both
+   are single-class, so at equal specificity the later one would simply win and
+   every tone here would silently do nothing -- `--ink` tags rendering as
+   `--gray-500`, with no error anywhere. The compound form scores 0-2-0 against
+   `.pill`'s 0-1-0, so the tone holds whatever order these two end up in. Same
+   reason `.section-shell-bar .section-eyebrow` is written the way it is. */
+.pill.project-tag {
+  --project-tag-tone: var(--gray-500);
+  --project-tag-edge: var(--gray-300);
+  --project-tag-fill: transparent;
+  flex: none;
+  color: var(--project-tag-tone);
+  border-color: var(--project-tag-edge);
+  background-color: var(--project-tag-fill);
+}
+
+/* Live-ish: something shipped or about to. `--ink`, not a green -- the palette
+   is monochrome and a colour here would be the only one on the page. */
+.pill.project-tag[data-tone="live"] {
+  --project-tag-tone: var(--ink);
+  --project-tag-edge: var(--ink);
+  --project-tag-fill: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+/* Being built right now. Reads as active against the templates without
+   pretending to be a status dot, which would collide with the chat inbox's
+   four real states. */
+.pill.project-tag[data-tone="active"] {
+  --project-tag-tone: var(--ink);
+  --project-tag-edge: var(--ink);
+  --project-tag-fill: transparent;
+}
+
+/* A practice template. Deliberately the quietest of the three: these are the
+   rows nobody needs to act on. */
+.pill.project-tag[data-tone="template"] {
+  --project-tag-tone: var(--gray-400);
+  --project-tag-edge: var(--gray-200);
+}
+
+/* ---------- Chat panel ----------
+   Height lives here rather than inline so the `vh` -> `svh` fallback can be
+   expressed as two declarations. `100vh` on mobile includes the strip behind
+   the browser URL bar, which pushed the message input below the fold.
+
+   The 120px subtracted from the viewport is the room the trigger and the gap
+   below the panel need, so an open panel never runs its input under the
+   browser chrome. One panel now that the widget is a single floating instance,
+   so there is no second height variant to keep in step with this one. */
+.chat-panel {
+  height: min(520px, calc(100dvh - 120px));
+  height: min(520px, calc(100svh - 120px));
+}
+
+/* ---------- Chat composer placeholders ----------
+   Each chat input sets an inline `color: var(--ink)`, which ::placeholder
+   inherits -- so a placeholder rendered exactly as dark as real typed text and
+   read like a filled-in value ("Ada Lovelace" looked like a real name).
+   Dimming and italicising it marks it as a hint.
+
+   Declared here rather than as a Tailwind `placeholder:text-[...]` utility
+   because this project's utilities are generated by the Play CDN at runtime
+   and cannot be verified from `npm run build`; plain CSS always applies. */
+.chat-input::placeholder {
+  color: var(--gray-400);
+  font-style: italic;
+}
+
+/* ---------- Chat message meta ----------
+   The "Ian - 9:42 AM" line above a bubble. Sizing and tracking are the
+   `.micro-label` register; this only owns the flex layout and the gap to the
+   bubble below. */
+.chat-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--gray-400);
+}
+
+/* ---------- Typing indicator ----------
+   Inverted (ink fill) rather than a gray chip, so it reads as "Ian is
+   producing this" and lines up optically with the incoming bubbles instead of
+   floating between them. Padding and line-height are set to roughly match a
+   single-line message bubble, so the transcript does not visibly jump as the
+   indicator appears and disappears. */
+.chat-typing-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background-color: var(--ink);
+  color: var(--bg);
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+/* Three dots on a staggered fade: the conventional "someone is typing" read,
+   and the only perpetual animation in the panel. It stops the moment typing
+   stops, so it cannot nag. */
+.chat-typing-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: currentColor;
+  opacity: 0.35;
+  animation: chat-typing-fade 1.1s ease-in-out infinite;
+}
+.chat-typing-dot:nth-of-type(2) { animation-delay: 0.16s; }
+.chat-typing-dot:nth-of-type(3) { animation-delay: 0.32s; }
+
+@keyframes chat-typing-fade {
+  0%, 100% { opacity: 0.3; transform: translateY(0); }
+  50% { opacity: 0.95; transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-typing-dot {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* ---------- Reactions ----------
+   `opacity: 0` until the row is hovered or focused, so an un-reacted thread
+   stays clean. `:focus-within` is not optional: a hover-only affordance is
+   invisible to anyone tabbing through the transcript. */
+.chat-reaction-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+.chat-reaction-row:hover .chat-reaction-bar,
+.chat-reaction-bar:focus-within,
+.chat-reaction-bar[data-active="true"] {
+  opacity: 1;
+}
+
+.chat-reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1;
+  color: var(--gray-500);
+  background-color: transparent;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-pill);
+  padding: 3px 7px;
+  transition: color 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
+}
+.chat-reaction-chip:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+/* Chosen reactions invert -- the design system's one emphasis mechanism. The
+   emoji itself carries the color, so a tinted background would only add noise. */
+.chat-reaction-chip[aria-pressed="true"] {
+  background-color: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+/* ---------- Chat text (ChatText, shared by the widget and the inbox) ----------
+   Moved here from chat-ux.css. ChatText renders assistant replies on both the
+   visitor widget and the admin inbox, and the formatting is identical on both,
+   so it belongs in the sheet both of them already load rather than in the
+   widget's own UX file. */
+.chat-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.chat-text > * + * {
+  margin-top: 0.5rem;
+}
+
+.chat-text p {
+  margin: 0;
+}
+
+.chat-text ul,
+.chat-text ol {
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.chat-text ul {
+  list-style: disc;
+}
+
+.chat-text ol {
+  list-style: decimal;
+}
+
+.chat-text li + li {
+  margin-top: 0.2rem;
+}
+
+.chat-text strong {
+  font-weight: 600;
+}
+
+.chat-code {
+  padding: 0.05rem 0.3rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 0.25rem;
+  background-color: var(--gray-50);
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+.chat-text pre {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  overflow-x: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: 0.5rem;
+  background-color: var(--gray-50);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.chat-link {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.chat-link:hover {
+  text-decoration-thickness: 2px;
+}
+
+.chat-caret {
+  margin-left: 0.1rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chat-caret {
+    animation: chat-caret-blink 1s step-end infinite;
+  }
+}
+
+@keyframes chat-caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ---------- Pills / tags ----------
+   Was 9px. Tags carry real words (tech names, interests), so they meet the
+   same 11px floor as `.micro-label` rather than sitting below it. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--gray-500);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  transition:
+    color 0.2s var(--ease-out),
+    border-color 0.2s var(--ease-out);
+}
+
+/* Border and text warm to ink, the same pair `.terminal-pill` and
+   `.section-shell-action` use -- one hover vocabulary for every chip on the
+   site. Previously only the chat's quick-replies had a hover; the Education
+   foundation tags and the Life interest pills had none at all, so the same
+   component behaved differently depending on where it was rendered. */
+.pill:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.pill-inverted {
+  border: none;
+  background-color: var(--ink);
+  color: var(--bg);
+}
+
+/* ---------- Tech stack chips ----------
+   The 04 section's chips: a mark and a name in one box, a step larger than
+   `.pill` because they carry a label rather than a tag. Sized here rather than
+   in a pile of utilities at the call site -- the markup this replaced restated
+   `.card`'s ground, hairline and radius, then added four more utilities that
+   fought them (a 12px radius against the card's 16, and a hover that darkened
+   the surface instead of warming it). */
+.stack-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.stack-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  background-color: var(--gray-50);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: var(--ink);
+  cursor: default;
+  transition:
+    border-color 0.2s var(--ease-out),
+    background-color 0.2s var(--ease-out);
+}
+
+.stack-chip:hover {
+  border-color: var(--gray-300);
+  background-color: var(--gray-100);
+}
+
+/* The mark sits a step below the label at rest and steps up with the chip --
+   the same division of labour as `.project-card-stack svg`, and the reason the
+   marks inherit `currentColor` and no per-technology colour rule exists. */
+.stack-chip-mark {
+  flex: none;
+  color: var(--gray-500);
+  transition: color 0.2s var(--ease-out);
+}
+
+.stack-chip:hover .stack-chip-mark {
+  color: var(--ink);
+}
+
+/* The expanded view: one block per layer, each label above its row. */
+.stack-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.stack-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* The toggle's arrow: leans out on hover like every other arrow on the site,
+   and points right once the list it opens is open. */
+.stack-toggle-arrow {
+  display: inline-block;
+  transition: transform 0.2s var(--ease-out);
+}
+
+.section-shell-action:hover .stack-toggle-arrow:not([data-open]) {
+  transform: translate(2px, -2px);
+}
+
+.stack-toggle-arrow[data-open] {
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stack-toggle-arrow,
+  .section-shell-action:hover .stack-toggle-arrow:not([data-open]),
+  .stack-toggle-arrow[data-open] {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* ---------- Keyboard focus ----------
+   One ink ring for every interactive element, shown only for keyboard focus.
+   Element-qualified selectors outrank Tailwind's single-class `outline-none`. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+#main-content:focus {
+  outline: none;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: var(--z-modal);
+  padding: 0.5rem 0.9rem;
+  border-radius: 7px;
+  background-color: var(--ink);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  transform: translateY(-200%);
+}
+.skip-link:focus-visible {
+  transform: none;
+}
+
+/* ---------- Buttons & arrow links ---------- */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background-color: var(--ink);
+  color: var(--bg);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  border-radius: 7px;
+  padding: 0.7rem 1.3rem;
+  transition: opacity 0.2s ease;
+}
+.btn-primary:hover {
+  opacity: 0.82;
+}
+
+.link-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: var(--ink);
+}
+.link-arrow .arrow-glyph {
+  display: inline-block;
+  transition: transform 0.2s var(--ease-out);
+}
+.link-arrow:hover .arrow-glyph {
+  transform: translate(2px, -2px);
+}
+
+/* The one left-pointing glyph on the site (the "back to home" link), which
+   leans the other way. The reduced-motion guard below already covers it: its
+   selector is the same specificity as this one and it is declared later. */
+.link-arrow:hover .arrow-glyph-back {
+  transform: translate(-2px, -2px);
+}
+
+/* Looping Tailwind utilities are injected by the CDN after this sheet, so the
+   reduced-motion override needs !important to win. Indicators stay visible,
+   they just stop moving. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-ping,
+  .animate-pulse,
+  .animate-spin,
+  .animate-bounce {
+    animation: none !important;
+  }
+  .link-arrow .arrow-glyph,
+  .link-arrow:hover .arrow-glyph {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* ---------- Status dot ---------- */
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--ink);
+  animation: status-pulse 1.8s ease-in-out infinite;
+}
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* ---------- Halftone motif ---------- */
+.halftone {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(var(--halftone-dot-color) 1px, transparent 1.6px);
+  background-size: 9px 9px;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 0%, transparent 72%);
+  mask-image: radial-gradient(ellipse at center, black 0%, transparent 72%);
+}
+
+/* ---------- Page-entrance stagger ---------- */
+.enter {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: enter-up 0.7s var(--ease-out) forwards;
+}
+@keyframes enter-up {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .enter {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}
+
+/* Shared by both entrances below: the rise is the hero's, the state it starts
+   from is all this needs to declare (a `to` frame would restate what the
+   element already is). */
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* ---------- Scroll-entrance stagger ----------
+   The hero's opening beat, replayed as each section scrolls into view.
+   `.enter` above animates once on load, for the blocks already on screen;
+   these rules wait for `useRevealOnScroll` to put `is-revealed` on a section
+   body's `[data-reveal-group]` when the observer sees it, then run the same
+   fade-and-rise over the body's direct children -- heading, description,
+   content -- with a `:nth-child` ladder standing in for the hero's
+   hand-written delays. 45ms apart, capped at eight children; every section
+   body has three or four, so nothing real slips past the ladder.
+
+   The ladder and the duration are tuned to *finish* as the group reaches
+   reading position rather than after it. The trigger fires while the group is
+   still in the bottom eighth of the viewport (see `useRevealOnScroll`), and
+   0.55s plus at most 0.36s of ladder means the last child has settled by the
+   time the eye arrives. Both were longer before -- 0.7s over a 60ms ladder
+   from a trigger 60px *past* the fold -- and the result was motion that kept
+   running under a reader who had already scrolled to it, which reads as the
+   page lagging behind the scroll rather than as an entrance.
+
+   `:not(.card)` is the one carve-out, and it is about ownership: a `.card`
+   already transitions and transforms on hover (`.card:hover` lifts it), and
+   a reveal that wrote `transform` plus its own `transition` onto the same
+   element would pin both. The github section's card is the only direct
+   `*.card` child of any body, so it stays still while the copy around it
+   enters -- the same division the hero uses, where the frame does not move
+   and the content arrives.
+
+   `text-shadow` rides along in the transition list so `.title-row`'s hover
+   glow keeps its own 0.4s ease through the override.
+
+   The hidden state is scoped to `.reveal-ready` on <html>, which only
+   exists when the visitor allows motion AND the observer is armed -- with
+   reduced motion, no JavaScript, or no IntersectionObserver, nothing is
+   ever hidden.
+
+   Where the browser can bind an animation to the scrollbar, it does the job
+   better than the observer can, so the two mechanisms are exclusive: the hook
+   stands down when the `@supports` test below passes, and the hidden state in
+   the fallback block never gets armed. Both entrances are the same motion --
+   fade, 10px of rise, a ladder of starts -- expressed once as a duration and
+   once as scroll distance. */
+@media (prefers-reduced-motion: no-preference) {
+  /* Scroll-bound entrance. A `view()` timeline makes the animation's progress
+     a function of scroll position: the fade and the rise advance exactly as
+     fast as the group moves, so there is no fixed duration to outrun and no
+     way for the motion to still be running once the reader has arrived -- the
+     complaint the fallback's timing was tuned against.
+
+     The range is a fixed 240px of scroll rather than a percentage of a named
+     range. `cover 0px` is the group's top edge crossing the fold, and the
+     entrance then takes the next 240px -- the same distance for a 30px heading
+     and a 600px dock. `entry-crossing 25%` reads like the same idea and is not:
+     Chrome resolves that range against the *subject's own* height, so a heading
+     would get 7px of animation and the dock 150px, which is the
+     height-dependent bug the old `threshold: 0.08` had in a new place. Each
+     child starts 24px further down the scroll, the ladder the fallback spends
+     45ms per step on: at an ordinary flick, 24px of scroll is about 45ms.
+
+     The gate tests `animation-range` and not just `view()`: a browser that
+     took the timeline but not the range names would run the whole animation
+     over the `cover` range, which is several screens of scrolling per section.
+     If either test fails, nothing here matches and the fallback takes over. */
+  @supports (animation-timeline: view()) and (animation-range: cover 0px cover 240px) {
+    [data-reveal-group] > :not(.card) {
+      animation-name: reveal-rise;
+      /* `auto`, not a time: with a view timeline the animation is as long as
+         the range below, and an explicit duration would override it. Longhands
+         rather than the `animation` shorthand, which resets `animation-timeline`
+         back to `auto` and would quietly unhook the animation from the scroll. */
+      animation-duration: auto;
+      animation-timing-function: var(--ease-out);
+      animation-fill-mode: both;
+      animation-timeline: view();
+      animation-range: cover 0px cover 240px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(2) {
+      animation-range: cover 24px cover 264px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(3) {
+      animation-range: cover 48px cover 288px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(4) {
+      animation-range: cover 72px cover 312px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(5) {
+      animation-range: cover 96px cover 336px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(6) {
+      animation-range: cover 120px cover 360px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(7) {
+      animation-range: cover 144px cover 384px;
+    }
+
+    [data-reveal-group] > :not(.card):nth-child(8) {
+      animation-range: cover 168px cover 408px;
+    }
+  }
+
+  /* Fallback: the one-shot transition, armed by `useRevealOnScroll`. */
+  .reveal-ready [data-reveal-group] > :not(.card) {
+    opacity: 0;
+    transform: translateY(10px);
+    transition:
+      opacity 0.55s var(--ease-out),
+      transform 0.55s var(--ease-out),
+      text-shadow 0.4s var(--ease-out);
+  }
+
+  .reveal-ready [data-reveal-group].is-revealed > :not(.card) {
+    opacity: 1;
+    transform: none;
+  }
+
+  .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(2) {
+    transition-delay: 45ms;
+  }
+
+  .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(3) {
+    transition-delay: 90ms;
+  }
+
+  .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(4) {
+    transition-delay: 135ms;
+  }
+
+  .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(5) {
+    transition-delay: 180ms;
+  }
+
+  .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(6) {
+    transition-delay: 225ms;
+  }
+
+  .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(7) {
+    transition-delay: 270ms;
+  }
+
+  .reveal-ready [data-reveal-group].is-revealed > :not(.card):nth-child(8) {
+    transition-delay: 315ms;
+  }
+}
+
+/* ---------- Theme-switch reveal ---------- */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+  animation: theme-reveal 0.65s var(--ease-out);
+}
+
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0px at var(--theme-toggle-x, 50%) var(--theme-toggle-y, 50%));
+  }
+  to {
+    clip-path: circle(var(--theme-reveal-radius, 150vmax) at var(--theme-toggle-x, 50%) var(--theme-toggle-y, 50%));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+/* ---------- Sidebar layout ---------- */
+
+/*
+ * Offsets content past the fixed sidebar, at the same 1024px breakpoint that
+ * Tailwind's `lg:` uses to reveal the sidebar.
+ *
+ * Written as plain CSS rather than a Tailwind arbitrary value like
+ * `lg:pl-[length:var(--sidebar-w)]` on purpose: this project's utilities are
+ * generated at runtime by the Tailwind Play CDN, not at build time, so an
+ * arbitrary value here would depend on the CDN's parsing of it and cannot be
+ * verified by `npm run build`. The `html` prefix raises specificity above
+ * Tailwind's `lg:px-0` (which zeroes the left padding at lg) so the result does
+ * not depend on stylesheet order either.
+ */
+@media (min-width: 1024px) {
+  html .sidebar-offset {
+    padding-left: var(--sidebar-w);
+  }
+}
+
+/* Kuro desktop pet bubble theme variables — mapped to the site's CSS
+   tokens so colours retint automatically per theme (no hard-coded hex
+   values that would break the monochrome palette in one mode or the
+   other). */
+.dos { --dos-font: var(--font-mono); }
+
+/* =========================================================
+   RESPONSIVE FOUNDATIONS
+   Safety nets that keep any viewport from breaking the layout, built on the
+   tokens above instead of per-component pixel values.
+   ========================================================= */
+
+/* Never let one wide child create a sideways scrollbar on a phone. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overflow-x: clip; }
+
+/* Media always scales down with its container and keeps its aspect ratio. */
+img, video, canvas, svg { max-width: 100%; height: auto; }
+svg:not([height]) { height: auto; }
+
+/* Long words, URLs and code never push a card wider than the screen. */
+p, li, h1, h2, h3, a, .pill { overflow-wrap: anywhere; }
+pre, code, table { max-width: 100%; }
+pre { overflow-x: auto; }
+
+/* Page gutters follow the fluid token, with notch-safe edges. */
+main {
+  padding-inline: max(var(--page-gutter), env(safe-area-inset-left, 0px)) max(var(--page-gutter), env(safe-area-inset-right, 0px));
+}
+
+/* Small phones (<= 380px): tighten chrome so nothing clips. */
+@media (max-width: 380px) {
+  :root { --page-gutter: 0.75rem; }
+  .section-title { font-size: var(--text-title); }
+}
+
+/* Touch devices: comfortable hit areas without changing the desktop look. */
+@media (pointer: coarse) {
+  button, [role="button"], a.btn, .pill[href], select, summary {
+    min-height: 2.75rem;
+  }
+  button, [role="button"], a { touch-action: manipulation; }
+}
+
+/* Large screens: keep line lengths readable instead of stretching forever. */
+@media (min-width: 1536px) {
+  :root { --text-display: 3rem; }
+}
+
+/* Landscape phones: short viewports should scroll, not clip. */
+@media (max-height: 480px) and (orientation: landscape) {
+  .chat-panel { max-height: 100dvh; overflow-y: auto; }
+}
+  ::view-transition-old(root), ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
+@theme inline {
+  --animate-blink-cursor: blink-cursor 1.2s step-end infinite;
+  @keyframes blink-cursor {
+  0%, 49% {
+    opacity: 1;
+    }
+  50%, 100% {
+    opacity: 0;
+    }
+  }
+}

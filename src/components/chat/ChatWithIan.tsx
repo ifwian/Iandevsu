@@ -1,0 +1,1642 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isReaction, reactionKey, type Reaction, type ReactionKind } from "@/lib/chatFormat";
+import ReactionBar from "@/components/chat/ReactionBar";
+import { useLocation } from "react-router-dom";
+import { ArrowRight, MessageCircle, Send } from "lucide-react";
+import { PROFILE } from "@/content/profile";
+import { supabase } from "@/lib/supabase";
+import { apiUrl } from "@/lib/api";
+import {
+  formatClock,
+  shouldGroupMessage,
+} from "@/lib/chatFormat";
+import TypingIndicator from "@/components/chat/TypingIndicator";
+import { useTypingSignal } from "@/lib/useTypingSignal";
+import "@/components/chat/chat-ux.css";
+import "@/components/chat/chat-redesign.css";
+import ChatTextarea from "@/components/chat/ChatTextarea";
+import ChatNotice from "@/components/chat/ChatNotice";
+import ChatPanelHeader from "@/components/chat/ChatPanelHeader";
+import ChatBubble from "@/components/chat/ChatBubble";
+import { useStickToBottom } from "@/lib/useStickToBottom";
+
+interface ChatMessage {
+  role: "user" | "model";
+  text: string;
+  /** chat_messages.id is a Postgres bigint -- PostgREST may send number or string. */
+  id?: string | number;
+  /** Epoch ms. Set on creation; older restored history gets a synthetic one. */
+  at?: number;
+  /**
+   * Who produced a `model` message. `assistant` is the default (no AI reply
+   * sets it explicitly), `admin` is a human typing from the inbox, and
+   * `system` is a server-authored notice such as a takeover announcement --
+   * which must never be rendered as something a person said.
+   */
+  source?: "assistant" | "admin" | "system";
+}
+
+interface StreamEvent {
+  type: "chunk" | "done" | "error";
+  text?: string;
+  reply?: string;
+  error?: string;
+  /** Row ids, so the widget can offer reactions on its own messages. */
+  visitorMessageId?: string | number | null;
+  assistantMessageId?: string | number | null;
+}
+
+interface ChatSession {
+  visitorId: string;
+  sessionStartedAt: number;
+  accessToken?: string;
+  authUserId?: string;
+}
+
+/**
+ * The conversation opener.
+ *
+ * Deliberately one question and three affordances rather than a paragraph of
+ * self-description: the greeting states the job ("ask me"), and the pills below
+ * it remove the blank-input problem that is the main reason a chat panel gets
+ * closed without a word being exchanged.
+ */
+const GREETING: ChatMessage = {
+  role: "model",
+  text: `What would you like to know? Ask me about what I'm building, what I work with, or how to reach me.`,
+};
+
+interface QuickAction {
+  /** Rendered verbatim, uppercase, inside the pill. */
+  label: string;
+  /** The question actually sent. The label is a shortcut, not the message. */
+  prompt: string;
+}
+
+const QUICK_ACTIONS: readonly QuickAction[] = [
+  { label: "my projects", prompt: "Walk me through your projects -- what are you building and why?" },
+  { label: "my skills", prompt: "What are your skills, and what are you learning right now?" },
+  { label: "contact me", prompt: "How can I get in touch with you?" },
+];
+
+/** Same asset the favicon uses (see index.html), so the browser reuses the
+ *  cached copy instead of pulling a separate image for a 32px avatar. */
+const ASSISTANT_AVATAR = "/images/anime-avatar-64.webp";
+
+const VISITOR_STORAGE_KEY = "ian-chat-visitor-id";
+const SESSION_STARTED_KEY = "ian-chat-session-started-at";
+const START_NOTIFIED_KEY = "ian-chat-start-notified";
+const HISTORY_PREFIX = "ian-chat-history:";
+const CONTACT_NAME_KEY = "ian-chat-visitor-name";
+const CONTACT_EMAIL_KEY = "ian-chat-visitor-email";
+const MAX_NAME_LENGTH = 80;
+const MAX_EMAIL_LENGTH = 254;
+
+/**
+ * Client-side backstop for a stalled SSE stream, in ms. Deliberately a little
+ * above the server's GEMINI_STREAM_IDLE_TIMEOUT_MS (30s) so the server's own
+ * error message wins when it does fire, and this only catches the case where
+ * the connection dies without the server noticing.
+ */
+const STREAM_IDLE_TIMEOUT_MS = 40_000;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+
+/**
+ * How long the remote side treats a typing signal as live. Longer than the
+ * 3s heartbeat in `useTypingSignal` so a single dropped beat does not blank
+ * the indicator, and short enough that a visitor who closes the tab mid-sentence
+ * does not leave "Ian is typing..." on the admin's screen forever.
+ */
+const TYPING_IDLE_TIMEOUT_MS = 6000;
+
+const REALTIME_TYPING_EVENT = "typing";
+/**
+ * Broadcast by the inbox the moment a takeover or release succeeds, so the
+ * visitor refetches immediately instead of waiting out the poll interval.
+ *
+ * The payload carries no message text on purpose. This is a "go look" signal,
+ * not a delivery of the announcement: the visitor re-reads the thread through
+ * the same endpoint the poll uses, so the system message arrives with its
+ * server-assigned id and goes through the one merge path. Injecting the text
+ * here instead would create a second, id-less copy of a row that is also being
+ * written -- which the id dedupe in mergeAdminMessages cannot recognise, and
+ * which would then sit on screen twice.
+ */
+const REALTIME_THREAD_CHANGED_EVENT = "thread-changed";
+
+interface VisitorContact {
+  name: string;
+  email: string;
+}
+
+function readStored(key: string): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return sessionStorage.getItem(key) || "";
+  } catch {
+    return "";
+  }
+}
+
+function writeStored(key: string, value: string): void {
+  try {
+    if (value) sessionStorage.setItem(key, value);
+    else sessionStorage.removeItem(key);
+  } catch {
+    return;
+  }
+}
+
+/**
+ * Contact details are kept in sessionStorage rather than localStorage: it is
+ * per-tab and clears when the tab closes, so a shared computer does not retain
+ * a visitor's name and email indefinitely.
+ */
+function getStoredContact(): VisitorContact | null {
+  const name = readStored(CONTACT_NAME_KEY).trim();
+  if (!name) return null;
+  return { name, email: readStored(CONTACT_EMAIL_KEY).trim() };
+}
+
+function cleanText(value: string, maxLength: number): string {
+  return value
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function validateContact(name: string, email: string): { contact: VisitorContact } | { error: string } {
+  const cleanName = cleanText(name, MAX_NAME_LENGTH);
+  if (!cleanName) return { error: "Please add your name so I know who I'm talking to." };
+
+  const cleanEmail = cleanText(email, MAX_EMAIL_LENGTH);
+  if (cleanEmail && !EMAIL_PATTERN.test(cleanEmail)) {
+    return { error: "That email doesn't look right -- or leave it blank." };
+  }
+
+  return { contact: { name: cleanName, email: cleanEmail } };
+}
+
+function createVisitorId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `visitor-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function getChatSession(): ChatSession {
+  if (typeof window === "undefined") {
+    return { visitorId: "server-session", sessionStartedAt: Date.now() };
+  }
+
+  try {
+    let visitorId = sessionStorage.getItem(VISITOR_STORAGE_KEY);
+    if (!visitorId || !/^[a-zA-Z0-9_-]{8,128}$/.test(visitorId)) {
+      visitorId = createVisitorId();
+      sessionStorage.setItem(VISITOR_STORAGE_KEY, visitorId);
+      sessionStorage.removeItem(SESSION_STARTED_KEY);
+    }
+
+    const storedStart = Number(sessionStorage.getItem(SESSION_STARTED_KEY));
+    const sessionStartedAt = Number.isFinite(storedStart) && storedStart > 0 ? storedStart : Date.now();
+    sessionStorage.setItem(SESSION_STARTED_KEY, String(sessionStartedAt));
+
+    return { visitorId, sessionStartedAt };
+  } catch {
+    return { visitorId: createVisitorId(), sessionStartedAt: Date.now() };
+  }
+}
+
+function getAuthHeaders(session: ChatSession): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (session.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+  return headers;
+}
+
+function isChatMessage(value: unknown): value is ChatMessage {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as { role?: unknown; text?: unknown };
+  return (
+    (candidate.role === "user" || candidate.role === "model") &&
+    typeof candidate.text === "string" &&
+    candidate.text.trim().length > 0
+  );
+}
+
+/**
+ * Reads the stored transcript, normalising timestamps on the way out.
+ *
+ * `updatedAt` from the envelope is the save time, so it is the anchor for the
+ * synthetic clock applied to messages written before timestamps existed. Falls
+ * back to "now" when the envelope is missing, which only happens for a bare
+ * array written by an older build.
+ */
+function readHistory(visitorId: string): ChatMessage[] | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = localStorage.getItem(`${HISTORY_PREFIX}${visitorId}`);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+
+    if (Array.isArray(parsed)) {
+      return parsed.every(isChatMessage) ? withRestoredTimestamps(parsed, Date.now()) : null;
+    }
+
+    if (parsed && typeof parsed === "object" && "messages" in parsed) {
+      const list = parsed.messages;
+      if (!Array.isArray(list) || !list.every(isChatMessage)) return null;
+      const updatedAt = "updatedAt" in parsed && typeof parsed.updatedAt === "string"
+        ? Date.parse(parsed.updatedAt)
+        : Number.NaN;
+      return withRestoredTimestamps(list, Number.isNaN(updatedAt) ? Date.now() : updatedAt);
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+/**
+ * Gives a restored transcript a plausible clock.
+ *
+ * Messages saved before this feature existed carry no timestamp, and rendering
+ * them with a bare "9:42 AM" would be a lie. Rather than drop the transcript or
+ * print an empty time, the missing values are filled with an even spread
+ * leading up to the save time -- visibly a reconstruction, but a useful one,
+ * and it means every bubble has a meta line from the first render.
+ */
+function withRestoredTimestamps(
+  messages: ChatMessage[],
+  savedAt: number
+): ChatMessage[] {
+  let cursor = savedAt;
+  // 30s apart, walking backwards, so consecutive turns do not all collapse onto
+  // the same minute.
+  const step = 30_000;
+  return messages.map((message) => {
+    if (typeof message.at === "number") {
+      cursor = message.at;
+      return message;
+    }
+    cursor -= step;
+    return { ...message, at: cursor };
+  });
+}
+
+function saveHistory(visitorId: string, messages: ChatMessage[]): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    localStorage.setItem(
+      `${HISTORY_PREFIX}${visitorId}`,
+      JSON.stringify({
+        version: 2,
+        updatedAt: new Date().toISOString(),
+        messages: messages.slice(-50),
+      })
+    );
+  } catch {
+    return;
+  }
+}
+
+interface RemoteAdminMessage {
+  id: string | number;
+  body: string;
+  created_at: string;
+  /**
+   * chat_messages.role for this row. Only 'admin' and 'system' ever reach the
+   * visitor (the server filters the rest), but the value is validated rather
+   * than assumed so a future role cannot be silently rendered as a human
+   * message.
+   */
+  role: "admin" | "system";
+}
+
+function isRowId(value: unknown): value is string | number {
+  if (typeof value === "number") return Number.isFinite(value);
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isRemoteAdminMessage(value: unknown): value is RemoteAdminMessage {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    isRowId(candidate.id) &&
+    typeof candidate.body === "string" &&
+    candidate.body.trim().length > 0 &&
+    typeof candidate.created_at === "string" &&
+    (candidate.role === "admin" || candidate.role === "system")
+  );
+}
+
+function mergeAdminMessages(current: ChatMessage[], remote: RemoteAdminMessage[]): ChatMessage[] {
+  // Compare ids as strings so "12" and 12 are recognised as the same row
+  // regardless of which numeric form the API returned.
+  const knownIds = new Set(
+    current.map((message) => message.id).filter(isRowId).map((id) => String(id))
+  );
+  const knownText = new Set(current.filter((message) => message.source === "admin").map((message) => message.text));
+  const additions = remote
+    .filter((message) => !knownIds.has(String(message.id)) && !knownText.has(message.body))
+    // Carries the stored role through as `source`. Hardcoding "admin" here is
+    // what previously made a "Ian has joined the chat" notice render as an
+    // ordinary reply the admin supposedly typed.
+    .map((message) => ({
+      role: "model" as const,
+      text: message.body,
+      id: message.id,
+      at: Date.parse(message.created_at) || undefined,
+      source: message.role,
+    }));
+
+  return additions.length ? [...current, ...additions] : current;
+}
+
+async function fetchAdminReplies(
+  visitorId: string,
+  accessToken?: string
+): Promise<{ messages: RemoteAdminMessage[]; reactions: Reaction[]; status: number }> {
+  const headers: Record<string, string> = {};
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  const response = await fetch(apiUrl(`/api/chat?visitorId=${encodeURIComponent(visitorId)}&role=admin`), {
+    cache: "no-store",
+    headers,
+  });
+  const data: unknown = await response.json().catch(() => null);
+  const hasMessages = typeof data === "object" && data !== null && "messages" in data;
+  const hasReactions = typeof data === "object" && data !== null && "reactions" in data;
+  return {
+    messages: hasMessages && Array.isArray(data.messages) ? data.messages.filter(isRemoteAdminMessage) : [],
+    reactions: hasReactions && Array.isArray(data.reactions) ? data.reactions.filter(isReaction) : [],
+    status: response.status,
+  };
+}
+
+function parseStreamBlock(block: string): StreamEvent | null {
+  const data = block
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice(5).trimStart())
+    .join("\n")
+    .trim();
+
+  if (!data || data === "[DONE]") return null;
+
+  try {
+    const parsed: unknown = JSON.parse(data);
+    if (!parsed || typeof parsed !== "object" || !("type" in parsed)) return null;
+    const candidate = parsed as Record<string, unknown>;
+    if (candidate.type !== "chunk" && candidate.type !== "done" && candidate.type !== "error") return null;
+    return {
+      type: candidate.type,
+      text: typeof candidate.text === "string" ? candidate.text : undefined,
+      reply: typeof candidate.reply === "string" ? candidate.reply : undefined,
+      error: typeof candidate.error === "string" ? candidate.error : undefined,
+      visitorMessageId: isRowId(candidate.visitorMessageId) ? candidate.visitorMessageId : null,
+      assistantMessageId: isRowId(candidate.assistantMessageId) ? candidate.assistantMessageId : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function responseError(response: Response): Promise<string> {
+  const text = await response.text().catch(() => "");
+  const fallback = `Chat request failed (${response.status}). Please try again.`;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (parsed && typeof parsed === "object") {
+      if ("error" in parsed && typeof parsed.error === "string") return parsed.error;
+      if ("detail" in parsed && typeof parsed.detail === "string") return parsed.detail;
+    }
+  } catch {
+    return fallback;
+  }
+  return text || fallback;
+}
+
+async function notifyChatStarted(session: ChatSession, contact: VisitorContact): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  try {
+    const notificationKey = `${START_NOTIFIED_KEY}:${session.visitorId}`;
+    if (sessionStorage.getItem(notificationKey)) return;
+    const response = await fetch(apiUrl("/api/chat"), {
+      method: "POST",
+      headers: getAuthHeaders(session),
+      body: JSON.stringify({
+        event: "chat_started",
+        visitorId: session.visitorId,
+        visitorAuthId: session.authUserId,
+        sessionStartedAt: session.sessionStartedAt,
+        visitorName: contact.name,
+        visitorEmail: contact.email,
+      }),
+    });
+    if (response.ok) sessionStorage.setItem(notificationKey, "1");
+  } catch {
+    return;
+  }
+}
+
+/**
+ * Whether this thread has already been announced to the inbox.
+ *
+ * `notifyChatStarted` writes the very same sessionStorage key, but only for its
+ * own request -- so nothing stopped a *second* announce from posting the
+ * conversation, and its "Opened Chat" activity row, all over again. Reading the
+ * key here is what makes `announceVisit` idempotent for real rather than just
+ * for its first half. Unreadable storage falls back to announcing, i.e. the
+ * behaviour from before the guard existed.
+ */
+function isVisitAnnounced(visitorId: string): boolean {
+  try {
+    return Boolean(sessionStorage.getItem(`${START_NOTIFIED_KEY}:${visitorId}`));
+  } catch {
+    return false;
+  }
+}
+
+/** Broadcasts which page the visitor is on. Failures are never surfaced. */
+async function reportActivity(
+  session: ChatSession,
+  contact: VisitorContact,
+  page: string,
+  activity: "page" | "chat"
+): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    await fetch(apiUrl("/api/chat"), {
+      method: "POST",
+      headers: getAuthHeaders(session),
+      body: JSON.stringify({
+        event: "visitor_activity",
+        visitorId: session.visitorId,
+        visitorAuthId: session.authUserId,
+        sessionStartedAt: session.sessionStartedAt,
+        visitorName: contact.name,
+        visitorEmail: contact.email,
+        page,
+        activity,
+      }),
+    });
+  } catch {
+    return;
+  }
+}
+
+export default function ChatWithIan() {
+  const [open, setOpen] = useState(false);
+  // `at` is set on the opener too: without it the first paint would render a
+  // meta line reading "Ian - " with no time, which looks like a bug.
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [{ ...GREETING, at: Date.now() }]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  /**
+   * Available synchronously on the first render, not after the auth round trip.
+   *
+   * It used to start as null and be filled in by `initialize`, which left a
+   * window on every page load where `handleOpen` had to fall back to
+   * `getChatSession()` -- a session with no access token. Announcing the visit
+   * with that session created the conversation row with a null
+   * `visitor_auth_id`, and nothing ever backfills it, so every later
+   * `?visitorId=` poll 403'd: the visitor silently never saw admin replies or
+   * reactions again. The visitorId itself is cheap and local, so there is no
+   * reason to withhold it.
+   */
+  const [session, setSession] = useState<ChatSession | null>(() =>
+    typeof window === "undefined" ? null : getChatSession()
+  );
+  /**
+   * True once the Supabase token has been resolved (or found unobtainable).
+   *
+   * `chat_started` must not be sent before this: the server derives the
+   * conversation's owner from the Authorization header, not the body, so an
+   * early announce permanently writes a row nobody can claim.
+   */
+  const [authSettled, setAuthSettled] = useState(false);
+  /**
+   * True when the wait is over *and* it ended badly: Supabase is unconfigured,
+   * the anonymous sign-in was rejected, or the call threw.
+   *
+   * Deliberately separate from `authSettled`, which only says the token attempt
+   * has finished. Collapsing the two would make "still trying" and "no token,
+   * and none coming" look the same, which is what left this failure undiagnosable
+   * from the outside: the widget simply never got a token and said nothing.
+   */
+  const [authFailed, setAuthFailed] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  // Pre-chat contact capture. `null` contact means the form is still pending.
+  const [contact, setContact] = useState<VisitorContact | null>(() => getStoredContact());
+  const [nameDraft, setNameDraft] = useState(() => getStoredContact()?.name || "");
+  const [emailDraft, setEmailDraft] = useState(() => getStoredContact()?.email || "");
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [adminTyping, setAdminTyping] = useState(false);
+  const [sendingReaction, setSendingReaction] = useState(false);
+  const [connectionLost, setConnectionLost] = useState(false);
+  const [reactions, setReactions] = useState<Reaction[]>([]);
+  const { ref: scrollRef, onScroll, showJump, scrollToBottom } = useStickToBottom<HTMLDivElement>(
+    [messages, loading, adminTyping],
+    { streaming: loading }
+  );
+  const abortRef = useRef<AbortController | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const wasOpenRef = useRef(false);
+
+  useEffect(() => {
+    if (wasOpenRef.current && !open) triggerRef.current?.focus();
+    wasOpenRef.current = open;
+  }, [open]);
+
+  // A mouse or trackpad visitor is already at the keyboard once they open the
+  // panel, so putting the caret in the box saves a click. A touch visitor would
+  // have the on-screen keyboard cover half the panel, so it is left alone.
+  useEffect(() => {
+    if (!open || !contact) return;
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    inputRef.current?.focus();
+  }, [contact, open]);
+  // Held in a ref rather than state: the broadcast effect must not re-subscribe
+  // every time the composer text changes.
+  const channelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
+  /**
+   * Set whenever a reaction write is confirmed, so the next poll replaces the
+   * optimistic local set with the server's authoritative one.
+   *
+   * A ref rather than state: it is read by the poll interval, and state would
+   * re-run the poll effect on every toggle. Initialized true so the first poll
+   * after opening the panel always loads the server's reactions -- without
+   * that, a reload shows no reactions at all until the visitor clicks one.
+   */
+  const reactionsDirtyRef = useRef(true);
+  /**
+   * The poll function, published so the realtime effect can force an immediate
+   * refetch when the inbox signals a takeover. Assigned and cleared inside the
+   * polling effect, so it is never callable once that effect has torn down.
+   */
+  const pollRef = useRef<() => void>(() => undefined);
+  /**
+   * The anonymous sign-in attempt, published so the retry notice can re-run it.
+   *
+   * Same contract as `pollRef`: assigned and cleared inside its own effect, so
+   * it is never callable once that effect has torn down. A ref rather than shared
+   * state so pressing "Try again" cannot re-render or re-subscribe anything.
+   */
+  const initializeRef = useRef<() => void>(() => undefined);
+  const location = useLocation();
+
+  useEffect(() => {
+    let active = true;
+
+    const initialize = async () => {
+      // The identity is already in state from the lazy initializer, so this
+      // only ever adds credentials to it. Overwriting it here would reintroduce
+      // the null-session window that the synchronous initializer closed.
+      const nextSession = getChatSession();
+
+      if (supabase) {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          let authSession = sessionData.session;
+          if (!authSession) {
+            const { data: anonymousData, error } = await supabase.auth.signInAnonymously();
+            if (error) {
+              // This used to fall through in silence, which is the whole reason
+              // the failure was so hard to chase: from the outside the widget
+              // just never got a token. Only `message` and `status` are logged,
+              // because that is all of the AuthError that is safe to print.
+              console.warn(
+                "[chat] anonymous sign-in failed:",
+                error.message,
+                "status:",
+                error.status
+              );
+            } else {
+              authSession = anonymousData.session;
+            }
+          }
+          if (authSession) {
+            nextSession.accessToken = authSession.access_token;
+            nextSession.authUserId = authSession.user.id;
+          }
+        } catch (error) {
+          nextSession.accessToken = undefined;
+          nextSession.authUserId = undefined;
+          // Same silence as above, one level up: a thrown promise instead of a
+          // returned error. The message is the only diagnostic worth having.
+          console.warn(
+            "[chat] anonymous sign-in threw:",
+            error instanceof Error ? error.message : "unknown"
+          );
+        }
+      }
+
+      if (!active) return;
+      const stored = readHistory(nextSession.visitorId);
+      setSession((current) => (current ? { ...current, ...nextSession } : nextSession));
+      if (stored?.length) setMessages(stored);
+      setHistoryLoaded(true);
+      // Whether or not a token was obtainable, the wait is over -- the visit can
+      // now be announced without stranding the conversation unowned.
+      setAuthSettled(true);
+      // ...but "the wait is over" is not "it worked". A missing token is not a
+      // degraded chat, it is an unusable one: the conversation row would be
+      // written with a null `visitor_auth_id`, which nothing ever backfills, so
+      // the visitor would be locked out of admin replies for the rest of the
+      // thread. `supabase` being null lands here too, having skipped the block
+      // above entirely, and it means exactly the same thing.
+      setAuthFailed(!nextSession.accessToken);
+    };
+
+    initializeRef.current = () => void initialize();
+    initializeRef.current();
+    return () => {
+      active = false;
+      abortRef.current?.abort();
+      initializeRef.current = () => undefined;
+    };
+  }, []);
+
+  /**
+   * Polls for admin replies and reactions.
+   *
+   * Two different clocks: admin messages are rare and worth an immediate fetch
+   * so a human reply does not sit unseen for seconds, but reactions are
+   * low-churn and would double the request count for no visible benefit, so
+   * they are folded into the same response and only refetched on the slow tick.
+   *
+   * `pollRef` exposes this same function to the realtime effect below, which
+   * calls it when the inbox broadcasts a takeover. A ref rather than shared
+   * state so the nudge cannot re-render anything or re-subscribe the channel.
+   */
+  useEffect(() => {
+    const visitorId = session?.visitorId;
+    if (!open || !visitorId) return;
+    let inFlight = false;
+    let consecutiveAuthErrors = 0;
+    let timeoutId: number | undefined;
+
+    const getAccessToken = async (): Promise<string | undefined> => {
+      if (supabase) {
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (data.session?.access_token) return data.session.access_token;
+        } catch {
+          // fall through
+        }
+      }
+      return session?.accessToken;
+    };
+
+    const poll = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const token = await getAccessToken();
+        const remote = await fetchAdminReplies(visitorId, token);
+
+        if (remote.status === 401 || remote.status === 403) {
+          consecutiveAuthErrors++;
+          if (consecutiveAuthErrors >= 2) {
+            setConnectionLost(true);
+            console.warn("[chat] lost access to this conversation:", remote.status);
+          }
+          if (remote.messages.length) {
+            setMessages((current) => mergeAdminMessages(current, remote.messages));
+          }
+          if (reactionsDirtyRef.current) {
+            reactionsDirtyRef.current = false;
+            setReactions(remote.reactions);
+          }
+        } else {
+          consecutiveAuthErrors = 0;
+          setConnectionLost(false);
+          if (remote.messages.length) {
+            setMessages((current) => mergeAdminMessages(current, remote.messages));
+          }
+          if (reactionsDirtyRef.current) {
+            reactionsDirtyRef.current = false;
+            setReactions(remote.reactions);
+          }
+        }
+      } catch {
+        consecutiveAuthErrors = 0;
+        setConnectionLost(false);
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const schedulePoll = () => {
+      const intervalMs = connectionLost ? 30_000 : document.hidden ? 20_000 : 2_500;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        void poll();
+        schedulePoll();
+      }, intervalMs);
+    };
+
+    schedulePoll();
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) void poll();
+      schedulePoll();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    pollRef.current = () => void poll(); // realtime nudge bypasses hidden check
+    void poll();
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      pollRef.current = () => undefined;
+    };
+  }, [open, session?.visitorId, connectionLost]);
+
+  /**
+   * Realtime: incoming admin/system messages, incoming reactions, and the
+   * typing indicator in both directions.
+   *
+   * Typing rides on a Supabase broadcast rather than being stored, because
+   * "someone is typing" is worth nothing a second later and writing it to the
+   * database would add a row per few seconds of somebody's typing. Broadcast is
+   * also the only transport that works in both directions here: the inbox
+   * subscribes to this same channel name for the thread it has open.
+   *
+   * `channelRef` is published so the composer can broadcast without this
+   * effect re-running on every keystroke.
+   */
+  useEffect(() => {
+    const visitorId = session?.visitorId;
+    const realtimeClient = supabase;
+    if (!open || !realtimeClient || !session?.accessToken || !visitorId) return;
+
+    const channel = realtimeClient.channel(`visitor-chat-${visitorId}`);
+    channelRef.current = channel;
+
+    channel.on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "chat_messages" },
+      (payload) => {
+        const record = payload.new as Record<string, unknown>;
+        const id = record.id;
+        const body = record.body;
+        const role = record.role;
+        // Both 'admin' and 'system' must pass. Filtering on 'admin' alone
+        // dropped the takeover announcement on the floor, so the visitor only
+        // learned a human had joined on the next poll -- or never, if they
+        // closed the tab first.
+        if ((role !== "admin" && role !== "system") || !isRowId(id) || typeof body !== "string") {
+          return;
+        }
+        const createdAt = typeof record.created_at === "string" ? record.created_at : new Date().toISOString();
+        setMessages((current) => mergeAdminMessages(current, [{ id, body, role, created_at: createdAt }]));
+      }
+    );
+
+    channel.on(
+      "broadcast",
+      { event: REALTIME_TYPING_EVENT },
+      (payload) => {
+        const data = payload.payload as { typing?: unknown } | undefined;
+        if (!data || data.typing !== true) return;
+        setAdminTyping(true);
+      }
+    );
+
+    /**
+     * A takeover or release just happened. Refetch now rather than waiting out
+     * the poll interval, so "Ian has joined the chat" lands while the visitor
+     * is still looking at the window.
+     *
+     * Broadcast is the only transport that works here in both directions: the
+     * inbox authenticates with a password and never holds a Supabase session,
+     * so it cannot rely on `postgres_changes` reaching it, whereas Supabase
+     * broadcast is not subject to the RLS policies. That makes this the
+     * dependable path and `postgres_changes` the belt-and-braces one -- which
+     * is also why the refetch goes through `pollRef` rather than rendering the
+     * announcement from the payload: one insert path, real row ids, no chance
+     * of the same message appearing twice.
+     */
+    channel.on("broadcast", { event: REALTIME_THREAD_CHANGED_EVENT }, () => {
+      pollRef.current();
+    });
+
+    void channel.subscribe();
+
+    return () => {
+      channelRef.current = null;
+      void realtimeClient.removeChannel(channel);
+    };
+  }, [open, session?.accessToken, session?.visitorId]);
+
+  /**
+   * Clears the indicator when the admin stops. Without this a dropped
+   * connection, a closed tab, or a browser that was backgrounded mid-reply
+   * would leave "Ian is typing..." on screen forever.
+   */
+  useEffect(() => {
+    if (!adminTyping) return;
+    const timer = window.setTimeout(() => setAdminTyping(false), TYPING_IDLE_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [adminTyping, messages]);
+
+  useEffect(() => {
+    if (historyLoaded && session) saveHistory(session.visitorId, messages);
+  }, [historyLoaded, messages, session]);
+
+  /**
+   * Reports the current route to the admin's visitor panel.
+   *
+   * Only while the chat is open: a closed panel has no session to attribute the
+   * page view to, and reporting every navigation of a site the visitor may only
+   * ever see once would be tracking rather than context.
+   */
+  useEffect(() => {
+    if (!open || !session || !contact) return;
+    void reportActivity(session, contact, location.pathname, "page");
+  }, [contact, location.pathname, open, session]);
+
+  /**
+   * Starts a brand-new visitor thread.
+   *
+   * `chat_conversations.visitor_id` is UNIQUE and the server does
+   * find-or-create on it, so a fresh thread is only possible with a fresh id.
+   * Everything keyed by the old id is cleared so the new thread starts empty
+   * rather than inheriting the previous transcript.
+   */
+  const startFreshThread = () => {
+    // Abort first. Without this an in-flight SSE reply keeps streaming after
+    // the id has changed: the server finishes persisting it against the OLD
+    // visitorId while the client writes those chunks into the NEW thread's
+    // message list -- so the reply vanishes from the visitor's view and the
+    // inbox shows a thread that appears to have gone silent.
+    abortRef.current?.abort();
+    abortRef.current = null;
+
+    const previousId = session?.visitorId;
+    try {
+      if (previousId) {
+        localStorage.removeItem(`${HISTORY_PREFIX}${previousId}`);
+        sessionStorage.removeItem(`${START_NOTIFIED_KEY}:${previousId}`);
+      }
+      sessionStorage.removeItem(VISITOR_STORAGE_KEY);
+      sessionStorage.removeItem(SESSION_STARTED_KEY);
+      // Re-prompt for the pre-chat form, since the new thread is a new visitor.
+      writeStored(CONTACT_NAME_KEY, "");
+      writeStored(CONTACT_EMAIL_KEY, "");
+    } catch {
+      // Storage unavailable; the in-memory reset below still applies.
+    }
+
+    // getChatSession mints a new id now that the stored one is gone. The
+    // credentials have to be carried across explicitly: getChatSession only
+    // knows about storage, so a bare `setSession(next)` handed the new thread
+    // a session with no access token. The server then created its conversation
+    // row with a null visitor_auth_id, which nothing ever backfills, so that
+    // thread could never receive admin replies or reactions.
+    const next = getChatSession();
+    next.accessToken = session?.accessToken;
+    next.authUserId = session?.authUserId;
+    setSession(next);
+    setContact(null);
+    setNameDraft("");
+    setEmailDraft("");
+    setContactError(null);
+    // historyLoaded deliberately stays true. Setting it false here (as this
+    // used to) was the last write to it, so the save effect's guard never
+    // reopened and every message in the new thread was discarded on reload --
+    // one click of "new chat" permanently disabled the widget's only
+    // persistence. The gate exists solely to stop the greeting overwriting
+    // stored history before the restore lands, and by this point the restore
+    // happened long ago; the new thread legitimately starts as a bare greeting.
+    setMessages([{ ...GREETING, at: Date.now() }]);
+    setInput("");
+    setError(null);
+    setLoading(false);
+    setAdminTyping(false);
+    setReactions([]);
+  };
+
+  /**
+   * Announces the visit, then records where they are.
+   *
+   * Sequenced, not parallel: `visitor_activity` attaches to an existing
+   * conversation and is a no-op when there is none, so firing it alongside
+   * `chat_started` races the row's creation and the entry is silently dropped.
+   * The very first "Opened Chat" line is the one worth having, so it waits.
+   *
+   * Guarded, because three different callers can reach this and a successful
+   * retry produces a *new* `session` object, which re-fires the effect below.
+   * The guard is the same sessionStorage key `notifyChatStarted` writes, so the
+   * pair runs at most once per thread: without it a retry added a second
+   * "Opened Chat" row to `visitor_activity` every time it was pressed.
+   */
+  const announceVisit = useCallback(
+    async (activeSession: ChatSession, activeContact: VisitorContact, page: string) => {
+      if (typeof window === "undefined") return;
+      if (isVisitAnnounced(activeSession.visitorId)) return;
+      await notifyChatStarted(activeSession, activeContact);
+      // Re-read rather than assume: `notifyChatStarted` writes the key only when
+      // the request came back ok, so this is also where a failed start is left
+      // retryable by the next announce instead of being recorded as done.
+      if (isVisitAnnounced(activeSession.visitorId)) {
+        await reportActivity(activeSession, activeContact, page, "chat");
+      }
+    },
+    []
+  );
+
+  /**
+   * Re-runs the anonymous sign-in.
+   *
+   * Clears the failure first so the notice disappears the moment it is pressed,
+   * rather than after the round trip; `initialize` sets it again if this attempt
+   * fails too, which is the difference between "retrying" and "broken".
+   */
+  const retryAuth = () => {
+    setAuthFailed(false);
+    void initializeRef.current();
+  };
+
+  const handleOpen = () => {
+    setOpen(true);
+    // Announcing is gated on authSettled, not merely on having a session: a
+    // session that exists but carries no token creates the conversation row
+    // with a null visitor_auth_id, and that column is never backfilled, so the
+    // visitor would be locked out of admin replies for the rest of the thread.
+    if (contact && authSettled && session) void announceVisit(session, contact, location.pathname);
+  };
+
+  /**
+   * `nameOverride` is the guest path: the visitor skipped the form entirely, so
+   * their name comes from the button rather than the field, and no email is
+   * claimed on their behalf. Blank rather than absent, because the admin view
+   * renders the stored string directly.
+   */
+  const submitContact = (nameOverride?: string) => {
+    const result = validateContact(nameOverride ?? nameDraft, nameOverride ? "" : emailDraft);
+    if ("error" in result) {
+      setContactError(result.error);
+      return;
+    }
+    setContactError(null);
+    writeStored(CONTACT_NAME_KEY, result.contact.name);
+    writeStored(CONTACT_EMAIL_KEY, result.contact.email);
+    setContact(result.contact);
+    setMessages([{ ...GREETING, at: Date.now() }]);
+    if (session && authSettled) void announceVisit(session, result.contact, location.pathname);
+  };
+
+  /**
+   * Catches the case the two handlers above deliberately skip: the visitor
+   * opened the panel and gave their details before the token resolved. Without
+   * this the conversation would be announced by whoever opened it next, which
+   * may be never.
+   *
+   * `announceVisit` is itself idempotent per visitor id (it no-ops once
+   * sessionStorage records the start), so firing it once auth lands is safe
+   * even if a handler already got there first.
+   */
+  useEffect(() => {
+    if (!authSettled || !open || !contact || !session) return;
+    void announceVisit(session, contact, location.pathname);
+  }, [announceVisit, authSettled, contact, location.pathname, open, session]);
+
+  /**
+   * Signals to the admin that the visitor is typing.
+   *
+   * The channel is read through a ref-backed callback so this identity is
+   * stable: if it changed whenever the channel was re-created, the heartbeat
+   * effect would restart and a typing visitor would never get a second beat.
+   */
+  const sendTypingSignal = useCallback(() => {
+    const channel = channelRef.current;
+    if (!channel || channel.state !== "joined") return;
+    void channel.send({
+      type: "broadcast",
+      event: REALTIME_TYPING_EVENT,
+      payload: { typing: true },
+    });
+  }, []);
+
+  useTypingSignal({ broadcast: sendTypingSignal, active: Boolean(input.trim()) });
+
+  const toggleReaction = async (messageId: string | number, kind: ReactionKind, active: boolean) => {
+    if (!session || sendingReaction) return;
+    setSendingReaction(true);
+
+    const optimistic: Reaction = { message_id: messageId, kind, actor: session.visitorId };
+    setReactions((current) => {
+      const without = current.filter(
+        (reaction) => reactionKey(reaction.message_id, reaction.kind, reaction.actor) !== reactionKey(messageId, kind, session.visitorId)
+      );
+      return active ? [...without, optimistic] : without;
+    });
+
+    try {
+      const response = await fetch(apiUrl("/api/chat"), {
+        method: "POST",
+        headers: getAuthHeaders(session),
+        body: JSON.stringify({
+          event: "reaction",
+          visitorId: session.visitorId,
+          conversationId: undefined,
+          messageId,
+          kind,
+          active,
+        }),
+      });
+      if (!response.ok) {
+        // Roll the optimistic change back: leaving a reaction on screen that
+        // was never stored is the one failure mode the user could not detect.
+        setReactions((current) => {
+          const without = current.filter(
+            (reaction) => reactionKey(reaction.message_id, reaction.kind, reaction.actor) !== reactionKey(messageId, kind, session.visitorId)
+          );
+          return active ? without : [...without, optimistic];
+        });
+      }
+      // Confirmed either way, so let the next poll reconcile against the
+      // server: it is the only thing that can pick up a reaction the admin
+      // added in the inbox, or one removed in another tab.
+      reactionsDirtyRef.current = true;
+    } catch {
+      setReactions((current) =>
+        current.filter(
+          (reaction) => reactionKey(reaction.message_id, reaction.kind, reaction.actor) !== reactionKey(messageId, kind, session.visitorId)
+        )
+      );
+    } finally {
+      setSendingReaction(false);
+    }
+  };
+
+  const send = async (override?: string) => {
+    const typedText = input.trim();
+    const text = (override ?? typedText).trim();
+    // Contact must be captured before the first message so the transcript is
+    // attributed to a person rather than an anonymous visitor id.
+    if (!text || loading || !session || !contact) return;
+
+    // Their own message should always bring them to the bottom, even if they had
+    // scrolled up reading something earlier.
+    scrollToBottom();
+
+    const nextMessages: ChatMessage[] = [
+      ...messages,
+      { role: "user", text, at: Date.now() },
+    ];
+    const assistantIndex = nextMessages.length;
+    setMessages([...nextMessages, { role: "model", text: "", at: Date.now() }]);
+    setInput("");
+    setError(null);
+    setLoading(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    // Distinguishes a deliberate abort (new thread / unmount, where the reply
+    // is abandoned on purpose) from the idle watchdog firing, which is a real
+    // failure the visitor should be told about.
+    let timedOut = false;
+
+    const updateAssistant = (textValue: string) => {
+      setMessages((current) => {
+        const next = [...current];
+        if (next[assistantIndex]?.role !== "model") return current;
+        next[assistantIndex] = { ...next[assistantIndex], text: textValue };
+        return next;
+      });
+    };
+
+    /** Attaches a stored row id to a message so it can be reacted to. */
+    const assignId = (index: number, id: string | number | null | undefined) => {
+      if (id === null || id === undefined) return;
+      setMessages((current) => {
+        const next = [...current];
+        const target = next[index];
+        if (!target || target.id !== undefined) return current;
+        next[index] = { ...target, id };
+        return next;
+      });
+    };
+
+    try {
+      const response = await fetch(apiUrl("/api/chat"), {
+        method: "POST",
+        headers: { ...getAuthHeaders(session), Accept: "text/event-stream" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          event: "message",
+          visitorId: session.visitorId,
+          visitorAuthId: session.authUserId,
+          sessionStartedAt: session.sessionStartedAt,
+          visitorName: contact.name,
+          visitorEmail: contact.email,
+          messages: [...nextMessages, { role: "user", text }],
+        }),
+      });
+
+      if (!response.ok) throw new Error(await responseError(response));
+
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("text/event-stream") && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let streamedText = "";
+
+        // Idle watchdog. The server has its own 30s stream guard, but that only
+        // helps while the server is alive and the socket is healthy. Without a
+        // client-side backstop, a stalled or half-open connection leaves
+        // `reader.read()` pending forever and the composer's spinner stuck on.
+        // Set slightly above the server's GEMINI_STREAM_IDLE_TIMEOUT_MS so the
+        // server's own message wins the race when it does fire.
+        let idleTimer: number | undefined;
+        const armIdleTimer = () => {
+          if (idleTimer !== undefined) window.clearTimeout(idleTimer);
+          idleTimer = window.setTimeout(() => {
+            timedOut = true;
+            void reader.cancel().catch(() => undefined);
+            controller.abort();
+          }, STREAM_IDLE_TIMEOUT_MS);
+        };
+        armIdleTimer();
+
+        const processBlock = (block: string): StreamEvent | null => parseStreamBlock(block);
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            armIdleTimer();
+            buffer += decoder.decode(value || new Uint8Array(), { stream: true });
+            const blocks = buffer.split(/\r?\n\r?\n/);
+            buffer = blocks.pop() || "";
+
+            for (const block of blocks) {
+              const event = processBlock(block);
+              if (!event) continue;
+              if (event.type === "error") throw new Error(event.error || "Chat stream failed");
+              if (event.type === "chunk" && event.text) {
+                streamedText += event.text;
+                updateAssistant(streamedText);
+              }
+              if (event.type === "done") {
+                if (event.reply) {
+                  streamedText = event.reply;
+                  updateAssistant(streamedText);
+                }
+                // The ids for the pair of rows this exchange just created.
+                assignId(assistantIndex - 1, event.visitorMessageId);
+                assignId(assistantIndex, event.assistantMessageId);
+              }
+            }
+          }
+        } finally {
+          if (idleTimer !== undefined) window.clearTimeout(idleTimer);
+          buffer += decoder.decode();
+          if (buffer.trim()) {
+            const event = processBlock(buffer);
+            if (event?.type === "done") {
+              if (event.reply) {
+                streamedText = event.reply;
+                updateAssistant(streamedText);
+              }
+              assignId(assistantIndex - 1, event.visitorMessageId);
+              assignId(assistantIndex, event.assistantMessageId);
+            }
+          }
+        }
+
+        if (!streamedText.trim()) throw new Error("The assistant returned an empty response");
+      } else {
+        // JSON fallback: a takeover or a non-SSE error path.
+        const data: unknown = await response.json();
+        if (!data || typeof data !== "object") {
+          throw new Error("The assistant returned an invalid response");
+        }
+        if ("visitorMessageId" in data) {
+          assignId(assistantIndex - 1, isRowId(data.visitorMessageId) ? data.visitorMessageId : null);
+        }
+        if (!("takeover" in data)) {
+          if (!("reply" in data) || typeof data.reply !== "string") {
+            throw new Error("The assistant returned an invalid response");
+          }
+          updateAssistant(data.reply);
+        }
+      }
+    } catch (caughtError) {
+      // A deliberate abort (new thread, unmount) abandons the reply on purpose,
+      // so it stays silent. A watchdog abort is a genuine failure.
+      if (controller.signal.aborted && !timedOut) return;
+      setMessages((current) => {
+        const next = [...current];
+        if (next[assistantIndex]?.role === "model" && !next[assistantIndex].text) next.splice(assistantIndex, 1);
+        return next;
+      });
+      setError(
+        timedOut
+          ? "The assistant stopped responding. Please try again."
+          : caughtError instanceof Error
+            ? caughtError.message
+            : "Something went wrong -- try again."
+      );
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Pills are hidden as soon as the visitor has asked anything, because by then
+   * they are a distraction from the answer they are waiting for.
+   */
+  const showQuickActions = useMemo(
+    () => !messages.some((message) => message.role === "user"),
+    [messages]
+  );
+
+  return (
+    <>
+      {!open && (
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={handleOpen}
+          aria-label="Chat with Ian"
+          data-dos-avoid
+          data-dos-home="true"
+          /* Fixed to the bottom-right, clear of the sidebar rail on the left and
+             of the browser chrome at the bottom.
+
+             `env(safe-area-inset-*)` in the offsets, not just a fixed rem: on a
+             notched phone in landscape, or with a home indicator, a plain
+             `bottom-6` puts the trigger under the system UI, and a fixed
+             position is exactly the case where the browser will not move it for
+             you. The `sm:` step takes over from 640px, where there is no inset
+             to speak of and the extra breathing room is worth having.
+
+             `z-50` rather than the trigger's `z-40` so an open panel is never
+             clipped by the sticky section headers it overlaps. The trigger is
+             unmounted while the panel is open, so the two never compete.
+
+             The surface is `--bg` on `--ink` text: a solid, high-contrast panel
+             that is white-on-dark in light mode and near-black-on-light in dark
+             mode, so it reads as a raised surface in both without hardcoding a
+             colour that would be wrong in one of them. `border-[var(--gray-300)]`
+             is what separates it from the page, which is the same `--bg` value --
+             the border is doing the work the background cannot. */
+          className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] right-[calc(env(safe-area-inset-right,0px)+1rem)] z-40 flex h-12 items-center gap-2 rounded-full border border-[var(--gray-300)] px-5 text-sm shadow-lg transition-colors duration-200 hover:border-[var(--ink)] sm:bottom-6 sm:right-6"
+          style={{
+            backgroundColor: "var(--bg)",
+            color: "var(--ink)",
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          <MessageCircle size={16} strokeWidth={1.8} />
+          chat with {PROFILE.goesBy.toLowerCase()}
+        </button>
+      )}
+
+{open && (
+        <div
+          /* The shadcn surface: `bg-card` / `text-card-foreground` and the
+             rest resolve to the bryl-minimal tokens (see the colors block in
+             index.html), so the panel retints with the theme -- no colour is
+             restated here. `.card` is gone on purpose: its hover lift meant
+             the whole panel rose 2px when the pointer crossed it, which was
+             the class showing through, not a decision. `chat-panel` stays for
+             the height rules in theme.css, and the entrance animation in
+             chat-redesign.css rides on it too. */
+          className="chat-panel fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] right-[calc(env(safe-area-inset-right,0px)+1rem)] z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border/50 bg-card text-card-foreground shadow-xl sm:bottom-6 sm:right-6"
+          data-dos-avoid
+          role="dialog"
+          aria-label={`Chat with ${PROFILE.goesBy}`}
+          aria-busy={loading}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.stopPropagation();
+              setOpen(false);
+            }
+          }}
+        >
+          <ChatPanelHeader
+            name={PROFILE.goesBy}
+            subtitle="Active now"
+            avatarSrc={ASSISTANT_AVATAR}
+            onNewChat={startFreshThread}
+            onClose={() => setOpen(false)}
+          />
+
+          {contact ? (
+            <>
+              <div
+                ref={scrollRef}
+                onScroll={onScroll}
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden px-4 py-4"
+                aria-live="polite"
+                aria-label="Chat messages"
+              >
+                {/* First thing in the thread, so it is the first thing read:
+                    without a session nothing below it can be sent. Gated on
+                    `authSettled` so it never flashes during the round trip. */}
+                {open && authSettled && authFailed && (
+                  <ChatNotice
+                    message="I couldn't start a secure chat session, so messages can't be sent right now."
+                    action={{ label: "Try again", onClick: retryAuth }}
+                  />
+                )}
+
+                {messages.map((message, index) => {
+                  const isStreaming =
+                    loading && index === messages.length - 1 && message.role === "model" && message.source !== "system";
+
+                  // A server-authored notice, not a chat bubble: centred,
+                  // unaligned and without an avatar, so it cannot be mistaken
+                  // for something either party typed.
+                  //
+                  // Given real weight because this one notice changes who the
+                  // visitor is talking to. At 11px in --gray-500 -- what it was
+                  // -- it was the faintest text in the panel, so the moment a
+                  // human took over was the least noticeable moment in the
+                  // whole conversation.
+                  //
+                  // Emphasis is inversion (an ink-filled chip) plus size, never
+                  // colour: the palette is monochrome, and an accent here would
+                  // fight the AI-vs-human distinction the notice exists to
+                  // make. Inverting against --ink also survives a greyscale
+                  // screenshot, which a colour cue would not. `role="status"`
+                  // is kept so it is announced to a screen reader as a polite
+                  // live update rather than being read as a stray bubble.
+                  if (message.source === "system") {
+                    return (
+                      <div key={`system-${message.id ?? index}`} className="flex justify-center py-2">
+                        <p
+                          role="status"
+                          className="max-w-[92%] break-words rounded-full bg-[var(--ink)] px-4 py-2.5 text-center text-[12px] font-medium leading-relaxed text-[var(--bg)]"
+                          style={{ fontFamily: "var(--font-mono)" }}
+                        >
+                          {message.text}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  const isVisitor = message.role === "user";
+                  const sender = isVisitor ? "visitor" : "assistant";
+                  const name = isVisitor ? "You" : PROFILE.goesBy;
+                  const time = message.at ? formatClock(message.at) : undefined;
+                  const grouped = shouldGroupMessage(
+                    previousSender(messages, index),
+                    { sender: isVisitor ? "You" : PROFILE.goesBy, at: message.at ?? 0 }
+                  );
+                  const canReact = message.id !== undefined;
+
+                  return (
+                    <div
+                      key={`${message.role}-${message.id ?? index}-${index}`}
+                      className={`chat-reaction-row flex flex-col ${isVisitor ? "items-end" : "items-start"}`}
+                    >
+                      <ChatBubble
+                        sender={sender}
+                        name={name}
+                        time={time}
+                        text={message.text}
+                        streaming={isStreaming}
+                        grouped={grouped}
+                      />
+                      {canReact && (
+                        <div className={isVisitor ? "flex justify-end" : "flex justify-start"}>
+                          <ReactionBar
+                            messageId={message.id as string | number}
+                            reactions={reactions}
+                            actor={session?.visitorId ?? ""}
+                            onToggle={(kind, active) => {
+                              if (message.id !== undefined) void toggleReaction(message.id, kind, active);
+                            }}
+                            busy={sendingReaction}
+                            align={isVisitor ? "end" : "start"}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Quick actions sit under the opener, and only while the
+                    conversation is still empty -- see showQuickActions. */}
+                {showQuickActions && !loading && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {QUICK_ACTIONS.map((action) => (
+                      <button
+                        key={action.label}
+                        type="button"
+                        onClick={() => void send(action.prompt)}
+                        disabled={!session}
+                        className="pill disabled:opacity-50"
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {adminTyping && !loading && (
+                  <div className="flex items-end gap-2">
+                    <img
+                      src={ASSISTANT_AVATAR}
+                      alt=""
+                      aria-hidden="true"
+                      loading="lazy"
+                      decoding="async"
+                      className="mb-0.5 h-6 w-6 flex-shrink-0 rounded-full object-cover"
+                      style={{ border: "1px solid var(--gray-200)" }}
+                    />
+                    <TypingIndicator name={PROFILE.goesBy} announce />
+                  </div>
+                )}
+
+                {error && (
+                  <ChatNotice message={error} onDismiss={() => setError(null)} />
+                )}
+
+                {/* Offered only when the reader has scrolled away from the
+                    bottom, which is the only time "new messages" means
+                    anything to them. */}
+                {showJump && (
+                  <button type="button" className="chat-jump" onClick={() => scrollToBottom()}>
+                    new messages ↓
+                  </button>
+                )}
+              </div>
+
+              {/* shrink-0 keeps the composer from being squeezed when the
+                  thread is long. items-end (not items-center) so the growing
+                  message box sits on the same baseline as the buttons beside it
+                  rather than floating mid-row once it is more than one line. */}
+              <div
+                className="flex shrink-0 items-end gap-2 p-3"
+                style={{ borderTop: "1px solid var(--gray-200)" }}
+              >
+                <ChatTextarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={setInput}
+                  onSend={() => void send()}
+                  maxLength={600}
+                  placeholder={
+                    authFailed
+                      ? "Chat is unavailable right now"
+                      : "Type a message..."
+                  }
+                  ariaLabel="Message"
+                  disabled={!session || authFailed}
+                />
+                <button
+                  type="button"
+                  onClick={() => void send()}
+                  disabled={
+                    loading ||
+                    !input.trim() ||
+                    !session ||
+                    authFailed
+                  }
+                  aria-label="Send message"
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg disabled:opacity-40"
+                  style={{ backgroundColor: "var(--ink)", color: "var(--bg)" }}
+                >
+                  <Send size={14} strokeWidth={1.8} />
+                </button>
+              </div>
+            </>
+          ) : (
+            /* Pre-chat step: name is required, email is optional. A shadcn
+               surface built on the site's own tokens: `chat-welcome` is the
+               stagger hook (the entrance lives in chat-redesign.css) and
+               everything else is utility classes over the palette, so
+               nothing here restates a colour the theme already knows. */
+            <form
+              className="chat-welcome flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                submitContact();
+              }}
+            >
+              <p className="text-[15px] leading-relaxed tracking-tight text-card-foreground">
+                {GREETING.text}
+              </p>
+
+              <div className="grid gap-2">
+                <label htmlFor="ian-chat-name" className="text-sm font-medium leading-none text-card-foreground">
+                  Name
+                </label>
+                <input
+                  id="ian-chat-name"
+                  type="text"
+                  value={nameDraft}
+                  onChange={(event) => {
+                    setNameDraft(event.target.value);
+                    if (contactError) setContactError(null);
+                  }}
+                  maxLength={MAX_NAME_LENGTH}
+                  required
+                  autoFocus
+                  autoComplete="given-name"
+                  placeholder="Ada Lovelace"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <label htmlFor="ian-chat-email" className="text-sm font-medium leading-none text-card-foreground">
+                  Email <span className="font-normal text-muted-foreground">· Optional</span>
+                </label>
+                <input
+                  id="ian-chat-email"
+                  type="email"
+                  value={emailDraft}
+                  onChange={(event) => {
+                    setEmailDraft(event.target.value);
+                    if (contactError) setContactError(null);
+                  }}
+                  maxLength={MAX_EMAIL_LENGTH}
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+
+              {contactError && <ChatNotice message={contactError} />}
+
+              <button
+                type="submit"
+                disabled={!nameDraft.trim()}
+                // Full width so it spans the panel instead of floating as a
+                // small pill in a 360px column. The shadcn `hover:bg-primary/90`
+                // is a no-op on this stack -- Tailwind v3 drops alpha on a
+                // `var()` colour -- so the real hover is the `hover:opacity-90`
+                // sitting beside it, which lands on the same 90%.
+                className="group mt-1 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              >
+                Start chatting
+                <ArrowRight
+                  size={15}
+                  strokeWidth={1.8}
+                  aria-hidden="true"
+                  className="transition-transform duration-200 group-hover:translate-x-0.5"
+                />
+              </button>
+
+              {/* type="button" so it does not submit the form behind it. A
+                  ghost button: asking for a name is a courtesy, not a gate,
+                  and the way out should not shout. */}
+              <button
+                type="button"
+                onClick={() => submitContact("Guest")}
+                className="inline-flex h-10 w-full items-center justify-center rounded-md px-4 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                Or continue as guest
+              </button>
+
+              {/* mt-auto pushes this to the bottom of the panel. The form is a
+                  flex column in a fixed-height card, so without it the lower
+                  third was dead space and the block looked unfinished. */}
+              <p className="mt-auto pt-2 text-xs leading-relaxed text-muted-foreground">
+                Your email is only stored so {PROFILE.goesBy} can reply to you. Leave it blank if you'd
+                rather not.
+              </p>
+            </form>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * The speaker and time of the previous bubble in the transcript, skipping
+ * system notices -- a takeover announcement between two of Ian's messages
+ * should not break the group, and a notice has no meta line to compare with.
+ */
+function previousSender(
+  messages: ChatMessage[],
+  index: number
+): { sender: string; at: number } | null {
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    const candidate = messages[cursor];
+    if (!candidate || candidate.source === "system") continue;
+    return {
+      sender: candidate.role === "user" ? "you" : PROFILE.goesBy,
+      at: candidate.at ?? 0,
+    };
+  }
+  return null;
+}
