@@ -62,7 +62,7 @@ export const PROJECTS: Project[] = [
     status: "live",
     tone: "live",
     description:
-      "A full-stack web app for a local café, built with React, Tailwind CSS, Node.js, Express, PostgreSQL, and Prisma. Features include a menu display, online reservation system, and admin dashboard.",
+      "A full-stack site for a local café and bakery, built with React, Tailwind CSS, Node.js, Express, PostgreSQL, and Prisma. Features include the menu, branch details, customer accounts, and table reservations.",
     stack: [
       "react",
       "tailwindcss",
@@ -74,7 +74,7 @@ export const PROJECTS: Project[] = [
     href: "https://thesiftedcafe.vercel.app/",
     image: {
       src: "/images/projects/the-sifted-cafe.webp",
-      alt: "The Sifted Cafe home page: a cream header bar over a photo of iced coffee drinks, the headline Good coffee. Good food. Good people., and a Reserve a table form card.",
+      alt: "The Sifted Cafe home page: a dark hero over a photo of iced coffee drinks, the headline We sift out the rush and keep the good moments., and Explore our menu and Find a branch buttons.",
     },
   },
   {

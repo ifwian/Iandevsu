@@ -37,7 +37,7 @@
       <br/><br/>
       <a href="https://thesiftedcafe.vercel.app/"><b>The Sifted Café</b></a>
       <br/>
-      <sub>Café site with a menu, table reservations<br/>and an admin dashboard.</sub>
+      <sub>Café &amp; bakery site with a menu,<br/>branch details and table reservations.</sub>
       <br/><br/>
       <sub><code>React</code> <code>Node</code> <code>PostgreSQL</code></sub>
     </td>
