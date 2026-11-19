@@ -74,7 +74,8 @@
 @media (min-width: 720px) {
   #home .hero-layout {
     flex-direction: row;
-    gap: 40px;
+    align-items: center;
+    gap: 36px;
   }
 
   #home .hero-column {
@@ -83,7 +84,7 @@
   }
 
   #home .hero-portrait-col {
-    width: 240px;
+    width: 220px;
     max-width: none;
     flex-shrink: 0;
   }
@@ -142,10 +143,14 @@
   min-width: 0;
   font-family: var(--font-body);
   line-height: 0;
+  /* The canvas reserves room above and below the glyphs for the selection
+     frame and specks; pull the intro up into it so the name and the copy read
+     as one block instead of two with a gap between. */
+  margin-bottom: -0.5rem;
 }
 #home .hero-name--wordmark .tech-text {
   /* Tall enough for ~85px glyphs plus the room the selection frame and specks use. */
-  height: clamp(3.75rem, 2.25rem + 5vw, 6rem);
+  height: clamp(3.5rem, 2rem + 4.5vw, 5.25rem);
 }
 
 /* The copy's two sentences -- the lead ("I build ...") and the closing
@@ -159,15 +164,13 @@
    two rules that could drift. The only mark between the paragraphs is the
    12px step in the column's rhythm above. */
 #home .hero-pitch {
-  max-width: 36rem;
+  max-width: 34rem;
+  margin-top: 0;
   font-family: var(--font-body);
   font-size: var(--text-lg);
   line-height: 1.6;
   color: var(--gray-500);
-}
-
-#home .hero-pitch {
-  margin-top: 0.25rem;
+  text-wrap: pretty;
 }
 
 /* The action row: the primary step, then the three social links, on one line
@@ -184,7 +187,7 @@
   gap: 0.75rem;
   width: 100%;
   justify-content: flex-start;
-  margin-top: 2rem;
+  margin-top: 1.5rem;
 }
 
 /* The primary action. Unfilled: it used to carry the ink fill, but `--ink`

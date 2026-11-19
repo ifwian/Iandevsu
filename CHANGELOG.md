@@ -1,3 +1,13 @@
+## Final polish pass
+
+- Hero: new intro copy, tighter name-to-intro spacing, 4:5 portrait.
+- Removed the `~/projects` terminal tree (component, CSS, `file-tree.tsx`).
+- `/projects` now renders inside `MainLayout` (it reserved the sidebar's width without a sidebar, so it sat off-centre); no entrance animation on the projects section or page; anchor links scroll straight to a visible section.
+- Project cards: Simple Icons marks (inlined path data, no new dependency) with labels, monochrome.
+- "Outside the IDE": swipeable photo journal with a viewer (`content/journal.ts`); replaced `ElasticReel`.
+- Chat: round icon-only button and bottom sheet below 640px.
+- Sidebar: Navigate / Elsewhere groups, icons, active state, now-building row, back to top; new Education section (`content/education.ts`).
+
 ## Final polish
 
 - Site is permanently dark: the light/dark toggle, `ThemeProvider`, the light palette and all theme-switch code/styles are removed.

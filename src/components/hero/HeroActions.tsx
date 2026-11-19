@@ -5,10 +5,9 @@ import { anchorClick } from "@/lib/anchorNav";
 /**
  * The hero's action row: the primary step, then the social links.
  *
- * Scrolling goes through `anchorNav.goToSection`, which lands the projects
- * section at the top of the screen and plays its entrance from the top down
- * once it has arrived (a plain anchor revealed it from the bottom while it was
- * still scrolling in).
+ * Scrolling goes through `anchorNav.goToSection`: a smooth scroll that lands the
+ * projects section at the top of the screen, already visible -- no entrance to
+ * wait for.
  *
  * "view projects" is the single next step the column asks for -- the copy
  * above it states who she is and what she makes, and this is the one control
@@ -44,7 +43,7 @@ import { anchorClick } from "@/lib/anchorNav";
 export default function HeroActions() {
   return (
     <div className="hero-actions">
-      <a href="#projects" className="hero-action-primary" onClick={(e) => anchorClick(e, "#projects", { replay: true })}>
+      <a href="#projects" className="hero-action-primary" onClick={(e) => anchorClick(e, "#projects")}>
         <span>view projects</span>
         <ArrowDown
           size={14}

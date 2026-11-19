@@ -1,5 +1,5 @@
 import type { Project } from "@/content/projects";
-import TechIcon from "@/components/icons/TechIcon";
+import TechIcon, { TECH_LABELS } from "@/components/icons/TechIcon";
 import BuildingPreview from "@/components/projects/BuildingPreview";
 import "./project-preview.css";
 
@@ -97,14 +97,18 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
         <p className="project-card-role">{project.role}</p>
         <p className="project-card-summary">{project.description}</p>
 
-        <div className="project-card-stack">
-          {project.stack.map((icon, index) => (
-            /* Keyed by position within the card. The name alone is not unique --
-               a project can list the same technology twice -- and the list is
-               static, so the index is stable here and does not remount. */
-            <TechIcon key={`${project.title}-${index}`} name={icon} size={15} strokeWidth={1.6} />
+        {/* Stack: one small monochrome mark beside its label, as a plain list
+            so a screen reader hears "React, Tailwind CSS" rather than a row of
+            unnamed images. Keyed by name; a stack never lists a technology
+            twice. */}
+        <ul className="project-card-stack" aria-label="Technologies used">
+          {project.stack.map((tech) => (
+            <li key={tech} className="project-card-tech">
+              <TechIcon name={tech} size={13} />
+              <span>{TECH_LABELS[tech]}</span>
+            </li>
           ))}
-        </div>
+        </ul>
 
         <div className="project-card-foot">
           {project.href ? (

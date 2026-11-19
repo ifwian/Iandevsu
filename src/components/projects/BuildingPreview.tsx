@@ -43,7 +43,7 @@ export default function BuildingPreview({ project }: { project: Project }) {
       <div className="halftone" style={{ opacity: 0.35 }} aria-hidden="true" />
 
       {primary ? (
-        <TechIcon name={primary} size={72} strokeWidth={1} className="building-mark" />
+        <TechIcon name={primary} size={64} className="building-mark" />
       ) : null}
 
       {/* Decorative: the progress bar below carries the information. */}

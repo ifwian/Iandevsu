@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, FileText, Mail, MapPin, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { useLocation } from "react-router-dom";
+import { ArrowUp, ArrowUpRight, FileText, Hammer, Mail, MapPin, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/navigation";
-import { SOCIAL_ITEMS } from "@/lib/socials";
+import { SIDEBAR_SOCIALS } from "@/lib/socials";
 import { PROFILE } from "@/content/profile";
+import { PROJECTS } from "@/content/projects";
+import { getProjectStats } from "@/lib/projectStats";
 import { useSidebarState } from "@/lib/useSidebarState";
 import { anchorClick } from "@/lib/anchorNav";
 import { RailTooltip, useRailTooltip } from "./RailTooltip";
@@ -18,7 +21,6 @@ interface SidebarProps {
 type TipProps = ReturnType<typeof useRailTooltip>["tipProps"];
 
 const SECTION_IDS = NAV_ITEMS.map((item) => item.href);
-const pad = (n: number) => String(n).padStart(2, "0");
 
 /** Name + tagline; a single initial when the rail is collapsed. */
 function Brand({ collapsed = false, withTagline = false, tipProps }: { collapsed?: boolean; withTagline?: boolean; tipProps?: TipProps }) {
@@ -63,7 +65,7 @@ function NavList({
 }) {
   return (
     <nav aria-label="Primary navigation" className="flex flex-col">
-      {NAV_ITEMS.map(({ href, label, Icon }, index) => (
+      {NAV_ITEMS.map(({ href, label, Icon }) => (
         <a
           key={href}
           href={href}
@@ -75,13 +77,7 @@ function NavList({
           className="rail__link"
           {...(collapsed ? tipProps?.(label) : {})}
         >
-          {collapsed ? (
-            <Icon size={18} strokeWidth={1.6} className="rail__link-icon" />
-          ) : (
-            <span aria-hidden="true" className="rail__link-num">
-              {pad(index + 1)}
-            </span>
-          )}
+          <Icon size={16} strokeWidth={1.6} className="rail__link-icon" />
           <span className="rail__text">{label}</span>
         </a>
       ))}
@@ -89,21 +85,22 @@ function NavList({
   );
 }
 
-function Socials({ tipProps }: { tipProps?: TipProps }) {
+/** "Elsewhere": the three external destinations, as labelled rows. */
+function Elsewhere({ collapsed = false, tipProps }: { collapsed?: boolean; tipProps?: TipProps }) {
   return (
-    <ul className="rail__socials">
-      {SOCIAL_ITEMS.map(({ label, href, Icon }) => (
+    <ul className="rail__list" aria-label="Elsewhere">
+      {SIDEBAR_SOCIALS.map(({ label, href, Icon }) => (
         <li key={label}>
           <a
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={label}
-            title={tipProps ? undefined : label}
-            className="rail__icon"
-            {...tipProps?.(label)}
+            className="rail__link"
+            {...(collapsed ? tipProps?.(label) : {})}
           >
-            <Icon size={17} />
+            <Icon size={16} className="rail__link-icon" />
+            <span className="rail__text">{label}</span>
+            <ArrowUpRight size={12} strokeWidth={1.7} aria-hidden="true" className="rail__link-ext" />
           </a>
         </li>
       ))}
@@ -111,12 +108,12 @@ function Socials({ tipProps }: { tipProps?: TipProps }) {
         <li>
           <a
             href={`mailto:${PROFILE.links.email}`}
-            aria-label="Email"
-            title={tipProps ? undefined : "email"}
-            className="rail__icon"
-            {...tipProps?.("email")}
+            className="rail__link"
+            {...(collapsed ? tipProps?.("email") : {})}
           >
-            <Mail size={17} strokeWidth={1.7} />
+            <Mail size={16} strokeWidth={1.6} aria-hidden="true" className="rail__link-icon" />
+            <span className="rail__text">email</span>
+            <ArrowUpRight size={12} strokeWidth={1.7} aria-hidden="true" className="rail__link-ext" />
           </a>
         </li>
       ) : null}
@@ -124,18 +121,52 @@ function Socials({ tipProps }: { tipProps?: TipProps }) {
   );
 }
 
-/** Back-to-top control for the rail footer. */
-function TopButton({ tipProps }: { tipProps?: TipProps }) {
+/** Back-to-top shortcut. */
+function TopButton({ collapsed, tipProps, onNavigate }: { collapsed?: boolean; tipProps?: TipProps; onNavigate?: () => void }) {
   return (
     <button
       type="button"
-      aria-label="Back to top"
-      className="rail__icon rail__top"
-      onClick={() => anchorClick({ preventDefault() {}, metaKey: false, ctrlKey: false, shiftKey: false, button: 0 }, "#home")}
-      {...tipProps?.("back to top")}
+      className="rail__link rail__top"
+      onClick={() => {
+        anchorClick({ preventDefault() {}, metaKey: false, ctrlKey: false, shiftKey: false, button: 0 }, "#home");
+        onNavigate?.();
+      }}
+      {...(collapsed ? tipProps?.("back to top") : {})}
     >
-      <ArrowUp size={16} strokeWidth={1.7} aria-hidden="true" />
+      <ArrowUp size={16} strokeWidth={1.6} aria-hidden="true" className="rail__link-icon" />
+      <span className="rail__text">back to top</span>
     </button>
+  );
+}
+
+/**
+ * The project being built right now. Derived from `content/projects.ts` (the
+ * first entry with tone "active"), the same source the hero's "Now building"
+ * stat reads -- it renders nothing when no project is active, so it can never
+ * claim something the data does not.
+ */
+function Building({ collapsed, tipProps, onNavigate }: { collapsed?: boolean; tipProps?: TipProps; onNavigate?: () => void }) {
+  const { building } = getProjectStats(PROJECTS);
+  if (!building) return null;
+  const external = building.anchor.startsWith("http");
+  return (
+    <a
+      href={building.anchor}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {
+            onClick: (e: React.MouseEvent) => {
+              anchorClick(e, building.anchor);
+              onNavigate?.();
+            },
+          })}
+      className="rail__building"
+      {...(collapsed ? tipProps?.(`building: ${building.title}`) : {})}
+    >
+      <Hammer size={13} strokeWidth={1.7} aria-hidden="true" />
+      <span className="rail__text">
+        <span className="rail__building-label">now building</span>
+        <span className="rail__building-title">{building.title}</span>
+      </span>
+    </a>
   );
 }
 
@@ -165,7 +196,11 @@ function ResumeButton({ collapsed, tipProps }: { collapsed: boolean; tipProps?: 
  * IntersectionObserver over the sections.
  */
 export default function Sidebar({ active = "#home" }: SidebarProps) {
-  const [current, setCurrent] = useState<string>(active);
+  const { pathname } = useLocation();
+  const onProjectsPage = pathname === "/projects";
+  const [spy, setCurrent] = useState<string>(active);
+  /* The /projects route has no scroll-spy: it IS the projects destination. */
+  const current = onProjectsPage ? "#projects" : spy;
   const [menuOpen, setMenuOpen] = useState(false);
   const { collapsed, toggle } = useSidebarState();
   const { tip, tipProps } = useRailTooltip(collapsed);
@@ -173,28 +208,29 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!("IntersectionObserver" in window)) return;
-    const visible = new Map<string, number>();
+    if (onProjectsPage || !("IntersectionObserver" in window)) return;
+    const sections = Array.from(document.querySelectorAll<HTMLElement>("section[id]"));
+    const order = sections.map((el) => `#${el.id}`);
+    const visible = new Set<string>();
 
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           const id = `#${(entry.target as HTMLElement).id}`;
-          if (entry.isIntersecting) visible.set(id, entry.boundingClientRect.top);
+          if (entry.isIntersecting) visible.add(id);
           else visible.delete(id);
         }
-        const first = SECTION_IDS.find((id) => visible.has(id));
-        if (first) setCurrent(first);
+        const first = order.find((id) => visible.has(id));
+        /* A section with no nav entry (GitHub activity) highlights nothing,
+           rather than leaving the previous section lit. */
+        if (first) setCurrent(SECTION_IDS.includes(first) ? first : "");
       },
       { rootMargin: "-20% 0px -65% 0px", threshold: 0 }
     );
 
-    for (const id of SECTION_IDS) {
-      const el = document.querySelector(id);
-      if (el) observer.observe(el);
-    }
+    sections.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, []);
+  }, [onProjectsPage]);
 
   // Mobile menu: Escape closes it and hands focus back to the button; so does
   // pressing outside the bar.
@@ -266,7 +302,13 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
         </div>
 
         <div className="rail__block rail__block--nav">
+          <p className="rail__label">navigate</p>
           <NavList active={current} onNavigate={go} collapsed={collapsed} tipProps={tipProps} />
+        </div>
+
+        <div className="rail__block">
+          <p className="rail__label">elsewhere</p>
+          <Elsewhere collapsed={collapsed} tipProps={tipProps} />
         </div>
 
         {PROFILE.links.resume ? (
@@ -276,10 +318,8 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
         ) : null}
 
         <div className="rail__block rail__block--last">
-          <div className="rail__foot">
-            <Socials tipProps={collapsed ? tipProps : undefined} />
-            <TopButton tipProps={collapsed ? tipProps : undefined} />
-          </div>
+          <Building collapsed={collapsed} tipProps={tipProps} />
+          <TopButton collapsed={collapsed} tipProps={tipProps} />
         </div>
       </aside>
       <RailTooltip tip={tip} />
@@ -305,9 +345,13 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
 
         {menuOpen ? (
           <div id="mobile-nav" className="topbar__menu" data-dos-avoid>
+            <p className="rail__label">navigate</p>
             <NavList active={current} onNavigate={go} />
-            <div className="rail__block" style={{ borderBottom: 0 }}>
-              <Socials />
+            <p className="rail__label rail__label--spaced">elsewhere</p>
+            <Elsewhere />
+            <div className="rail__menu-foot">
+              <Building onNavigate={() => setMenuOpen(false)} />
+              <TopButton onNavigate={() => setMenuOpen(false)} />
             </div>
           </div>
         ) : null}

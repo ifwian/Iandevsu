@@ -1294,19 +1294,29 @@ export default function ChatWithIan() {
              colour that would be wrong in one of them. `border-[var(--gray-300)]`
              is what separates it from the page, which is the same `--bg` value --
              the border is doing the work the background cannot. */
-          className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] right-[calc(env(safe-area-inset-right,0px)+1rem)] z-40 flex h-12 items-center gap-2 rounded-full border border-[var(--gray-300)] px-5 text-sm shadow-lg transition-colors duration-200 hover:border-[var(--ink)] sm:bottom-6 sm:right-6"
+          className="chat-fab fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] right-[calc(env(safe-area-inset-right,0px)+1rem)] z-40 flex h-12 items-center gap-2 rounded-full border border-[var(--gray-300)] px-5 text-sm shadow-lg transition-colors duration-200 hover:border-[var(--ink)] sm:bottom-6 sm:right-6"
           style={{
             backgroundColor: "var(--bg)",
             color: "var(--ink)",
             fontFamily: "var(--font-mono)",
           }}
         >
-          <MessageCircle size={16} strokeWidth={1.8} />
-          chat with {PROFILE.goesBy.toLowerCase()}
+          <MessageCircle size={16} strokeWidth={1.8} aria-hidden="true" />
+          {/* The words are the desktop pill's; below 640px chat-ux.css hides
+              them and the trigger is a round, icon-only button. The
+              aria-label above is the accessible name at every width. */}
+          <span className="chat-fab-label">chat with {PROFILE.goesBy.toLowerCase()}</span>
         </button>
       )}
 
 {open && (
+        /* Dims the page behind the sheet on a phone (hidden from 640px up) and
+           closes it on tap. Not focusable: the header's close button and Escape
+           are the keyboard routes. */
+        <div className="chat-backdrop" aria-hidden="true" onClick={() => setOpen(false)} />
+      )}
+
+      {open && (
         <div
           /* The shadcn surface: `bg-card` / `text-card-foreground` and the
              rest resolve to the bryl-minimal tokens (see the colors block in

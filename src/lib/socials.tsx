@@ -37,7 +37,7 @@ export const SOCIAL_ITEMS: SocialItem[] = [
   { label: "instagram", href: "https://www.instagram.com/ifwiannn/", Icon: InstagramIcon },
 ];
 
-function LinkedinIcon({ size = 15, className }: SocialIconProps) {
+export function LinkedinIcon({ size = 15, className }: SocialIconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -79,3 +79,6 @@ function InstagramIcon({ size = 15, className }: SocialIconProps) {
     </svg>
   );
 }
+
+/** The accounts the sidebar's "Elsewhere" group lists (the hero lists all of them). */
+export const SIDEBAR_SOCIALS = SOCIAL_ITEMS.filter(({ label }) => label !== "instagram");

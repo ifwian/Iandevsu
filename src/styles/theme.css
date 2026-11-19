@@ -267,9 +267,16 @@ body::before {
    is fixed and 68px tall (py-4 = 16px x2, plus the h-9 toggle), so without
    this a tapped link scrolls the section heading underneath it. At lg+ the
    top bar is hidden and the sidebar is a left rail, so no offset is needed. */
-@media (max-width: 1023px) {
-  section[id] {
-    scroll-margin-top: 0;
+/* Sections start 64px (`py-16`) above their window. Below lg that is almost
+   exactly the 68px bar, so a small margin clears it; at lg+ there is no bar and
+   a negative margin lands the window ~24px from the top of the screen, which is
+   what "positioned at the top" means for a section reached by a link. */
+section[id]:not(#home) {
+  scroll-margin-top: 1rem;
+}
+@media (min-width: 1024px) {
+  section[id]:not(#home) {
+    scroll-margin-top: -2.5rem;
   }
 }
 
@@ -526,158 +533,6 @@ h1, h2, h3, h4, h5, h6 {
   .card:hover {
     transform: none;
   }
-}
-
-/* ---------- Hero tree ----------
-   The hero's information block: a named "file" and a small tree of
-   key/value rows under it, drawn with box-drawing connectors.
-
-   Plain text and a grid, no box. The hero already has one bordered surface --
-   the window frame -- and a second panel around the metadata is what made the
-   old quote-plus-pills arrangement feel like two competing cards. The tree
-   earns its structure from the connectors instead of from a border.
-
-   The connectors are real characters in the markup rather than `::before`
-   content, on purpose: a screen reader reading a generated box-drawing glyph
-   out loud is worse than one that hears nothing, so each is `aria-hidden` and
-   the row's meaning comes from the `<dt>`/`<dd>` pairing.
-
-   `.hero-tree-row--last` swaps the `├──` the markup renders for a `└──`, which
-   is what makes it read as a tree rather than as a list with decoration. The
-   choice is in the markup rather than in CSS because the two glyphs are the
-   same character in a different place -- deciding it with a modifier class
-   would need the character to exist somewhere it could be hidden from. */
-
-.hero-tree {
-  width: 100%;
-  max-width: 34rem;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  color: var(--gray-500);
-}
-
-.hero-tree-file {
-  margin-bottom: 0.5rem;
-  font-size: var(--text-xs);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--gray-400);
-}
-
-.hero-tree-list {
-  margin: 0;
-}
-
-/* One gap between blocks rather than a margin on the second. A margin here
-   collapses unpredictably against the `<dl>` above it, and the space belongs
-   between the blocks, not inside either. */
-.hero-tree-block + .hero-tree-block {
-  margin-top: 1.75rem;
-}
-
-/* Each row is its own grid so the key column is a fixed gutter and every value
-   starts on the same vertical line down the block, which is what the tree
-   needs to read as aligned. `minmax(0, 1fr)` on the value is load-bearing: it
-   is a grid item, and with the default `1fr` a long value refuses to shrink
-   and pushes the row wider than the column instead of wrapping inside it.
-
-   The key gutter is 5.5rem rather than ems because these keys are uppercase
-   and tracked -- `STATUS` is the longest at six characters, and it has to fit
-   without colliding with its value at every size the tree is read at. */
-.hero-tree-row {
-  display: grid;
-  grid-template-columns: 1.6em 5.5rem minmax(0, 1fr);
-  align-items: baseline;
-  gap: 0 0.1rem;
-}
-
-/* A narrower gutter on a phone. The keys are short and the values are not, so
-   at 390px the full-size gutter was taking a third of the column and wrapping
-   "building modern, high-performance web applications" onto three lines. The
-   connector tightens with it, which keeps the tree's left edge aligned. */
-@media (max-width: 639px) {
-  .hero-tree-row {
-    grid-template-columns: 1.4em 4.25rem minmax(0, 1fr);
-  }
-}
-
-.hero-tree-key,
-.hero-tree-value {
-  margin: 0;
-  font-weight: inherit;
-}
-
-/* The key: mono, dimmed, uppercased. `uppercase` because these are field names
-   in a listing, not sentences, and it is the same treatment `.micro-label`
-   gives every other label on the site. */
-.hero-tree-key {
-  color: var(--gray-400);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-/* Values are in the body's sans, not the mono of the key beside them. This is
-   the one place in the hero where a mono figure would be wrong: these are
-   sentences a person wrote, and a monospaced sentence is measurably harder to
-   scan -- the same argument that puts visitor messages in the sans in the chat
-   transcript. */
-.hero-tree-value {
-  grid-column: 3;
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--gray-500);
-}
-
-/* The pull quote, now the body of `quote.txt` rather than a paragraph floating
-    under the blocks. It sits in the value column so its left edge lines up with
-    the values above it, and the block gap above it comes from
-    `.hero-tree-block + .hero-tree-block` like every other block.
-
-    `grid-column: 3` and `margin: 0` are declared here rather than by also
-    applying `.hero-tree-value`: both that rule and this one are a single class, so
-    sharing them would leave the winner decided by which happens to be written
-    later in the file. This is a value-shaped element with a different face, and
-    the two properties that make it value-shaped are its own.
-
-    The quote shares the body's sans face, the same register the rest of the
-    hero and sidebar use: mono for chrome, sans for anything a person wrote.
-    Removing the serif and italic lets it read as prose rather than as a terminal
-    annotation, matching the builds values directly. `antialiased`, because
-    Geist has open counters and renders crisply at this size. And
-    `font-synthesis: none`, because the fallback is the sans and a browser
-    handed an italic it has no italic cut for will shear the upright to fake
-    one -- the real italic is requested from Google Fonts, so nothing here should
-    ever be synthesised. */
-.hero-tree-quote {
-  grid-column: 3;
-  margin: 0;
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  line-height: 1.6;
-  color: var(--gray-500);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  font-synthesis: none;
-}
-
-/* Below `sm` the value column is already the narrow one, and a 13px sans on two
-   lines wants the full width it can get. Letting it start at the key column
-   instead gives it ~4.25rem more and stops "Too curious to stick to one thing."
-   breaking mid-phrase. */
-@media (max-width: 639px) {
-  .hero-tree-quote {
-    grid-column: 2 / -1;
-  }
-}
-
-/* The branch connector. A real character in the markup, `aria-hidden` there, so
-   nothing is generated for a screen reader to stumble over. Dimmed to the same
-   grey as the keys: it is punctuation for the eye, not information. */
-.hero-tree-branch {
-  color: var(--gray-300);
-  font-family: var(--font-mono);
-  user-select: none;
 }
 
 /* ---------- Hero frame ----------
@@ -1287,33 +1142,38 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--gray-400);
 }
 
-/* The outline mark row. `aria-hidden` is on each icon in the markup; the stack is
-   decorative next to a prose description that already names the technologies in
-   words, so nothing is lost to a screen reader. */
+/* The technology row: a mark beside its label, no chip background. Marks are
+   13px filled Simple Icons in `currentColor`; labels are 12px mono. Gray at
+   rest, ink with the card's hover. */
 .project-card-stack {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.45rem;
-  margin-top: 0.85rem;
+  gap: 0.4rem 0.9rem;
+  margin: 0.85rem 0 0.85rem;
+  padding: 0;
+  list-style: none;
 }
 
-/* Sized in the markup by the `size` prop, not here: these are SVGs, so
-   `font-size` does nothing to them the way it sized the Devicon glyphs this
-   replaced. What this rule owns is colour and motion -- a mark that inherits
-   `currentColor` from the card, dimmed at rest and lifted on hover with the
-   rest of the card's contents. */
-.project-card-stack svg {
+.project-card-tech {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1;
   color: var(--gray-500);
-  opacity: 0.85;
-  flex: none;
-  transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out), color 0.3s var(--ease-out);
+  transition: color 0.3s var(--ease-out);
 }
 
-.project-card:hover .project-card-stack svg {
+.project-card-tech svg {
+  flex: none;
+  display: block;
+  opacity: 0.9;
+}
+
+.project-card:hover .project-card-tech {
   color: var(--ink);
-  opacity: 1;
-  transform: translateY(-1px);
 }
 
 /* The card's big preview mark. Same treatment as the row, one step heavier:
@@ -2119,4 +1979,33 @@ main {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-blink-cursor { animation: none; }
+}
+
+/* ---------- Education ---------- */
+.education-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.education-item {
+  padding: 1rem 1.1rem;
+}
+.education-program {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--ink);
+}
+.education-meta {
+  margin-top: 0.4rem;
+  font-size: var(--text-base);
+  color: var(--gray-500);
+}
+.education-note {
+  margin-top: 0.5rem;
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  line-height: 1.6;
+  color: var(--gray-500);
 }

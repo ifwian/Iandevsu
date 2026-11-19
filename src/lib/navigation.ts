@@ -1,12 +1,12 @@
 import type { CSSProperties, ReactNode } from "react";
 import {
-  Coffee,
+  Camera,
   FileText,
   FolderGit2,
+  GraduationCap,
   Home,
   Layers,
 } from "lucide-react";
-import GithubIcon from "@/components/icons/GithubIcon";
 
 /**
  * The site's section list, in one place.
@@ -18,11 +18,10 @@ import GithubIcon from "@/components/icons/GithubIcon";
 /**
  * Structural minimum every icon in this project satisfies.
  *
- * Declared here rather than importing lucide's `LucideIcon` because one entry is
- * `GithubIcon`, the hand-rolled brand mark -- lucide-react 1.0 dropped the
- * trademarked brand icons, so `Github` does not exist. Both satisfy this shape,
- * which is the subset actually passed at the call sites; a wider type would not
- * accept the custom mark.
+ * Declared here rather than importing lucide's `LucideIcon` because the sidebar
+ * also renders the hand-rolled brand marks (`GithubIcon`, `LinkedinIcon`) --
+ * lucide-react 1.0 dropped the trademarked brand icons. Both satisfy this
+ * shape, which is the subset actually passed at the call sites.
  */
 export interface NavIconProps {
   size?: number;
@@ -43,8 +42,8 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { href: "#home", label: "home", Icon: Home },
   { href: "#projects", label: "projects", Icon: FolderGit2 },
-  { href: "#stack", label: "stack", Icon: Layers },
-  { href: "#life", label: "life", Icon: Coffee },
-  { href: "#github", label: "github", Icon: GithubIcon },
+  { href: "#stack", label: "tech stack", Icon: Layers },
+  { href: "#education", label: "education", Icon: GraduationCap },
+  { href: "#life", label: "outside the IDE", Icon: Camera },
   { href: "#blog", label: "blog", Icon: FileText },
 ];

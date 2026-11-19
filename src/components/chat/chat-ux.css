@@ -157,22 +157,55 @@ html .chat-panel :is(button, a):focus-visible {
   outline-offset: 2px;
 }
 
-/* ---------- Phones: the panel takes the whole screen ----------
-   A 360px card pinned to a corner leaves a sliver of page on a phone, and the
-   keyboard then covers half of what is left. Full height with the safe-area
-   insets respected is how every messenger does it. */
+/* ---------- Phones: floating button + bottom sheet ----------
+   Below 640px the trigger is a plain round chat-icon button (the label is
+   hidden; the aria-label stays), and the panel opens as a bottom sheet over a
+   dimmed page: pinned to the bottom edge, full width, rounded top corners, and
+   capped so a strip of the page stays visible above it. `dvh` follows the
+   on-screen keyboard where supported, and the safe-area insets keep the input
+   clear of the home indicator. */
+.chat-backdrop { display: none; }
+
 @media (max-width: 639px) {
-  html .chat-panel {
-    inset: 0;
-    width: 100%;
-    height: 100vh;
-    height: 100dvh;
-    max-height: none;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    border-width: 0;
-    border-radius: 0;
+  html .chat-fab {
+    width: 3rem;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
   }
+  html .chat-fab .chat-fab-label { display: none; }
+
+  .chat-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 49;
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
+    backdrop-filter: blur(2px);
+    animation: chat-backdrop-in 0.2s var(--ease-out);
+  }
+
+  html .chat-panel {
+    inset: auto 0 0 0;
+    width: 100%;
+    height: min(40rem, calc(100vh - 3rem));
+    height: min(40rem, calc(100dvh - 3rem - env(safe-area-inset-top, 0px)));
+    max-height: none;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border-width: 1px 0 0;
+    border-radius: 1rem 1rem 0 0;
+    animation: chat-sheet-in 0.28s var(--ease-out) both;
+  }
+
+  /* 16px inputs: anything smaller makes iOS Safari zoom the page on focus. */
+  html .chat-panel :is(input, textarea) { font-size: 16px; }
+}
+
+@keyframes chat-sheet-in { from { transform: translateY(24px); opacity: 0; } }
+@keyframes chat-backdrop-in { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-backdrop, html .chat-panel { animation: none !important; }
 }
 
 /* ---------- Touch: bigger targets ----------

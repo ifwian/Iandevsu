@@ -1,0 +1,227 @@
+/* Photo journal: swipeable strip + viewer. Colours from tokens only. */
+
+/* `--journal-bleed` is the section body's own side padding, so the strip and the
+   pill row can run to the window edge and scroll under it. */
+.journal { --journal-bleed: 1.1rem; margin-top: 2rem; }
+@media (min-width: 640px) { .journal { --journal-bleed: 1.5rem; } }
+
+.journal-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+@media (min-width: 720px) {
+  .journal-head { flex-direction: row; align-items: center; justify-content: space-between; gap: 1rem; }
+}
+
+/* Pills: one scrollable line on a phone instead of wrapping into a block. */
+.journal-pills {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  margin: 0 calc(-1 * var(--journal-bleed));
+  padding: 0 var(--journal-bleed);
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.journal-pills::-webkit-scrollbar { display: none; }
+@media (min-width: 720px) {
+  .journal-pills { flex-wrap: wrap; margin: 0; padding: 0; overflow: visible; }
+}
+.journal-pill {
+  flex: none;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+  min-height: 2rem;
+  cursor: pointer;
+  transition: color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), background-color 0.2s var(--ease-out);
+}
+.journal-pill:hover { border-color: var(--gray-400); color: var(--ink); }
+.journal-pill[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); background-color: var(--gray-100); }
+
+.journal-nav { display: none; align-items: center; gap: 0.4rem; }
+@media (min-width: 720px) { .journal-nav { display: flex; } }
+
+.journal-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  color: var(--gray-500);
+  font-variant-numeric: tabular-nums;
+}
+
+.journal-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), opacity 0.2s var(--ease-out);
+}
+.journal-arrow:hover:not(:disabled) { color: var(--ink); border-color: var(--border-strong); }
+.journal-arrow:disabled { opacity: 0.35; cursor: default; }
+.journal-arrow:focus-visible,
+.journal-card:focus-visible,
+.journal-pill:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+@media (pointer: coarse) { .journal-arrow { width: 2.75rem; height: 2.75rem; } }
+
+/* ---------- Strip ---------- */
+.journal-track {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0 calc(-1 * var(--journal-bleed));
+  padding: 0 var(--journal-bleed) 0.25rem;
+  list-style: none;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--journal-bleed);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.journal-track::-webkit-scrollbar { display: none; }
+@media (min-width: 640px) { .journal-track { gap: 1rem; } }
+
+.journal-slide {
+  flex: none;
+  width: min(72vw, 15rem);
+  scroll-snap-align: start;
+}
+@media (min-width: 720px) { .journal-slide { width: 15rem; } }
+
+.journal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+.journal-frame {
+  display: block;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  background-color: var(--gray-100);
+  transition: border-color 0.25s var(--ease-out);
+}
+.journal-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s var(--ease-out);
+}
+.journal-card:hover .journal-frame { border-color: var(--gray-400); }
+.journal-card:hover .journal-frame img { transform: scale(1.025); }
+
+.journal-caption { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.journal-kicker {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+.journal-text {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+/* ---------- Viewer ---------- */
+.journal-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 70; /* above the chat widget (50) and the top bar (40) */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding:
+    max(env(safe-area-inset-top, 0px), 0.75rem)
+    max(env(safe-area-inset-right, 0px), 0.75rem)
+    max(env(safe-area-inset-bottom, 0px), 0.75rem)
+    max(env(safe-area-inset-left, 0px), 0.75rem);
+  animation: journal-in 0.2s var(--ease-out);
+}
+.journal-scrim {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: color-mix(in srgb, var(--bg) 96%, transparent);
+  backdrop-filter: blur(6px);
+  cursor: zoom-out;
+}
+.journal-viewer-bar,
+.journal-stage,
+.journal-viewer-caption { position: relative; }
+
+.journal-viewer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 44rem;
+}
+.journal-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 56rem;
+  touch-action: pan-y; /* vertical scroll stays native; horizontal is the swipe */
+  user-select: none;
+}
+.journal-big {
+  min-width: 0;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  animation: journal-photo 0.25s var(--ease-out);
+  transition: transform 0.2s var(--ease-out);
+}
+.journal-arrow--side { flex: none; }
+/* On a phone the swipe is the control, and the side buttons would take 100px
+   of a 375px-wide photo; the pager buttons stay on tablet and up. */
+@media (max-width: 639px) { .journal-arrow--side { display: none; } }
+
+.journal-viewer-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  max-width: 34rem;
+  padding-top: 0.75rem;
+  text-align: center;
+  animation: journal-photo 0.25s var(--ease-out);
+}
+
+@keyframes journal-in { from { opacity: 0; } }
+@keyframes journal-photo { from { opacity: 0; transform: scale(0.985); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .journal-viewer, .journal-big, .journal-viewer-caption { animation: none; }
+  .journal-frame img, .journal-big { transition: none; }
+  .journal-card:hover .journal-frame img { transform: none; }
+}

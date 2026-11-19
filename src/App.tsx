@@ -6,6 +6,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import Hero from "@/components/sections/Hero";
 import Projects from "@/components/sections/Projects";
 import TechStackShowcase from "@/components/sections/TechStackShowcase";
+import Education from "@/components/sections/Education";
 import LifeOutsideIDE from "@/components/sections/LifeOutsideIDE";
 import GithubActivity from "@/components/sections/GithubActivity";
 import Blog from "@/components/sections/Blog";
@@ -22,9 +23,23 @@ function ScrollToTop() {
   const { pathname, hash } = useLocation();
 
   useEffect(() => {
-    if (hash) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top: 0, left: 0, behavior: reduced ? "auto" : "smooth" });
+    const behavior = reduced ? "auto" : "smooth";
+
+    if (hash) {
+      /* Arrived with a section in the URL (a nav link from /projects, or a
+         shared #link): scroll to it once the route has rendered. */
+      const frame = requestAnimationFrame(() => {
+        const target = document.getElementById(hash.slice(1));
+        if (!target) return;
+        /* Shown, not animated in: the visitor asked for this section. */
+        target.classList.add("in-view");
+        target.querySelectorAll("[data-reveal-group]").forEach((g) => g.classList.add("is-revealed"));
+        target.scrollIntoView({ behavior, block: "start" });
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+    window.scrollTo({ top: 0, left: 0, behavior });
   }, [pathname, hash]);
 
   return null;
@@ -68,6 +83,7 @@ function Home() {
         <Hero />
         <Projects />
         <TechStackShowcase />
+        <Education />
         <LifeOutsideIDE />
         <GithubActivity />
         <Blog />

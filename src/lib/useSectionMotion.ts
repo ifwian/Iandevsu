@@ -1,5 +1,4 @@
 import { useLayoutEffect } from "react";
-import { isRevealHeld } from "./anchorNav";
 
 /**
  * Section-by-section entrance motion (styles: src/styles/motion.css).
@@ -24,7 +23,7 @@ export function useSectionMotion() {
 
     const root = document.documentElement;
     const sections = Array.from(document.querySelectorAll<HTMLElement>("section[id]")).filter(
-      (s) => s.id !== "home"
+      (s) => s.id !== "home" && s.id !== "projects"
     );
     if (!sections.length) return;
 
@@ -40,9 +39,6 @@ export function useSectionMotion() {
       (entries) => {
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
-          // An anchor scroll is travelling to this section: anchorNav releases
-          // it once it has landed, so it animates in from the top.
-          if (isRevealHeld((entry.target as HTMLElement).id)) continue;
           entry.target.classList.add("in-view");
           observer.unobserve(entry.target);
         }

@@ -67,7 +67,7 @@ function Mark({ mark }: { mark: StackItem["mark"] }) {
   if (mark === "github") {
     return <GithubIcon size={15} className="stack-chip-mark" />;
   }
-  return <TechIcon name={mark} size={15} strokeWidth={1.6} className="stack-chip-mark" />;
+  return <TechIcon name={mark} size={14} className="stack-chip-mark" />;
 }
 
 function Chips({ items }: { items: StackItem[] }) {

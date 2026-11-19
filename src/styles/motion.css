@@ -17,19 +17,19 @@
 }
 
 /* Hidden until its section is in view. */
-html.motion-ready section[id]:not(#home):not(.in-view) :is(.section-shell-bar, .section-shell-body .card, .section-shell-body .project-card) {
+html.motion-ready section[id]:not(#home):not(#projects):not(.in-view) :is(.section-shell-bar, .section-shell-body .card, .section-shell-body .project-card) {
   opacity: 0;
 }
 
 /* `backwards` (not `forwards`): the element returns to its natural styles when
    the animation ends, so hover transforms on cards keep working. */
-html.motion-ready section[id]:not(#home).in-view :is(.section-shell-bar, .section-shell-body .card, .section-shell-body .project-card) {
+html.motion-ready section[id]:not(#home):not(#projects).in-view :is(.section-shell-bar, .section-shell-body .card, .section-shell-body .project-card) {
   animation: section-rise var(--motion-dur) var(--ease-out) backwards;
   animation-delay: calc(var(--i, 0) * var(--motion-step));
 }
 
 /* Header bar leads; its hairline draws in. */
-html.motion-ready section[id]:not(#home).in-view .section-shell-bar {
+html.motion-ready section[id]:not(#home):not(#projects).in-view .section-shell-bar {
   animation-delay: 0ms;
 }
 

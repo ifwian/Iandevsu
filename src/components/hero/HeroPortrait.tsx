@@ -55,7 +55,7 @@ export default function HeroPortrait() {
         gridSize={7}
         pixelColor="var(--bg)"
         animationStepDuration={0.3}
-        className="hero-portrait aspect-[5/6] w-full overflow-hidden"
+        className="hero-portrait aspect-[4/5] w-full overflow-hidden"
       />
 
       <p className="hero-portrait-caption">

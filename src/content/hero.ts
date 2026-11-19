@@ -39,7 +39,7 @@ export interface HeroContent {
 export const HERO: HeroContent = {
   role: "Computer Science student · Web developer",
   pitch:
-    "I'm a junior developer who enjoys building things, experimenting with ideas, and occasionally creating projects I probably don't need. Mostly because it's fun, and there's always something new to learn.",
+    "I'm a junior developer who enjoys building things, experimenting with ideas, and occasionally creating projects I probably don't need. I just enjoy figuring out how things work and bringing ideas to life.",
   github: {
     repos: "12 Public",
     commits: "105+",
