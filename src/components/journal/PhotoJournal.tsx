@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { JournalEntry } from "@/content/journal";
 import "./photo-journal.css";
@@ -252,7 +253,10 @@ function Viewer({
     if (d.horizontal && Math.abs(dx) > 50) go(dx < 0 ? 1 : -1);
   };
 
-  return (
+  /* Portalled to <body>: the section's reveal animation puts a transform/filter
+     on its ancestors, which would make this `fixed` layer position against the
+     section instead of the screen and push it off-view. */
+  return createPortal(
     <div
       ref={dialogRef}
       className="journal-viewer"
@@ -262,56 +266,63 @@ function Viewer({
     >
       <button type="button" className="journal-scrim" aria-label="Close viewer" tabIndex={-1} onClick={onClose} />
 
-      <div className="journal-viewer-bar">
-        <span className="journal-count" aria-live="polite">
-          {String(index + 1).padStart(2, "0")} / {String(entries.length).padStart(2, "0")}
-        </span>
-        <button ref={closeRef} type="button" className="journal-arrow" aria-label="Close viewer" onClick={onClose}>
-          <X size={18} strokeWidth={1.7} aria-hidden="true" />
-        </button>
-      </div>
+      {/* A compact card over a light scrim -- not a full-screen takeover: the
+          page stays visible around it on every width. */}
+      <div className="journal-panel">
+        <div className="journal-viewer-bar">
+          <span className="journal-count" aria-live="polite">
+            {String(index + 1).padStart(2, "0")} / {String(entries.length).padStart(2, "0")}
+          </span>
+          <button ref={closeRef} type="button" className="journal-arrow" aria-label="Close viewer" onClick={onClose}>
+            <X size={16} strokeWidth={1.7} aria-hidden="true" />
+          </button>
+        </div>
 
-      <div
-        className="journal-stage"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-      >
-        <button
-          type="button"
-          className="journal-arrow journal-arrow--side journal-arrow--prev"
-          aria-label="Previous photo"
-          disabled={index === 0}
-          onClick={() => go(-1)}
+        <div
+          className="journal-stage"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
         >
-          <ChevronLeft size={20} strokeWidth={1.7} aria-hidden="true" />
-        </button>
+          <img
+            key={entry.src}
+            className="journal-big"
+            src={entry.src}
+            alt={`${entry.category}: ${entry.caption}`}
+            draggable={false}
+            style={dragX ? { transform: `translateX(${dragX}px)`, transition: "none" } : undefined}
+          />
+        </div>
 
-        <img
-          key={entry.src}
-          className="journal-big"
-          src={entry.src}
-          alt={`${entry.category}: ${entry.caption}`}
-          draggable={false}
-          style={dragX ? { transform: `translateX(${dragX}px)`, transition: "none" } : undefined}
-        />
+        <div className="journal-viewer-foot">
+          <button
+            type="button"
+            className="journal-arrow"
+            aria-label="Previous photo"
+            disabled={index === 0}
+            onClick={() => go(-1)}
+          >
+            <ChevronLeft size={18} strokeWidth={1.7} aria-hidden="true" />
+          </button>
 
-        <button
-          type="button"
-          className="journal-arrow journal-arrow--side journal-arrow--next"
-          aria-label="Next photo"
-          disabled={index === last}
-          onClick={() => go(1)}
-        >
-          <ChevronRight size={20} strokeWidth={1.7} aria-hidden="true" />
-        </button>
+          <p className="journal-viewer-caption" key={`cap-${entry.src}`}>
+            <span className="journal-kicker">{entry.category}</span>
+            <span className="journal-text">{entry.caption}</span>
+          </p>
+
+          <button
+            type="button"
+            className="journal-arrow"
+            aria-label="Next photo"
+            disabled={index === last}
+            onClick={() => go(1)}
+          >
+            <ChevronRight size={18} strokeWidth={1.7} aria-hidden="true" />
+          </button>
+        </div>
       </div>
-
-      <p className="journal-viewer-caption" key={`cap-${entry.src}`}>
-        <span className="journal-kicker">{entry.category}</span>
-        <span className="journal-text">{entry.caption}</span>
-      </p>
-    </div>
+    </div>,
+    document.body
   );
 }

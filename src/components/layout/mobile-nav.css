@@ -1,0 +1,63 @@
+/* Floating pill navigation, below lg. Tokens only; monochrome. */
+.mnav {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+  transform: translateX(-50%);
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.25rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--bg) 94%, transparent);
+  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.7);
+}
+@media (min-width: 1024px) { .mnav { display: none; } }
+
+.mnav__list { display: flex; gap: 0.125rem; margin: 0; padding: 0; list-style: none; }
+
+.mnav__link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  color: var(--text-muted);
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s var(--ease-out), background-color 0.2s var(--ease-out), transform 0.15s var(--ease-out);
+}
+.mnav__link:active { transform: scale(0.92); }
+/* `html` + !important: monochrome.css forces every aria-current link to ink. */
+html .mnav__link[data-active="true"] { background-color: var(--ink); color: var(--bg) !important; }
+.mnav__link:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+@media (max-width: 359px) { .mnav__link { width: 2.5rem; } }
+
+/* The nav floats over the page, so the page gets room beneath its last line. */
+@media (max-width: 1023px) {
+  main { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* Back-to-top: a small round button stacked above the chat launcher. */
+.scroll-top {
+  position: fixed;
+  z-index: 40;
+  right: calc(env(safe-area-inset-right, 0px) + 0.75rem);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 7.25rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border-strong);
+  background-color: var(--bg);
+  color: var(--text-muted);
+  font-size: 1rem;
+  transition: opacity 0.2s var(--ease-out);
+}
+.scroll-top:hover { color: var(--ink); border-color: var(--ink); }
+@media (min-width: 1024px) {
+  .scroll-top { right: 1.5rem; bottom: 5.5rem; width: 2.75rem; height: 2.75rem; }
+}

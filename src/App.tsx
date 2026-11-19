@@ -96,6 +96,9 @@ export default function App() {
   useSpotlight();
 
   useEffect(() => {
+    /* The pet is a desktop flourish: on a phone its speech bubble would sit over
+       the content and the floating nav. */
+    if (!window.matchMedia("(min-width: 1024px)").matches) return;
     const dos = initDos({
       containerSelector: "main",
       corner: "bottom-left",

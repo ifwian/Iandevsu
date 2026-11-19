@@ -1,4 +1,4 @@
-/* Left rail (desktop) and top bar (mobile). Colours come from tokens.css only. */
+/* Left rail (desktop); the mobile pill nav is mobile-nav.css. Colours come from tokens.css only. */
 
 .rail {
   position: fixed;
@@ -141,51 +141,6 @@
 }
 .rail__resume:hover { background-color: var(--surface-raised); border-color: var(--ink); }
 
-/* Mobile top bar */
-.topbar {
-  position: fixed;
-  inset: 0 0 auto 0;
-  z-index: 40;
-  background-color: var(--bg);
-  border-bottom: 1px solid var(--border);
-  font-family: var(--font-mono);
-}
-@media (min-width: 1024px) {
-  .topbar { display: none; }
-}
-.topbar {
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
-}
-.topbar__row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; min-height: 3.5rem; padding: 0.5rem 1.25rem; }
-.topbar__row .rail__name { font-size: 1rem; min-height: 2.75rem; display: flex; align-items: center; }
-.topbar__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem; /* 44px touch target */
-  border: 1px solid var(--border);
-  border-radius: 9999px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
-}
-.topbar__btn:hover { color: var(--ink); border-color: var(--border-strong); }
-.topbar__menu {
-  padding: 0 1.25rem 1rem;
-  max-height: calc(100dvh - 3.5rem - env(safe-area-inset-top, 0px));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  border-top: 1px solid var(--border);
-  animation: topbar-menu-in 0.18s var(--ease-out);
-}
-@keyframes topbar-menu-in { from { opacity: 0; transform: translateY(-6px); } }
-.topbar__menu .rail__link { min-height: 2.75rem; align-items: center; padding-block: 0.4rem; font-size: var(--text-lg); }
-.topbar__menu .rail__menu-foot { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
-.topbar__menu .rail__link::before { left: -1.25rem; }
-@media (prefers-reduced-motion: reduce) { .topbar__menu { animation: none; } }
 
 
 /* ==========================================================================

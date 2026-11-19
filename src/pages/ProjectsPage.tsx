@@ -21,7 +21,7 @@ export default function ProjectsPage() {
 
   return (
     <MainLayout>
-      <div className="section-frame px-5 pt-6 pb-16 lg:px-6 lg:pt-0">
+      <div className="section-frame px-0 pt-2 pb-12 sm:px-5 sm:pt-6 sm:pb-16 lg:px-6 lg:pt-0">
         <div className="w-full max-w-4xl mx-auto">
           <Link to="/" className="link-arrow mb-6 flex w-fit">
             <span className="arrow-glyph arrow-glyph-back">&#8598;</span>

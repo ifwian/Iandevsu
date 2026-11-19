@@ -8,7 +8,7 @@ export default function Education() {
   if (!EDUCATION.length) return null;
 
   return (
-    <section id="education" className="section-frame px-5 py-16 lg:px-6">
+    <section id="education" className="section-frame px-0 py-12 sm:px-5 sm:py-16 lg:px-6">
       <div className="w-full max-w-4xl mx-auto">
         <div className="section-shell">
           <div className="section-shell-bar">

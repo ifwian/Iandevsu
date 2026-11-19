@@ -1108,6 +1108,18 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Phones: a compact card -- tighter body, a 15px summary on a 1.6 line, and a
+   stack row of 12px labels that wraps in small, even steps. */
+@media (max-width: 639px) {
+  .project-card-body { padding: 0.875rem 0.875rem 0.75rem; }
+  .project-card-title { font-size: var(--text-xl); }
+  .project-card-role { letter-spacing: 0.04em; overflow-wrap: break-word; }
+  .project-card-summary { margin-top: 0.5rem; font-size: var(--text-lg); line-height: 1.6; }
+  .project-card-stack { gap: 0.35rem 0.75rem; margin-block: 0.75rem; }
+  .project-card-tech { gap: 0.3rem; font-size: var(--text-sm); }
+  .project-card-foot { padding-top: 0.5rem; }
+}
+
 .project-card-title {
   font-family: var(--font-display);
   font-size: var(--text-lg);
@@ -1252,20 +1264,6 @@ h1, h2, h3, h4, h5, h6 {
 .pill.project-tag[data-tone="template"] {
   --project-tag-tone: var(--gray-400);
   --project-tag-edge: var(--gray-200);
-}
-
-/* ---------- Chat panel ----------
-   Height lives here rather than inline so the `vh` -> `svh` fallback can be
-   expressed as two declarations. `100vh` on mobile includes the strip behind
-   the browser URL bar, which pushed the message input below the fold.
-
-   The 120px subtracted from the viewport is the room the trigger and the gap
-   below the panel need, so an open panel never runs its input under the
-   browser chrome. One panel now that the widget is a single floating instance,
-   so there is no second height variant to keep in step with this one. */
-.chat-panel {
-  height: min(520px, calc(100dvh - 120px));
-  height: min(520px, calc(100svh - 120px));
 }
 
 /* ---------- Chat composer placeholders ----------
@@ -1960,10 +1958,6 @@ main {
   :root { --text-display: 3rem; }
 }
 
-/* Landscape phones: short viewports should scroll, not clip. */
-@media (max-height: 480px) and (orientation: landscape) {
-  .chat-panel { max-height: 100dvh; overflow-y: auto; }
-}
 
 /* Blinking caret for typing-animation.tsx. Plain CSS on purpose: this project
    gets its utilities from the Tailwind Play CDN (index.html), which does not read

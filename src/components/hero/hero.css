@@ -466,31 +466,51 @@
 }
 
 
-/* ---------- Mobile: centred portrait and copy ----------
- * Below the card's 720px step the layout is one column. The portrait, its
- * caption and the copy are centred on the page's axis; from 720px up they go
- * back to the side-by-side, left-aligned row above. */
+/* ---------- Mobile hero (< 720px) ----------
+ * Its own composition, not the desktop row scaled down: one centred column --
+ * portrait, name (the focal point), role, intro, actions -- on a tight 8px
+ * rhythm. The stat strip below keeps its 2x2 grid. */
 @media (max-width: 719.98px) {
-  #home .hero-layout { align-items: center; }
-  #home .hero-portrait-col {
-    margin-inline: auto;
-    width: min(100%, 12.5rem);
-  }
-  #home .hero-column { align-items: center; text-align: center; }
-  #home .hero-actions { justify-content: center; }
-  #home .hero-body { padding: var(--space-6) var(--page-gutter); }
+  #home .hero-eyebrow-row { margin-bottom: 1rem; }
+  #home .hero-body { padding: 0; }
 
-  /* Actions on a phone: the primary step is its own full-width, 48px row, the
-     three social links share one row under it, each with a 44px tap target.
-     (Left as-is they wrapped to three ragged rows.) */
-  #home .hero-actions { gap: 0.25rem 1rem; margin-top: 1.5rem; }
+  #home .hero-layout { align-items: center; gap: 0.875rem; }
+
+  #home .hero-portrait-col { width: clamp(8rem, 40vw, 10rem); max-width: none; margin-inline: auto; }
+  #home .hero-portrait { border-radius: var(--radius-sm); }
+  #home .hero-portrait-caption { margin-top: 0.375rem; font-size: var(--text-xs); }
+
+  #home .hero-column { align-items: center; text-align: center; }
+
+  /* Name first, role under it: flex `order` rather than a second markup copy. */
+  #home .hero-name { order: -1; width: 100%; margin-top: 0; }
+  #home .hero-name--wordmark .tech-text { height: clamp(3rem, 14vw, 3.75rem); }
+  #home .hero-role { margin-top: 0.125rem; font-size: var(--text-sm); line-height: 1.45; text-wrap: balance; }
+
+  #home .hero-pitch {
+    max-width: 30rem;
+    margin-top: 0.75rem;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    text-wrap: balance;
+  }
+
+  /* One row for the primary, one for the three links; every target is 40px+. */
+  #home .hero-actions { justify-content: center; gap: 0.25rem 0.875rem; margin-top: 1.125rem; }
   #home .hero-action-primary {
     flex: 1 0 100%;
     justify-content: center;
-    min-height: 3rem;
-    margin-right: 0;
+    min-height: 2.75rem;
+    margin: 0 0 0.25rem;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
+    transition: border-color 0.2s var(--ease-out), background-color 0.2s var(--ease-out);
   }
-  #home .hero-social-link { min-height: 2.75rem; display: inline-flex; align-items: center; }
+  #home .hero-action-primary:active { background-color: var(--gray-100); }
+  #home .hero-social-link { min-height: 2.5rem; font-size: var(--text-sm); }
+
+  #home .hero-stat { padding: 0.75rem 0.875rem; }
+  #home .hero-stat-value { font-size: var(--text-base); padding-right: 0.75rem; align-items: flex-start; }
+  #home .hero-stat-text { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
+  #home .hero-stat-label { margin-top: 0.25rem; font-size: var(--text-sm); }
 }

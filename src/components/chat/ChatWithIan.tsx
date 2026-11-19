@@ -966,6 +966,33 @@ export default function ChatWithIan() {
     void initializeRef.current();
   };
 
+  /* Keyboard and browser-chrome awareness below `lg`. `dvh` already tracks the
+     keyboard on Android; iOS Safari only shrinks the *visual* viewport, so the
+     sheet reads it and lifts itself by the covered strip. Published as two CSS
+     variables the sheet's rules in chat-ux.css consume. */
+  useEffect(() => {
+    if (!open) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const root = document.documentElement;
+    const sync = () => {
+      root.style.setProperty("--chat-vvh", `${Math.round(vv.height)}px`);
+      root.style.setProperty(
+        "--chat-kb",
+        `${Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))}px`
+      );
+    };
+    sync();
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+    return () => {
+      vv.removeEventListener("resize", sync);
+      vv.removeEventListener("scroll", sync);
+      root.style.removeProperty("--chat-vvh");
+      root.style.removeProperty("--chat-kb");
+    };
+  }, [open]);
+
   const handleOpen = () => {
     setOpen(true);
     // Announcing is gated on authSettled, not merely on having a session: a
@@ -1274,27 +1301,9 @@ export default function ChatWithIan() {
           aria-label="Chat with Ian"
           data-dos-avoid
           data-dos-home="true"
-          /* Fixed to the bottom-right, clear of the sidebar rail on the left and
-             of the browser chrome at the bottom.
-
-             `env(safe-area-inset-*)` in the offsets, not just a fixed rem: on a
-             notched phone in landscape, or with a home indicator, a plain
-             `bottom-6` puts the trigger under the system UI, and a fixed
-             position is exactly the case where the browser will not move it for
-             you. The `sm:` step takes over from 640px, where there is no inset
-             to speak of and the extra breathing room is worth having.
-
-             `z-50` rather than the trigger's `z-40` so an open panel is never
-             clipped by the sticky section headers it overlaps. The trigger is
-             unmounted while the panel is open, so the two never compete.
-
-             The surface is `--bg` on `--ink` text: a solid, high-contrast panel
-             that is white-on-dark in light mode and near-black-on-light in dark
-             mode, so it reads as a raised surface in both without hardcoding a
-             colour that would be wrong in one of them. `border-[var(--gray-300)]`
-             is what separates it from the page, which is the same `--bg` value --
-             the border is doing the work the background cannot. */
-          className="chat-fab fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] right-[calc(env(safe-area-inset-right,0px)+1rem)] z-40 flex h-12 items-center gap-2 rounded-full border border-[var(--gray-300)] px-5 text-sm shadow-lg transition-colors duration-200 hover:border-[var(--ink)] sm:bottom-6 sm:right-6"
+          /* Position, size and the icon-only mobile form are chat-ux.css's (`.chat-fab`):
+             one rule set, safe-area aware, instead of utilities fighting it. */
+          className="chat-fab flex items-center justify-center gap-2 rounded-full border border-[var(--gray-300)] text-sm transition-colors duration-200 hover:border-[var(--ink)]"
           style={{
             backgroundColor: "var(--bg)",
             color: "var(--ink)",
@@ -1302,15 +1311,15 @@ export default function ChatWithIan() {
           }}
         >
           <MessageCircle size={16} strokeWidth={1.8} aria-hidden="true" />
-          {/* The words are the desktop pill's; below 640px chat-ux.css hides
-              them and the trigger is a round, icon-only button. The
-              aria-label above is the accessible name at every width. */}
+          {/* The words are the desktop pill's; below 1024px chat-ux.css hides
+              them and the trigger is a small round icon. The aria-label above
+              is the accessible name at every width. */}
           <span className="chat-fab-label">chat with {PROFILE.goesBy.toLowerCase()}</span>
         </button>
       )}
 
 {open && (
-        /* Dims the page behind the sheet on a phone (hidden from 640px up) and
+        /* Invisible tap-away layer behind the sheet below 1024px (hidden above);
            closes it on tap. Not focusable: the header's close button and Escape
            are the keyboard routes. */
         <div className="chat-backdrop" aria-hidden="true" onClick={() => setOpen(false)} />
@@ -1326,7 +1335,7 @@ export default function ChatWithIan() {
              the class showing through, not a decision. `chat-panel` stays for
              the height rules in theme.css, and the entrance animation in
              chat-redesign.css rides on it too. */
-          className="chat-panel fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] right-[calc(env(safe-area-inset-right,0px)+1rem)] z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border/50 bg-card text-card-foreground shadow-xl sm:bottom-6 sm:right-6"
+          className="chat-panel flex flex-col overflow-hidden rounded-2xl border border-border/50 bg-card text-card-foreground shadow-xl"
           data-dos-avoid
           role="dialog"
           aria-label={`Chat with ${PROFILE.goesBy}`}

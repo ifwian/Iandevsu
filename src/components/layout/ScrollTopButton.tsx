@@ -24,8 +24,7 @@ export default function ScrollTopButton() {
       data-dos-avoid
       /* Stacked above the chat launcher (h-12 at bottom 1rem / 1.5rem) and right-aligned
          with it, so the two never overlap. Keep these offsets in step with ChatWithIan. */
-      className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+4.75rem)] right-[calc(env(safe-area-inset-right,0px)+1rem)] z-40 flex h-11 w-11 sm:bottom-[5.5rem] sm:right-6 items-center justify-center rounded-full text-lg shadow-lg transition-opacity hover:opacity-80"
-      style={{ backgroundColor: "var(--ink)", color: "var(--bg)" }}
+      className="scroll-top"
     >
       &uarr;
     </button>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { HERO } from "@/content/hero";
 import { TypingAnimation } from "@/components/ui/typing-animation";
 import TechText from "@/components/ui/TechText";
@@ -27,6 +28,19 @@ import TechText from "@/components/ui/TechText";
  * hero.css, so the intro cannot drift away from the blocks below it.
  */
 export default function HeroIntro() {
+  /* The wordmark is a canvas, so its alignment is a prop, not CSS: centred in
+     the stacked mobile layout, left-aligned beside the portrait from 720px. */
+  const [stacked, setStacked] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 719.98px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 719.98px)");
+    const sync = () => setStacked(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   return (
     <>
       <TypingAnimation
@@ -40,7 +54,7 @@ export default function HeroIntro() {
       <h1 className="hero-name hero-name--wordmark">
         <TechText
           text="Marianne Napaño"
-          align="left"
+          align={stacked ? "center" : "left"}
           fontWeight={500}
           fontSize={120}
           letterSpacing={-0.04}

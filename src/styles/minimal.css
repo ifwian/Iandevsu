@@ -86,9 +86,8 @@ html #home .hero-stats > * { background: transparent; }
    REFINEMENTS
    ========================================================================== */
 ::selection { background: var(--ink); color: var(--bg); }
-/* Anchors land with the section at the very top on desktop; below lg the fixed
-   top bar (3.5rem + the notch inset) is what has to be cleared. */
-html { scroll-padding-top: calc(3.5rem + env(safe-area-inset-top, 0px)); }
+/* Anchors land with the section at the top of the screen; no fixed bar to clear. */
+html { scroll-padding-top: 0.75rem; }
 @media (min-width: 1024px) { html { scroll-padding-top: 0; } }
 html :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: var(--radius-xs); }
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { ArrowUp, ArrowUpRight, FileText, Hammer, Mail, MapPin, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { ArrowUp, ArrowUpRight, FileText, Hammer, Mail, MapPin, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { SIDEBAR_SOCIALS } from "@/lib/socials";
 import { PROFILE } from "@/content/profile";
@@ -11,6 +11,7 @@ import { getProjectStats } from "@/lib/projectStats";
 import { useSidebarState } from "@/lib/useSidebarState";
 import { anchorClick } from "@/lib/anchorNav";
 import { RailTooltip, useRailTooltip } from "./RailTooltip";
+import MobileNav from "./MobileNav";
 import "./sidebar.css";
 
 interface SidebarProps {
@@ -190,9 +191,7 @@ function ResumeButton({ collapsed, tipProps }: { collapsed: boolean; tipProps?: 
 /**
  * Site chrome. From `lg` up: a fixed left rail that collapses to an icon rail
  * (state + persistence in useSidebarState, width in the `--sidebar-w` token, so
- * the content offset follows with no measuring). Below `lg`: a fixed top bar
- * with a menu (the 68px bar height is what `section[id]`'s scroll-margin in
- * theme.css assumes). Both read NAV_ITEMS; the highlighted item comes from an
+ * the content offset follows with no measuring). Below `lg`: a floating pill nav (MobileNav). Both read NAV_ITEMS; the highlighted item comes from an
  * IntersectionObserver over the sections.
  */
 export default function Sidebar({ active = "#home" }: SidebarProps) {
@@ -201,11 +200,8 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
   const [spy, setCurrent] = useState<string>(active);
   /* The /projects route has no scroll-spy: it IS the projects destination. */
   const current = onProjectsPage ? "#projects" : spy;
-  const [menuOpen, setMenuOpen] = useState(false);
   const { collapsed, toggle } = useSidebarState();
   const { tip, tipProps } = useRailTooltip(collapsed);
-  const topbarRef = useRef<HTMLElement>(null);
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (onProjectsPage || !("IntersectionObserver" in window)) return;
@@ -232,38 +228,9 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
     return () => observer.disconnect();
   }, [onProjectsPage]);
 
-  // Mobile menu: Escape closes it and hands focus back to the button; so does
-  // pressing outside the bar.
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setMenuOpen(false);
-      menuButtonRef.current?.focus();
-    };
-    const onPointerDown = (event: PointerEvent) => {
-      if (topbarRef.current && !topbarRef.current.contains(event.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [menuOpen]);
-
   const go = (href: string) => {
     setCurrent(href);
-    setMenuOpen(false);
   };
-
-  // A menu left open must not survive a switch to the desktop rail.
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const onChange = () => mq.matches && setMenuOpen(false);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
 
   const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
   const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
@@ -324,38 +291,8 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
       </aside>
       <RailTooltip tip={tip} />
 
-      {/* Mobile top bar */}
-      <header className="topbar" ref={topbarRef}>
-        <div className="topbar__row">
-          <Brand />
-          <div className="flex items-center gap-2">
-            <button
-              ref={menuButtonRef}
-              type="button"
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
-              aria-expanded={menuOpen}
-              aria-controls="mobile-nav"
-              onClick={() => setMenuOpen((open) => !open)}
-              className="topbar__btn"
-            >
-              {menuOpen ? <X size={18} strokeWidth={1.7} /> : <Menu size={18} strokeWidth={1.7} />}
-            </button>
-          </div>
-        </div>
-
-        {menuOpen ? (
-          <div id="mobile-nav" className="topbar__menu" data-dos-avoid>
-            <p className="rail__label">navigate</p>
-            <NavList active={current} onNavigate={go} />
-            <p className="rail__label rail__label--spaced">elsewhere</p>
-            <Elsewhere />
-            <div className="rail__menu-foot">
-              <Building onNavigate={() => setMenuOpen(false)} />
-              <TopButton onNavigate={() => setMenuOpen(false)} />
-            </div>
-          </div>
-        ) : null}
-      </header>
+      {/* Below lg: a floating pill, not a bar or a menu. */}
+      <MobileNav active={current} onNavigate={go} />
     </>
   );
 }

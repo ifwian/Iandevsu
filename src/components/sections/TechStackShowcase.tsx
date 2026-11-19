@@ -87,7 +87,7 @@ export default function TechStackShowcase() {
   const [showAll, setShowAll] = useState(false);
 
   return (
-    <section id="stack" className="section-frame px-5 py-16 lg:px-6">
+    <section id="stack" className="section-frame px-0 py-12 sm:px-5 sm:py-16 lg:px-6">
       <div className="w-full max-w-4xl mx-auto">
         <div className="section-shell">
           {/* The eyebrow and the toggle share the title bar, so they sit on one

@@ -22,7 +22,7 @@ export default function Hero() {
          `pb-16` is unchanged: it is the hero's half of the inter-section gap,
          which is deliberately larger than its top margin, exactly as on every
          other section. */
-      className="section-frame px-5 pt-6 pb-16 lg:px-6 lg:pt-0"
+      className="section-frame px-0 pt-2 pb-10 sm:px-5 sm:pb-16 lg:px-6 lg:pt-0"
     >
       <div className="w-full max-w-4xl mx-auto">
         {/**
