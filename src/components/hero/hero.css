@@ -145,7 +145,7 @@
 }
 #home .hero-name--wordmark .tech-text {
   /* Tall enough for ~85px glyphs plus the room the selection frame and specks use. */
-  height: clamp(4.5rem, 2.5rem + 7vw, 8rem);
+  height: clamp(3.75rem, 2.25rem + 5vw, 6rem);
 }
 
 /* The copy's two sentences -- the lead ("I build ...") and the closing
@@ -158,8 +158,7 @@
    the size step are gone, so a format change lands here once instead of in
    two rules that could drift. The only mark between the paragraphs is the
    12px step in the column's rhythm above. */
-#home .hero-pitch,
-#home .hero-quote {
+#home .hero-pitch {
   max-width: 36rem;
   font-family: var(--font-body);
   font-size: var(--text-lg);
@@ -168,11 +167,7 @@
 }
 
 #home .hero-pitch {
-  margin-top: 1rem;
-}
-
-#home .hero-quote {
-  margin-top: 0.75rem;
+  margin-top: 0.25rem;
 }
 
 /* The action row: the primary step, then the three social links, on one line
@@ -481,4 +476,18 @@
   #home .hero-column { align-items: center; text-align: center; }
   #home .hero-actions { justify-content: center; }
   #home .hero-body { padding: var(--space-6) var(--page-gutter); }
+
+  /* Actions on a phone: the primary step is its own full-width, 48px row, the
+     three social links share one row under it, each with a 44px tap target.
+     (Left as-is they wrapped to three ragged rows.) */
+  #home .hero-actions { gap: 0.25rem 1rem; margin-top: 1.5rem; }
+  #home .hero-action-primary {
+    flex: 1 0 100%;
+    justify-content: center;
+    min-height: 3rem;
+    margin-right: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+  }
+  #home .hero-social-link { min-height: 2.75rem; display: inline-flex; align-items: center; }
 }

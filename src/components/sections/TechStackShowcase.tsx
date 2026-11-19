@@ -93,7 +93,7 @@ export default function TechStackShowcase() {
           {/* The eyebrow and the toggle share the title bar, so they sit on one
               baseline instead of the control floating beside the heading. */}
           <div className="section-shell-bar">
-            <p className="section-eyebrow">04 &mdash; stack</p>
+            <p className="section-eyebrow">03 &mdash; stack</p>
 
             <button
               type="button"

@@ -44,8 +44,6 @@ html .card,
 html .card:hover,
 html .build-panel,
 html .build-panel:hover,
-html .about-widget,
-html .about-widget:hover,
 html .project-card,
 html .project-card:hover {
   box-shadow: none;
@@ -55,7 +53,6 @@ html .project-card:hover {
 }
 html .card:hover,
 html .build-panel:hover,
-html .about-widget:hover,
 html .project-card:hover { border-color: var(--gray-400); }
 html .build-panel-bar {
   background: transparent;
@@ -76,8 +73,7 @@ html .status-dot { animation: none; }
    haze around cards. Shadows are off site-wide; separation comes from
    hairlines and spacing only.
    ========================================================================== */
-:root,
-:root[data-theme] {
+:root {
   --shadow-resting: none;
   --shadow-hover: none;
 }
@@ -90,7 +86,10 @@ html #home .hero-stats > * { background: transparent; }
    REFINEMENTS
    ========================================================================== */
 ::selection { background: var(--ink); color: var(--bg); }
-html { scroll-padding-top: 5rem; }
+/* Anchors land with the section at the very top on desktop; below lg the fixed
+   top bar (3.5rem + the notch inset) is what has to be cleared. */
+html { scroll-padding-top: calc(3.5rem + env(safe-area-inset-top, 0px)); }
+@media (min-width: 1024px) { html { scroll-padding-top: 0; } }
 html :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: var(--radius-xs); }
 
 /* Hero name: slightly larger and tighter, so it carries the page. */

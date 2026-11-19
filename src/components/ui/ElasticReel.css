@@ -43,8 +43,18 @@
    the open frame is a `hover: hover` rule (there is no hover here) and the
    labels are already hidden, so this is purely the crops staying legible. */
 @media (max-width: 639px) {
+  /* Phones: six slivers read as a picket fence, so the dock becomes a grid of
+     full 3:4 tiles instead -- two across, three rows, every photo visible whole
+     and labelled. Desktop (and the hover swell) is untouched. */
   .elastic-reel {
-    height: 220px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    height: auto;
+    gap: 1px;
+  }
+  .elastic-reel-slice {
+    aspect-ratio: 3 / 4;
+    flex: none;
   }
 }
 
@@ -97,8 +107,8 @@
    photo instead of under it. 11px, the same floor `.micro-label` sets for
    label text -- it was 10px, which is below that floor and reads as a smudge
    over a photograph. Hidden on phones, where six equal slices leave no room
-   for the longest name without cropping it mid-word -- the pills above
-   already say all six there. */
+   for the longest name without cropping it mid-word. On phones the reel is a
+   grid of tiles (above), so the label is shown there too. */
 .elastic-reel-label {
   position: absolute;
   bottom: 0.55rem;
@@ -116,7 +126,8 @@
 
 @media (max-width: 639px) {
   .elastic-reel-label {
-    display: none;
+    bottom: 0.7rem;
+    left: 0.75rem;
   }
 }
 

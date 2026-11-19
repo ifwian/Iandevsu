@@ -40,7 +40,7 @@ export default function LifeOutsideIDE() {
            * the rest, so the content starts with the heading.
            */}
           <div className="section-shell-bar">
-            <p className="section-eyebrow">05 &mdash; life</p>
+            <p className="section-eyebrow">04 &mdash; life</p>
           </div>
 
           {/**

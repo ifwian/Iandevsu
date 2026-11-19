@@ -5,7 +5,6 @@ import {
   FolderGit2,
   Home,
   Layers,
-  User,
 } from "lucide-react";
 import GithubIcon from "@/components/icons/GithubIcon";
 
@@ -35,7 +34,7 @@ export interface NavIconProps {
 export type NavIcon = (props: NavIconProps) => ReactNode;
 
 export interface NavItem {
-  /** Bare anchor target, e.g. "#about". Doubles as the scroll-spy key. */
+  /** Bare anchor target, e.g. "#projects". Doubles as the scroll-spy key. */
   href: string;
   label: string;
   Icon: NavIcon;
@@ -43,7 +42,6 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "#home", label: "home", Icon: Home },
-  { href: "#about", label: "about", Icon: User },
   { href: "#projects", label: "projects", Icon: FolderGit2 },
   { href: "#stack", label: "stack", Icon: Layers },
   { href: "#life", label: "life", Icon: Coffee },

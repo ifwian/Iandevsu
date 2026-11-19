@@ -4,7 +4,6 @@ import "@/components/hero/hero.css";
 import HeroActions from "@/components/hero/HeroActions";
 import HeroIntro from "@/components/hero/HeroIntro";
 import HeroPortrait from "@/components/hero/HeroPortrait";
-import HeroQuote from "@/components/hero/HeroQuote";
 import HeroStats from "@/components/hero/HeroStats";
 
 export default function Hero() {
@@ -35,7 +34,7 @@ export default function Hero() {
          * text -- it started 180px in, past the portrait and the gap. Every
          * other section's eyebrow starts at the container's own left edge, so
          * `01 -- WHO AM I?` was the one marker on the page that did not line up
-         * with `02 -- ABOUT` and the rest.
+         * with `02 -- PROJECTS` and the rest.
          *
          * The gap to the window below is `.hero-eyebrow-row`'s, not a `mb-*`
          * utility: `.section-eyebrow` brings 0.75rem of its own bottom margin,
@@ -96,8 +95,6 @@ export default function Hero() {
                   line. */}
               <div className="hero-column">
                 <HeroIntro />
-
-                <HeroQuote />
 
                 <HeroActions />
               </div>

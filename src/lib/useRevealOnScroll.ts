@@ -1,4 +1,5 @@
 import { useLayoutEffect } from "react";
+import { isRevealHeld } from "./anchorNav";
 
 /**
  * Arms the scroll-entrance stagger used by every section below the hero.
@@ -56,6 +57,7 @@ export function useRevealOnScroll() {
       (entries) => {
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
+          if (isRevealHeld(entry.target.closest("section")?.id)) continue;
           entry.target.classList.add("is-revealed");
           // One-shot: a section that has entered stays entered, so scrolling
           // back up does not replay the stagger on every pass.

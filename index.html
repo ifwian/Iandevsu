@@ -6,7 +6,7 @@
   <title>Marianne Napaño ― Computer Science Student &amp; Web Developer</title>
   <meta name="description" content="Portfolio of Marianne Napaño, a Computer Science student and web developer building projects with HTML, CSS, and JavaScript." />
   <meta name="theme-color" content="#09090a" />
-  <meta name="color-scheme" content="dark light" />
+  <meta name="color-scheme" content="dark" />
 
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://iandevs.vercel.app/" />
@@ -55,7 +55,7 @@
        Must stay after the CDN script, which is what defines `tailwind.config`
        in the first place. */
     tailwind.config = {
-      darkMode: ["selector", '[data-theme="dark"]'],
+      darkMode: "class",
       theme: {
         extend: {
           fontFamily: {
@@ -68,8 +68,7 @@
           /* Shadcn-style surface tokens, for the chat panel's header and
              welcome step. Every value resolves against the bryl-minimal
              variables in src/styles/theme.css rather than restating a colour,
-             so `bg-card` and friends retint themselves with the light/dark
-             toggle like every other surface on the page. Nested DEFAULT /
+             so `bg-card` and friends resolve to the dark palette like every other surface on the page. Nested DEFAULT /
              foreground pairs are what make `bg-card text-card-foreground`
              read as one utility family. */
           colors: {
@@ -132,40 +131,21 @@
     crossorigin
   />
 
-  <!-- No-flash theme init. Runs before first paint, so the page never shows the
-       wrong theme. Same resolution as ThemeProvider (src/lib/theme.tsx):
-       stored "dark" | "light" | "system", default DARK. Keep the two in step.
-       The inline <style> covers the gap before the CSS bundle applies (dev
-       server, slow networks) and mirrors --bg in src/styles/tokens.css. -->
+  <!-- The site is permanently dark. The inline style covers the gap before the
+       CSS bundle applies and mirrors --bg in src/styles/tokens.css. The script
+       only restores the sidebar preference (src/lib/useSidebarState.ts) before
+       paint so the rail never flashes open and then collapses. -->
   <style>
     html { background: #09090a; color-scheme: dark; }
-    html[data-theme="light"] { background: #ffffff; color-scheme: light; }
   </style>
   <script>
     (function () {
       var root = document.documentElement;
-      var theme = "dark";
-      try {
-        var stored = localStorage.getItem("theme");
-        if (stored === "light" || stored === "dark" || stored === "system") theme = stored;
-      } catch (e) {}
-      var resolved = theme;
-      if (theme === "system") {
-        resolved = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-      }
-      root.setAttribute("data-theme", resolved);
-      root.classList.toggle("dark", resolved === "dark");
-      root.style.colorScheme = resolved;
-      // Sidebar preference (src/lib/useSidebarState.ts): restored before paint so the
-      // rail never flashes open and then collapses.
+      root.setAttribute("data-theme", "dark");
+      root.classList.add("dark");
       try {
         if (localStorage.getItem("sidebar") === "collapsed") root.setAttribute("data-sidebar", "collapsed");
       } catch (e) {}
-      var meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) {
-        meta.removeAttribute("media");
-        meta.setAttribute("content", resolved === "light" ? "#ffffff" : "#09090a");
-      }
     })();
   </script>
 </head>

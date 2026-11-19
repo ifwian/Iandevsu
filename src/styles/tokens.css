@@ -6,20 +6,13 @@
    else.
 
    How a theme is selected
-     <html data-theme="dark|light"> is the switch. `ThemeProvider`
-     (src/lib/theme.tsx) owns it, and the inline script in index.html sets it
-     before first paint so there is no wrong-theme flash.
-
-   Dark is the default. The un-attributed `:root` IS the dark theme, so the page
-   is dark even before JavaScript runs or if the attribute is missing. Light is
-   the override. There is deliberately no `prefers-color-scheme` copy of the
-   palette: the provider resolves "system" to a concrete attribute in JS, which
-   removes the second (drift-prone) copy of every value that used to live here.
+     The site is permanently dark. `:root` IS the dark theme; there is no
+     theme switch, no light palette and no `prefers-color-scheme` copy.
 
    Layers
      1. Primitives   --bg, --ink, --gray-50..950, status + accent colours
      2. Semantic     --surface, --border, --text-muted ... what components use
-     3. Mechanics    colour-scheme, switch transitions, view-transition reveal
+     3. Mechanics    colour-scheme, page background
    ========================================================================== */
 
 /* ---------- 1. Primitives: DARK (default) ---------- */
@@ -66,44 +59,6 @@
   --shadow-toast: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
-/* ---------- 1. Primitives: LIGHT ---------- */
-:root[data-theme="light"] {
-  color-scheme: light;
-
-  --bg: #ffffff;
-  --ink: #0a0a0a;
-
-  --gray-50: #fafafa;
-  --gray-100: #f4f4f5;
-  --gray-200: #e4e4e7;
-  --gray-300: #d4d4d8;
-  --gray-400: #6b6b73;
-  --gray-500: #52525a;
-  --gray-600: #3f3f46;
-  --gray-700: #2b2b30;
-  --gray-800: #1f1f23;
-  --gray-900: #131316;
-  --gray-950: #0a0a0a;
-
-  --accent: #0a0a0a;
-  --accent-hover: #2b2b30;
-  --accent-on: #ffffff;
-
-  --status-active: #2f6f2f;
-  --status-waiting: #8a6412;
-  --status-assigned: #3f5aa6;
-  --status-error: #b42323;
-
-  --shadow-color: 0, 0, 0;
-  --shadow-resting: 0 8px 22px -14px rgba(0, 0, 0, 0.25);
-  --shadow-hover: 0 18px 36px -20px rgba(0, 0, 0, 0.4);
-  --shadow-modal: 0 40px 90px -20px rgba(0, 0, 0, 0.35);
-  --halftone-dot-color: rgba(10, 10, 10, 0.9);
-
-  --overlay: rgba(10, 10, 12, 0.45);
-  --shadow-toast: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
 /* ---------- 2. Semantic tokens ----------
    Declared once, on :root. They alias the primitives, so they follow the active
    theme without a second per-theme block. Components should prefer these names
@@ -122,7 +77,6 @@
    against the surface. The decorative hairline above does not meet that, so
    inputs get their own token. */
 :root { --input-border: #6b6b75; }
-:root[data-theme="light"] { --input-border: #85858d; }
 
 /* ---------- 3. Mechanics ---------- */
 html {
@@ -132,68 +86,4 @@ html {
 body {
   background-color: var(--bg);
   color: var(--ink);
-}
-
-/*
- * Smooth switch, without a permanent `transition` on every element.
- *
- * Three cases, chosen by ThemeProvider at the moment of the change:
- *  - Magic UI view-transition reveal (circular wipe): the toggler marks
- *    <html data-magicui-theme-vt>. The live DOM must NOT also fade underneath,
- *    or the new-theme snapshot is captured mid-fade. Transitions are held off.
- *  - No view-transition support: `theme-fading` adds a short colour crossfade.
- *  - prefers-reduced-motion: `theme-freeze` swaps instantly for one frame.
- */
-:root.theme-fading,
-:root.theme-fading *,
-:root.theme-fading *::before,
-:root.theme-fading *::after {
-  transition:
-    background-color 0.35s ease,
-    border-color 0.35s ease,
-    color 0.35s ease,
-    fill 0.35s ease,
-    stroke 0.35s ease,
-    box-shadow 0.35s ease !important;
-}
-
-:root.theme-freeze,
-:root.theme-freeze *,
-:root.theme-freeze *::before,
-:root.theme-freeze *::after,
-:root[data-magicui-theme-vt],
-:root[data-magicui-theme-vt] *,
-:root[data-magicui-theme-vt] *::before,
-:root[data-magicui-theme-vt] *::after {
-  transition: none !important;
-}
-
-/* Magic UI animated-theme-toggler: the component animates the clip-path of the
-   new snapshot from JS; this is the CSS half it expects. */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-:root[data-magicui-theme-vt="active"]::view-transition-group(root) {
-  animation-duration: var(--magicui-theme-toggle-vt-duration, 400ms);
-}
-
-:root[data-magicui-theme-vt="active"]::view-transition-old(root) {
-  z-index: 1;
-}
-
-:root[data-magicui-theme-vt="active"]::view-transition-new(root) {
-  z-index: 2;
-  clip-path: var(--magicui-theme-vt-clip-from);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :root.theme-fading,
-  :root.theme-fading *,
-  :root.theme-fading *::before,
-  :root.theme-fading *::after {
-    transition: none !important;
-  }
 }

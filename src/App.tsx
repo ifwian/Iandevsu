@@ -4,7 +4,6 @@ import { initDos } from "./dos/dos";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import Hero from "@/components/sections/Hero";
-import AboutMe from "@/components/sections/AboutMe";
 import Projects from "@/components/sections/Projects";
 import TechStackShowcase from "@/components/sections/TechStackShowcase";
 import LifeOutsideIDE from "@/components/sections/LifeOutsideIDE";
@@ -67,7 +66,6 @@ function Home() {
           keeps /chat-inbox inside 4xl. */}
       <div>
         <Hero />
-        <AboutMe />
         <Projects />
         <TechStackShowcase />
         <LifeOutsideIDE />

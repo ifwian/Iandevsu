@@ -27,7 +27,7 @@ export default function Projects() {
       <div className="w-full max-w-4xl mx-auto">
         <div className="section-shell">
           <div className="section-shell-bar">
-            <p className="section-eyebrow">03 &mdash; projects</p>
+            <p className="section-eyebrow">02 &mdash; projects</p>
           </div>
 
 

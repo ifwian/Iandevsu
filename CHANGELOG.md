@@ -1,3 +1,13 @@
+## Final polish
+
+- Site is permanently dark: the light/dark toggle, `ThemeProvider`, the light palette and all theme-switch code/styles are removed.
+- Hero intro replaced with a single junior-developer paragraph; name-to-intro spacing tightened; the separate closing quote is gone.
+- About section removed (component, styles, nav entry, Dos tour stop and remark); sections renumbered 01-06.
+- "view projects" now lands the section at the top of the screen and plays its entrance from the top down (`lib/anchorNav.ts`); sidebar links use the same helper.
+- Sidebar: email shortcut and back-to-top button added, theme toggle removed; mobile top bar has 44px touch targets and a scrollable menu.
+- "Outside the IDE" is a two-column tile grid on phones.
+- Project folder renamed `iandevsu` -> `ifwian` (package name updated).
+
 ## Hero wordmark + terminal removal
 
 - Wordmark fix: it was ~300px wide because `.hero-column` is `align-items: flex-start` (the h1 shrink-wrapped and a canvas has no content width). The h1 now stretches to the column, the name is drawn in the body face (Geist 500, not Geist Pixel) at up to 120px, and the box is up to 8rem tall.

@@ -146,11 +146,6 @@ const TOUR_STOPS = [
     hold: 4200,
   },
   {
-    id: "about",
-    line: "first, the human. cs student, builder, professional yearner.",
-    hold: 5200,
-  },
-  {
     id: "projects",
     line: "the things ian is building. check the projects.",
     hold: 5400,
@@ -270,7 +265,6 @@ const DEFAULTS = {
   sleepMessages: ["five more minutes.", "zzz.", "don't wake the cat."],
   /** Rare one-liners when a section first scrolls to the middle of the screen (once each, never during a tour). */
   sectionRemarks: {
-    about: ["that's the human.", "she's nicer than the bio sounds."],
     projects: ["i supervised all of these.", "click one. they don't bite."],
     stack: ["i don't know what half of these do."],
     life: ["the cat in the photos is better looking."],
@@ -858,7 +852,7 @@ export function initDos(userOptions = {}) {
       y: clamp(hr.top + 110, S, vh - S * 1.5),
     };
     let B = null;
-    const card = el.querySelector(".card, .project-card, .build-panel, .about-widget");
+    const card = el.querySelector(".card, .project-card, .build-panel");
     if (card) {
       const r = finalRect(card, finalY);
       const by = r.top + Math.min(r.height / 2, 140);
@@ -1530,14 +1524,6 @@ export function initDos(userOptions = {}) {
   // ---------------------------------------------------------------- main loop
   function frame(now) {
     raf = requestAnimationFrame(frame);
-
-    // A theme crossfade/reveal is playing. She stays on screen, fully opaque and
-    // in place, but every per-frame write is skipped: the view transition
-    // snapshots the page once, and a `transform` that changes between the
-    // snapshot and the composite is what makes a moving sprite smear across the
-    // wipe. Holding the loop costs nothing visually -- the pause is shorter than
-    // the fade -- and the frame after it resumes from the same state.
-    if (window.__themeTransitioning) return;
 
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;

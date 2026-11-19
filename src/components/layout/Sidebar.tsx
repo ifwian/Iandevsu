@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FileText, MapPin, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { ArrowUp, FileText, Mail, MapPin, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { SOCIAL_ITEMS } from "@/lib/socials";
 import { PROFILE } from "@/content/profile";
 import { useSidebarState } from "@/lib/useSidebarState";
-import ThemeToggle from "./ThemeToggle";
+import { anchorClick } from "@/lib/anchorNav";
 import { RailTooltip, useRailTooltip } from "./RailTooltip";
 import "./sidebar.css";
 
@@ -28,6 +28,7 @@ function Brand({ collapsed = false, withTagline = false, tipProps }: { collapsed
         href="#home"
         aria-label={`${PROFILE.name}, back to top`}
         className="rail__name rail__name--mono"
+        onClick={(e) => anchorClick(e, "#home")}
         {...tipProps?.(PROFILE.name.toLowerCase())}
       >
         {PROFILE.name.trim().charAt(0).toLowerCase()}
@@ -36,7 +37,7 @@ function Brand({ collapsed = false, withTagline = false, tipProps }: { collapsed
   }
   return (
     <div className="rail__brand">
-      <a href="#home" aria-label="Back to top" className="rail__name">
+      <a href="#home" aria-label="Back to top" className="rail__name" onClick={(e) => anchorClick(e, "#home")}>
         {PROFILE.name}
       </a>
       {withTagline ? <p className="rail__tag">{PROFILE.tagline}</p> : null}
@@ -67,7 +68,10 @@ function NavList({
           key={href}
           href={href}
           aria-current={active === href ? "location" : undefined}
-          onClick={() => onNavigate(href)}
+          onClick={(e) => {
+            anchorClick(e, href);
+            onNavigate(href);
+          }}
           className="rail__link"
           {...(collapsed ? tipProps?.(label) : {})}
         >
@@ -103,7 +107,35 @@ function Socials({ tipProps }: { tipProps?: TipProps }) {
           </a>
         </li>
       ))}
+      {PROFILE.links.email ? (
+        <li>
+          <a
+            href={`mailto:${PROFILE.links.email}`}
+            aria-label="Email"
+            title={tipProps ? undefined : "email"}
+            className="rail__icon"
+            {...tipProps?.("email")}
+          >
+            <Mail size={17} strokeWidth={1.7} />
+          </a>
+        </li>
+      ) : null}
     </ul>
+  );
+}
+
+/** Back-to-top control for the rail footer. */
+function TopButton({ tipProps }: { tipProps?: TipProps }) {
+  return (
+    <button
+      type="button"
+      aria-label="Back to top"
+      className="rail__icon rail__top"
+      onClick={() => anchorClick({ preventDefault() {}, metaKey: false, ctrlKey: false, shiftKey: false, button: 0 }, "#home")}
+      {...tipProps?.("back to top")}
+    >
+      <ArrowUp size={16} strokeWidth={1.7} aria-hidden="true" />
+    </button>
   );
 }
 
@@ -189,6 +221,14 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
     setMenuOpen(false);
   };
 
+  // A menu left open must not survive a switch to the desktop rail.
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => mq.matches && setMenuOpen(false);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
   const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
 
@@ -238,7 +278,7 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
         <div className="rail__block rail__block--last">
           <div className="rail__foot">
             <Socials tipProps={collapsed ? tipProps : undefined} />
-            <ThemeToggle bare compact />
+            <TopButton tipProps={collapsed ? tipProps : undefined} />
           </div>
         </div>
       </aside>
@@ -249,7 +289,6 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
         <div className="topbar__row">
           <Brand />
           <div className="flex items-center gap-2">
-            <ThemeToggle compact />
             <button
               ref={menuButtonRef}
               type="button"
@@ -257,15 +296,15 @@ export default function Sidebar({ active = "#home" }: SidebarProps) {
               aria-expanded={menuOpen}
               aria-controls="mobile-nav"
               onClick={() => setMenuOpen((open) => !open)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)] transition-colors hover:text-[var(--ink)]"
+              className="topbar__btn"
             >
-              {menuOpen ? <X size={16} strokeWidth={1.7} /> : <Menu size={16} strokeWidth={1.7} />}
+              {menuOpen ? <X size={18} strokeWidth={1.7} /> : <Menu size={18} strokeWidth={1.7} />}
             </button>
           </div>
         </div>
 
         {menuOpen ? (
-          <div id="mobile-nav" className="topbar__menu">
+          <div id="mobile-nav" className="topbar__menu" data-dos-avoid>
             <NavList active={current} onNavigate={go} />
             <div className="rail__block" style={{ borderBottom: 0 }}>
               <Socials />

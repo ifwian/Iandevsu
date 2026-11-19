@@ -1,9 +1,9 @@
 /**
  * The hero section's copy, in one place: the role eyebrow above the name, the
- * pitch under it, the quote under that, and the GitHub figures the stat strip
+ * intro under it, and the GitHub figures the stat strip
  * cannot derive.
  *
- * The role and the two prose sentences are stored as they render -- sentence
+ * The role and the intro are stored as they render -- sentence
  * case, no `text-transform` either way -- so the strings in this file are
  * literally the strings on the page.
  *
@@ -20,16 +20,13 @@
 export interface HeroContent {
   /** The role line, an eyebrow above the name. Sentence case, middot-separated. */
   role: string;
-  /** The pitch under the name: what she builds, as one sentence. */
+  /** The intro under the name: who she is, in her own voice. */
   pitch: string;
-  /** The closing sentence under the pitch: same paragraph format as the pitch. */
-  quote: string;
   /**
    * The stat strip's two GitHub figures.
    *
    * The strip's project counts are derived from `content/projects.ts`; these
-   * two cannot be, because the site has no reusable GitHub feed (the activity
-   * section fetches a contribution calendar, which carries neither). They are
+   * two cannot be, because the site has no reusable GitHub feed. They are
    * maintained by hand: bump them when they drift. "105+" is deliberately a
    * floor, not a ledger.
    */
@@ -42,9 +39,7 @@ export interface HeroContent {
 export const HERO: HeroContent = {
   role: "Computer Science student · Web developer",
   pitch:
-    "I design and build responsive websites and web applications, with a focus on clean interfaces and maintainable code.",
-  quote:
-    "I work across the stack, from interface to database, and ship real projects while learning something new with every build.",
+    "I'm a junior developer who enjoys building things, experimenting with ideas, and occasionally creating projects I probably don't need. Mostly because it's fun, and there's always something new to learn.",
   github: {
     repos: "12 Public",
     commits: "105+",

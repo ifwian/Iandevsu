@@ -50,7 +50,7 @@ export default function BlogSection() {
       <div className="w-full max-w-4xl mx-auto">
         <div className="section-shell">
           <div className="section-shell-bar">
-            <p className="section-eyebrow">07 &mdash; blog</p>
+            <p className="section-eyebrow">06 &mdash; blog</p>
           </div>
 
 

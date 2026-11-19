@@ -15,6 +15,8 @@ export const PROFILE = {
   availability: "open to opportunities",
   location: "Calamba, Philippines",
   links: {
+    /** Contact address for the sidebar's mail shortcut (same address the chat API notifies). */
+    email: "iandevsu@gmail.com",
     /**
      * Paste the resume/CV URL here and the sidebar's "view resume" pill appears.
      * Left empty rather than pointed at a guessed path: a link that 404s is

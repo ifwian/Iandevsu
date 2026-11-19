@@ -63,8 +63,7 @@ html :is(
   .chat-typing-bubble,
   .chat-reaction-chip[aria-pressed="true"],
   .inbox-seg-item[aria-pressed="true"],
-  .inbox-msg[data-side="out"] .inbox-bubble,
-  .about-widget:hover .about-widget-dot
+  .inbox-msg[data-side="out"] .inbox-bubble
 ) {
   background-color: var(--accent);
   border-color: var(--accent);
@@ -108,7 +107,6 @@ html :is(
 html :is(
   .card:hover,
   .terminal-pill:hover,
-  .about-widget:hover,
   .pill:hover,
   .ui-button--outline:hover,
   .ui-input:focus,
