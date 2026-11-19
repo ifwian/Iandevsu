@@ -134,6 +134,9 @@
    * expanded chat panel. 16rem matches the reference layout.
    */
   --sidebar-w: 16rem;
+  --sidebar-w-collapsed: 4.25rem; /* icon rail: 2.45rem of control + 0.9rem gutters */
+  --rail-dur: 0.32s;              /* expand / collapse, shared by rail, content offset and tooltip */
+  --content-max: 56rem;           /* reading column; widens when the rail collapses */
 
   /* Adopted from Vurios/portfolio, stacks copied from its css/styles.css so the
      two projects resolve an unavailable face identically. Geist Mono and Geist

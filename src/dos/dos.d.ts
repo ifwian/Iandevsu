@@ -61,6 +61,10 @@ export interface DosOptions {
   releaseMessages?: string[];
   wakeMessages?: string[];
   sleepMessages?: string[];
+  /** One-liners per section id (about, projects, ...), said once when it first reaches mid-screen. Never during a tour. */
+  sectionRemarks?: Record<string, string[]>;
+  /** Minimum gap between two section remarks, ms. */
+  remarkGap?: number;
 }
 
 export interface DosController {

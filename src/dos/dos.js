@@ -108,6 +108,26 @@ const SPRITES = {
   NW: [[-1, 0], [-1, -1]],
 };
 
+/**
+ * Which behavioural state each sprite set belongs to. The sprite name says what
+ * to draw; the state says what she is DOING, and is exposed as `data-pose` on
+ * the root so styles, tests and future behaviour can key off it. Walk versus
+ * run is decided at write time from her current speed (see poseState()).
+ * Frames verified against the 8 x 4 sheet: idle (3,3) is the front-facing sit,
+ * tired (3,2) the yawn, alert (7,3) the startle, sleeping (2,0)/(2,1) the nap.
+ */
+const POSE_STATE = {
+  idle: "sit",
+  tired: "yawn",
+  alert: "alert",
+  sleeping: "sleep",
+  scratchSelf: "scratch",
+  scratchWallN: "scratch",
+  scratchWallS: "scratch",
+  scratchWallE: "scratch",
+  scratchWallW: "scratch",
+};
+
 const WALL_FOR_SIDE = { l: "scratchWallW", r: "scratchWallE", t: "scratchWallN", b: "scratchWallS" };
 
 /**
@@ -248,6 +268,17 @@ const DEFAULTS = {
   releaseMessages: ["new spot. approved.", "i'll allow it.", "ok."],
   wakeMessages: ["...i wasn't sleeping.", "five more minutes.", "huh?"],
   sleepMessages: ["five more minutes.", "zzz.", "don't wake the cat."],
+  /** Rare one-liners when a section first scrolls to the middle of the screen (once each, never during a tour). */
+  sectionRemarks: {
+    about: ["that's the human.", "she's nicer than the bio sounds."],
+    projects: ["i supervised all of these.", "click one. they don't bite."],
+    stack: ["i don't know what half of these do."],
+    life: ["the cat in the photos is better looking."],
+    github: ["the yearner commits."],
+    blog: ["words. occasionally useful ones."],
+  },
+  /** Minimum gap between two section remarks, ms. */
+  remarkGap: 30000,
   /** Said when the cursor rests on her long enough to pet her. */
   petMessages: ["pet me, i purr.", "purr.", "again.", "okay, that's nice."],
 };
@@ -336,6 +367,10 @@ export function initDos(userOptions = {}) {
   const pointer = { x: 0, y: 0, active: false, t: 0, vx: 0, vy: 0 };
   let drag = null;
   let hot = false;
+  let bubbleGeom = null; // last placed bubble box, relative to the sprite: lets the frame loop keep it on screen without layout reads
+  let blockedFrames = 0; // consecutive frames the clamp stopped her from making progress
+  let blockedKey = ""; // the target those frames were spent on
+  let hopSprite = "alert"; // what she wears in the air: startled for a poke, seated for a tour arrival
   const hop = { y: 0, vy: 0 }; // vertical offset (px, negative = up) of the poke / drop hop
   let hopApplied = false;
 
@@ -374,6 +409,9 @@ export function initDos(userOptions = {}) {
   // prompt then recurs in the rotation so a visitor who misses it can still
   // find it without the cat ever starting the tour by itself.
   let introTimer = 0;
+  let remarkObserver = null; // watches sections so she can comment on them, once each
+  let lastRemarkAt = 0;
+  const remarked = new Set();
   let tourTimer = 0;
   let touring = false;
   let tourIndex = 0;
@@ -524,6 +562,8 @@ export function initDos(userOptions = {}) {
   function setSprite(name, frame = 0) {
     const set = SPRITES[name];
     cur = set[frame % set.length];
+    const state = drag && name === "scratchWallN" ? "carried" : POSE_STATE[name] || (chaseSpeed > opts.speed * 1.35 ? "run" : "walk");
+    if (root.dataset.pose !== state) root.dataset.pose = state;
     sprite.style.backgroundPosition = `${cur[0] * FRAME * opts.scale}px ${cur[1] * FRAME * opts.scale}px`;
     const alertPose = name === "alert";
     if (alertPose !== isHop) {
@@ -586,6 +626,25 @@ export function initDos(userOptions = {}) {
     Math.max(0, Math.min(l + w, r.right) - Math.max(l, r.left)) *
     Math.max(0, Math.min(t + h, r.bottom) - Math.max(t, r.top));
 
+  /** Every frame while she moves: slide the bubble back inside the viewport. placeBubble() (every few ticks) picks the side; this only stops it lagging off the edge. */
+  function keepBubbleOnScreen() {
+    const g = bubbleGeom;
+    if (!g || !bubble.classList.contains("is-visible")) return;
+    const pad = 8;
+    const base = Math.round(x - S / 2);
+    const baseY = Math.round(y - S / 2);
+    const l = clamp(base + g.l, pad, g.vw - g.w - pad) - base;
+    const t = clamp(baseY + g.t, pad, g.vh - g.h - pad) - baseY;
+    if (l !== g.l) {
+      g.l = l;
+      bubble.style.left = `${l}px`;
+    }
+    if (t !== g.t) {
+      g.t = t;
+      bubble.style.top = `${t}px`;
+    }
+  }
+
   function placeBubble(force) {
     const bw = bubble.offsetWidth;
     const bh = bubble.offsetHeight;
@@ -629,6 +688,7 @@ export function initDos(userOptions = {}) {
     bubbleChoice = chosen.i;
     bubble.style.left = `${chosen.l - left0}px`;
     bubble.style.top = `${chosen.t - top0}px`;
+    bubbleGeom = { w: bw, h: bh, l: chosen.l - left0, t: chosen.t - top0, vw, vh };
     bubble.dataset.side = chosen.side;
     const vertical = chosen.side === "top" || chosen.side === "bottom";
     const tail = vertical ? clamp(cx - chosen.l, 14, bw - 14) : clamp(cy - chosen.t, 12, bh - 12);
@@ -832,7 +892,7 @@ export function initDos(userOptions = {}) {
     const dur = clamp(Math.max(scrollDist * 0.55, (walkDist / 170) * 1000), 1000, 3200);
     tourScroll = scrollDist > 2 ? { from: window.scrollY, to: finalY, t0: performance.now(), dur } : null;
     tour = { stop, wp, phase: "walk", t: 0 };
-    tourTarget = { kind: "tour", x: wp[0].x, y: wp[0].y, stop: 10 };
+    tourTarget = { kind: "tour", x: clamp(wp[0].x, bounds.minX, bounds.maxX), y: clamp(wp[0].y, bounds.minY, bounds.maxY), stop: 10 };
 
     // She starts talking as she sets off, and the bubble rides along with her.
     const line = idleOnly && stop.mobileLine ? stop.mobileLine : stop.line;
@@ -853,13 +913,14 @@ export function initDos(userOptions = {}) {
         if (arrived) {
           tour.phase = "talk";
           tour.t = now;
-          hop.vy = -300; // a little hop on arrival: "here it is"
+          hopSprite = "idle"; // she stays seated in the air: arriving is not a startle
+          hop.vy = -260; // a little hop on arrival: "here it is"
         }
         break;
       case "talk":
         if (tour.wp[1] && now - tour.t > hold * 0.5) {
           tour.phase = "stroll";
-          tourTarget = { kind: "tour", x: tour.wp[1].x, y: tour.wp[1].y, stop: 10 };
+          tourTarget = { kind: "tour", x: clamp(tour.wp[1].x, bounds.minX, bounds.maxX), y: clamp(tour.wp[1].y, bounds.minY, bounds.maxY), stop: 10 };
         } else if (!tour.wp[1] && now - tour.t > hold) {
           tourStep();
         }
@@ -1119,7 +1180,7 @@ export function initDos(userOptions = {}) {
       idleTime = 0;
       resetIdle();
       if (drag) setSprite("scratchWallN", Math.floor(frameCount / 2));
-      else setSprite("alert", 0);
+      else setSprite(hopSprite, 0);
       return;
     }
 
@@ -1146,7 +1207,12 @@ export function initDos(userOptions = {}) {
     const dx = x - target.x;
     const dy = y - target.y;
     const dist = Math.hypot(dx, dy);
-    if (dist <= target.stop) {
+    const pinned = blockedFrames > 8 && key0(target) === blockedKey;
+    if (dist <= target.stop || pinned) {
+      if (pinned && target.kind === "tour" && tourTarget) {
+        tourTarget.x = x; // the spot is unreachable: this is where she stops
+        tourTarget.y = y;
+      }
       if (target.kind === "home") returning = false;
       idleTick(target);
       return;
@@ -1183,6 +1249,8 @@ export function initDos(userOptions = {}) {
     runDir = dir || "idle";
   }
 
+  const key0 = (t) => `${Math.round(t.x)},${Math.round(t.y)}`;
+
   function move(dt) {
     if (!running || drag) return;
     const target = computeTarget();
@@ -1198,15 +1266,28 @@ export function initDos(userOptions = {}) {
     const wanted = opts.speed + (opts.sprintSpeed - opts.speed) * Math.min(1, gap / opts.sprintRamp);
     chaseSpeed += (wanted - chaseSpeed) * Math.min(1, dt * 12);
     const step = Math.min(chaseSpeed * dt, gap);
+    const fromX = x;
+    const fromY = y;
     x += (dx / dist) * step;
     y += (dy / dist) * step;
     clampToBounds();
+    // A target outside her bounds can never be reached: the clamp eats every
+    // step. Count those frames so tick() can call it an arrival and sit her
+    // down, instead of leaving her frozen mid-stride against the wall.
+    const key = `${Math.round(target.x)},${Math.round(target.y)}`;
+    if (key !== blockedKey) {
+      blockedKey = key;
+      blockedFrames = 0;
+    }
+    blockedFrames = Math.hypot(x - fromX, y - fromY) < step * 0.25 ? blockedFrames + 1 : 0;
 
     // The gait: one pose swap per STRIDE px actually travelled, so the legs
     // quicken with the sprint ramp and hold still as she eases in.
+    // Sprinting shortens the stride, so the same sprite pair cycles faster: a run.
+    const stride = chaseSpeed > opts.speed * 1.35 ? STRIDE * 0.7 : STRIDE;
     strideAcc += step;
-    while (strideAcc >= STRIDE) {
-      strideAcc -= STRIDE;
+    while (strideAcc >= stride) {
+      strideAcc -= stride;
       walkFrame++;
     }
     const pose = `${runDir}:${walkFrame}`;
@@ -1258,6 +1339,7 @@ export function initDos(userOptions = {}) {
     startleAt = performance.now();
     resetIdle();
     petTicks = 0;
+    hopSprite = "alert";
     hop.vy = -420;
     setSprite("alert", 0);
   }
@@ -1413,7 +1495,8 @@ export function initDos(userOptions = {}) {
         setFollowing(false); // stopInPlace cancels the hop, so she stays put
         say(pick(opts.stayMessages), 28);
       } else {
-        hop.vy = -420;
+        hopSprite = "alert";
+    hop.vy = -420;
         setFollowing(true);
         say(pick(opts.followMessages), 28);
       }
@@ -1537,6 +1620,7 @@ export function initDos(userOptions = {}) {
     checkPetting(dt);
     stepHop(dt);
     applyHop();
+    if (running || touring) keepBubbleOnScreen();
     root.style.transform = `translate3d(${Math.round(x - S / 2)}px, ${Math.round(y - S / 2)}px, 0)`;
   }
 
@@ -1609,6 +1693,7 @@ export function initDos(userOptions = {}) {
     root.style.transform = `translate3d(${Math.round(x - S / 2)}px, ${Math.round(y - S / 2)}px, 0)`;
     last = performance.now();
     raf = requestAnimationFrame(frame);
+    watchSections();
 
     // Let her land first, then extend the invitation. If the prompt cannot be
     // shown (e.g. another route, or she is already following), the greeting is
@@ -1624,6 +1709,32 @@ export function initDos(userOptions = {}) {
     }, 1200);
   }
 
+  /** One short comment per section, the first time it crosses the middle of the screen. Never during a tour, a nap, or another bubble. */
+  function watchSections() {
+    const remarks = opts.sectionRemarks;
+    if (!remarks || !("IntersectionObserver" in window) || remarkObserver) return;
+    remarkObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const id = entry.target.id;
+          if (!entry.isIntersecting || remarked.has(id)) continue;
+          const now = performance.now();
+          const quiet = !touring && !drag && !following && !hopActive() && bubbleTicks === 0 && idleAnim !== "sleeping" && petTicks === 0;
+          if (!quiet || now - lastRemarkAt < opts.remarkGap) continue;
+          remarked.add(id); // spent whether or not she speaks: a remark is a one-time thing
+          if (Math.random() < 0.5) continue;
+          lastRemarkAt = now;
+          say(pick(remarks[id]), opts.sayDuration);
+        }
+      },
+      { rootMargin: "-45% 0px -45% 0px", threshold: 0 },
+    );
+    for (const id of Object.keys(remarks)) {
+      const el = document.getElementById(id);
+      if (el) remarkObserver.observe(el);
+    }
+  }
+
   function start() {
     if (destroyed) return;
     resolveContainer();
@@ -1637,6 +1748,8 @@ export function initDos(userOptions = {}) {
     clearTimeout(restTimer);
     clearTimeout(introTimer);
     clearTimeout(tourTimer);
+    if (remarkObserver) remarkObserver.disconnect();
+    remarkObserver = null;
     ac.abort();
     document.documentElement.classList.remove("dos-dragging");
     root.remove();

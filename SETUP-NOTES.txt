@@ -1,4 +1,0 @@
-This is a GitHub PROFILE README, separate from the Iandevsu app repo.
-1. Create a public repo named exactly like your username: ifwian
-2. Upload README.md and the assets/ folder to it.
-3. Add assets/mikasa.gif and swap the banner line (see the comment at the top of README.md).

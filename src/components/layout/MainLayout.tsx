@@ -19,7 +19,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         tabIndex={-1}
         className="sidebar-offset w-full px-5 pb-8 pt-20 sm:pt-24 lg:px-0 lg:py-12 lg:pr-8"
       >
-        <div className="max-w-4xl mx-auto">{children}</div>
+        <div className="content-col">{children}</div>
       </main>
 
       <ScrollTopButton />

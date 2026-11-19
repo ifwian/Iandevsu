@@ -1,3 +1,22 @@
+## Hero wordmark + terminal removal
+
+- Wordmark fix: it was ~300px wide because `.hero-column` is `align-items: flex-start` (the h1 shrink-wrapped and a canvas has no content width). The h1 now stretches to the column, the name is drawn in the body face (Geist 500, not Geist Pixel) at up to 120px, and the box is up to 8rem tall.
+
+- Removed the fake terminal ("$ whoami / git log / echo") from the GitHub activity section, and the now-unused `components/ui/terminal.tsx` (no other importers).
+- Hero name is now a React Bits `TechText` wordmark inside the same `<h1>` (`components/ui/TechText.jsx/.css/.d.ts`): Geist Pixel in the theme ink, letters turn to dashed outlines under the pointer, drag/kick, a typed-in intro. Reduced-motion users get still solid letters. Two edits to the vendored source are noted at its top.
+
+## Dos + collapsible sidebar pass
+
+- Dos: every sprite set now maps to a named state (`data-pose` on `.dos`: sit, walk, run, yawn, sleep, scratch, alert, carried). Verified against the 8x4 sheet: sit is frame (3,3), yawn (3,2), alert (7,3), sleep (2,0)/(2,1).
+- Dos: fixed walking frames freezing on screen at tour stops whose spot lay outside her bounds. Waypoints are clamped, and a blocked walk now counts as arrival and sits her down.
+- Dos: tour arrival hop keeps the seated pose (it used the startled alert frame). Sprinting shortens the stride, so the run cycle is faster.
+- Dos: the speech bubble is clamped to the viewport every frame while she moves (it could drift 5-20px off-screen).
+- Dos: rare one-line remarks when a section first reaches mid-screen (once each, 50% chance, 30 s apart, never during a tour or while asleep).
+- Sidebar: collapses to an icon rail (`html[data-sidebar="collapsed"]` flips `--sidebar-w`; content offset and reading column follow). Toggle button, Ctrl/Cmd+B, preference persisted and restored before first paint, shared fixed-position tooltips (mouse hover and keyboard focus, Escape hides), reduced-motion safe.
+- Sidebar: mobile menu closes on Escape (focus returns to the menu button) and on outside press.
+- Fixed: the scroll-to-top button sat directly on the chat launcher; it now stacks above it, right-aligned, and Dos's bubble avoids it (`data-dos-avoid`).
+- New: `src/lib/useSidebarState.ts`, `src/components/layout/RailTooltip.tsx`; tokens `--sidebar-w-collapsed`, `--rail-dur`, `--content-max`.
+
 ## Polish pass
 
 - Theme switch is now an even 450ms colour crossfade (was a circular wipe that jumped).

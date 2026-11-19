@@ -126,6 +126,28 @@
   margin-top: 0.5rem;
 }
 
+/* The wordmark is a canvas: it needs a box, not a line height.
+
+   `.hero-column` is a flex column with `align-items: flex-start`, so a bare <h1>
+   shrink-wraps to its content, and a canvas has no content width: the wordmark
+   collapsed to ~300px. `align-self: stretch` gives it the column's full width, and
+   TechText fits the name to that width (and to the box height below).
+
+   The name uses the body face (Geist) rather than the display face: pixel letters
+   do not survive being drawn large and outlined. The canvas reads the computed
+   font-family, so this rule is the one place the face is chosen. */
+#home .hero-name--wordmark {
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  font-family: var(--font-body);
+  line-height: 0;
+}
+#home .hero-name--wordmark .tech-text {
+  /* Tall enough for ~85px glyphs plus the room the selection frame and specks use. */
+  height: clamp(4.5rem, 2.5rem + 7vw, 8rem);
+}
+
 /* The copy's two sentences -- the lead ("I build ...") and the closing
    ("These days, ..."). One rule, because they are one voice: body sans rather
    than the mono of the chrome around them (mono for chrome, sans for anything

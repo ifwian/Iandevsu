@@ -1,0 +1,15 @@
+.tech-text {
+  /* A span (valid inside an <h1>), laid out as a block. */
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.tech-text-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

@@ -38,7 +38,7 @@ html.motion-ready section[id]:not(#home).in-view .section-shell-bar {
 .rail__link::before {
   content: "";
   position: absolute;
-  left: -1.7rem;
+  left: calc(-1 * var(--rail-pad, 1.7rem));
   top: 20%;
   bottom: 20%;
   width: 2px;

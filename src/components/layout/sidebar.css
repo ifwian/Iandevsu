@@ -6,8 +6,11 @@
   z-index: 30;
   display: none;
   flex-direction: column;
+  --rail-pad: 1.7rem; /* horizontal gutter; the active marker in motion.css reads it too */
   width: var(--sidebar-w);
+  overflow-x: hidden;
   overflow-y: auto;
+  white-space: nowrap;
   background-color: var(--bg);
   border-right: 1px solid var(--border);
   font-family: var(--font-mono);
@@ -17,10 +20,17 @@
 }
 
 .rail__block {
-  padding: 1.1rem 1.7rem;
+  padding: 1.1rem var(--rail-pad);
   border-bottom: 1px solid var(--border);
 }
-.rail__block--brand { padding-top: 2.1rem; padding-bottom: 1.5rem; }
+.rail__block--brand {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 2.1rem;
+  padding-bottom: 1.5rem;
+}
 .rail__block--nav { padding-block: 1.25rem; }
 .rail__block--tight { padding-block: 0.9rem; }
 .rail__block--last { margin-top: auto; border-bottom: 0; border-top: 1px solid var(--border); }
@@ -133,3 +143,132 @@
 .topbar__row { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; }
 .topbar__menu { padding: 0 1.25rem 1rem; }
 .topbar__menu .rail__block { padding-inline: 0; }
+
+
+/* ==========================================================================
+   Collapsible rail. State: html[data-sidebar="collapsed"] (useSidebarState).
+   Only the token flips; the rail width and the content offset both read it.
+   ========================================================================== */
+@media (min-width: 1024px) {
+  html[data-sidebar="collapsed"] {
+    --sidebar-w: var(--sidebar-w-collapsed);
+    --content-max: 64rem; /* the freed width goes to the content, not to margins */
+  }
+}
+
+.content-col {
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+}
+
+/* Transitions switch on after mount (html.sidebar-ready), so a restored
+   preference never animates on load. */
+html.sidebar-ready .rail { transition: width var(--rail-dur) var(--ease-out); }
+html.sidebar-ready .sidebar-offset { transition: padding-left var(--rail-dur) var(--ease-out); }
+html.sidebar-ready .content-col { transition: max-width var(--rail-dur) var(--ease-out); }
+
+.rail__brand { min-width: 0; }
+
+.rail__toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), background-color 0.2s var(--ease-out);
+}
+.rail__toggle:hover { color: var(--ink); border-color: var(--border-strong); background-color: var(--surface-raised); }
+
+.rail__toggle:focus-visible,
+.rail__link:focus-visible,
+.rail__icon:focus-visible,
+.rail__resume:focus-visible,
+.rail__name:focus-visible {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 2px;
+}
+
+/* ---- collapsed ---- */
+.rail--collapsed { --rail-pad: 0.9rem; }
+
+.rail--collapsed .rail__block--brand {
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1.5rem;
+  padding-bottom: 1.1rem;
+}
+.rail__name--mono {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+/* The label stays for assistive tech; only the visuals drop out. */
+.rail--collapsed .rail__text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.rail--collapsed .rail__meta { justify-content: center; }
+.rail--collapsed .rail__meta + .rail__meta { margin-top: 0.7rem; }
+
+.rail--collapsed .rail__link {
+  align-items: center;
+  justify-content: center;
+  height: 2.45rem;
+  margin-block: 0.1rem;
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+.rail--collapsed .rail__link:hover { transform: none; }
+.rail--collapsed .rail__link:hover,
+.rail--collapsed .rail__link[aria-current="location"] { background-color: var(--surface-raised); }
+
+.rail--collapsed .rail__resume { height: 2.45rem; padding: 0; }
+.rail--collapsed .rail__foot { flex-direction: column; gap: 0.85rem; }
+.rail--collapsed .rail__socials { flex-direction: column; margin-left: 0; gap: 0.15rem; }
+
+/* ---- tooltip (one shared, fixed element: the rail's overflow would clip an absolute one) ---- */
+.rail-tip {
+  position: fixed;
+  z-index: 60;
+  transform: translateY(-50%);
+  max-width: 16rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--ink);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  animation: rail-tip-in 0.14s var(--ease-out);
+}
+@keyframes rail-tip-in {
+  from { opacity: 0; transform: translateY(-50%) translateX(-4px); }
+}
+@media (max-width: 1023px) { .rail-tip { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rail, .sidebar-offset, .content-col { transition: none !important; }
+  .rail-tip { animation: none; }
+}

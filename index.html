@@ -156,6 +156,11 @@
       root.setAttribute("data-theme", resolved);
       root.classList.toggle("dark", resolved === "dark");
       root.style.colorScheme = resolved;
+      // Sidebar preference (src/lib/useSidebarState.ts): restored before paint so the
+      // rail never flashes open and then collapses.
+      try {
+        if (localStorage.getItem("sidebar") === "collapsed") root.setAttribute("data-sidebar", "collapsed");
+      } catch (e) {}
       var meta = document.querySelector('meta[name="theme-color"]');
       if (meta) {
         meta.removeAttribute("media");
