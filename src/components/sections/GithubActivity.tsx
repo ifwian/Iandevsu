@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 const GITHUB_USERNAME = "ifwian";
+const YEAR = new Date().getFullYear();
 
 interface ContributionDay {
   date: string;
@@ -69,7 +70,7 @@ export default function GithubActivity() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`https://github-contributions-api.jogruber.de/v4/${GITHUB_USERNAME}?y=2026`);
+        const res = await fetch(`https://github-contributions-api.jogruber.de/v4/${GITHUB_USERNAME}?y=${YEAR}`);
         if (!res.ok) throw new Error(`Request failed: ${res.status}`);
         const data: ApiResponse = await res.json();
         const contributions = data.contributions ?? [];
@@ -134,7 +135,7 @@ export default function GithubActivity() {
             site's own floor for reading copy, and two steps below every other
             section's lede. */}
         <p className="section-lede">
-          A snapshot of my contribution history for 2026.
+          A snapshot of my contribution history for {YEAR}.
         </p>
 
         {/* Card Container. `.card` is the whole treatment: it already carries the
@@ -256,7 +257,7 @@ export default function GithubActivity() {
               {error
                 ? "Couldn't load live GitHub activity right now — check back later."
                 : total !== null
-                  ? `${total.toLocaleString()} contributions in 2026`
+                  ? `${total.toLocaleString()} contributions in ${YEAR}`
                   : "Loading contribution activity…"}
             </p>
 

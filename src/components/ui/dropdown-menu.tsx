@@ -16,7 +16,7 @@ import {
   type Ref,
 } from "react";
 import { createPortal } from "react-dom";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 
 /**
  * A dropdown menu with shadcn/ui's composition API and no Radix underneath.

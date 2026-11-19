@@ -11,7 +11,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
  * which surfaces as a top-level `FUNCTION_INVOCATION_FAILED`. Keeping this
  * file self-contained removes that whole failure mode.
  *
- * Keep in sync with `content/profile.ts` (used by the front-end).
+ * The front-end's `content/profile.ts` carries only the chrome copy (name,
+ * tagline, links); the persona facts below live here.
  */
 const PROFILE = {
   name: "Marianne Napaño",

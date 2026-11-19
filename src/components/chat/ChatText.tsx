@@ -26,7 +26,7 @@ const ORDERED = /^\s*\d{1,3}[.)]\s+(.*)$/;
 const FENCE = /^\s*```/;
 const HEADING = /^\s*#{1,6}\s+(.*)$/;
 
-export function parseBlocks(text: string): Block[] {
+function parseBlocks(text: string): Block[] {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const blocks: Block[] = [];
   let i = 0;

@@ -4,10 +4,9 @@
  * (`pages/ChatInboxPage.tsx`).
  *
  * Anything the two surfaces have to agree on byte-for-byte lives here: the
- * reaction keys sent over the wire, the four status states, the route ->
- * activity-label mapping, and the timestamp formats. Keeping them in one file
- * is what stops the widget from rendering "9:42 AM" while the inbox renders
- * "09:42" for the same row.
+ * reaction keys sent over the wire, the route -> activity-label mapping, and
+ * the timestamp formats. Keeping them in one file is what stops the widget
+ * from rendering "9:42 AM" while the inbox renders "09:42" for the same row.
  */
 
 /* -------------------------------------------------------------------------- */
@@ -19,7 +18,7 @@ export type ReactionKind = "thumbs_up" | "heart";
 export const REACTION_KINDS: readonly ReactionKind[] = ["thumbs_up", "heart"];
 
 /** Must match `chat_message_reactions.kind` in the Supabase migration. */
-export function isReactionKind(value: unknown): value is ReactionKind {
+function isReactionKind(value: unknown): value is ReactionKind {
   return value === "thumbs_up" || value === "heart";
 }
 
@@ -51,43 +50,6 @@ export function isReaction(value: unknown): value is Reaction {
 /** Key for lookups by message, since bigint ids may arrive as number or string. */
 export function reactionKey(messageId: string | number, kind: ReactionKind, actor: string): string {
   return `${String(messageId)}|${kind}|${actor}`;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Conversation status                                                        */
-/* -------------------------------------------------------------------------- */
-
-export type ConversationStatus = "active" | "waiting" | "assigned" | "resolved";
-
-export const CONVERSATION_STATUSES: readonly ConversationStatus[] = [
-  "active",
-  "waiting",
-  "assigned",
-  "resolved",
-];
-
-export function isConversationStatus(value: unknown): value is ConversationStatus {
-  return CONVERSATION_STATUSES.includes(value as ConversationStatus);
-}
-
-interface StatusPresentation {
-  label: string;
-  color: string;
-}
-
-const STATUS_PRESENTATION: Record<ConversationStatus, StatusPresentation> = {
-  active: { label: "active", color: "var(--status-active)" },
-  waiting: { label: "waiting", color: "var(--status-waiting)" },
-  assigned: { label: "assigned", color: "var(--status-assigned)" },
-  resolved: { label: "resolved", color: "var(--status-resolved)" },
-};
-
-/**
- * Unknown statuses degrade to `resolved` rather than throwing: a value written
- * by a newer build of the server must not blank out the whole visitor list.
- */
-export function statusPresentation(value: unknown): StatusPresentation {
-  return STATUS_PRESENTATION[isConversationStatus(value) ? value : "resolved"];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -142,7 +104,7 @@ export function formatRelative(value: Date | number | string | undefined | null,
  * meta line, the way a group-chat client does. Without it a three-message
  * burst prints the same name and time three times, which is noise.
  */
-export const MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000;
+const MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000;
 
 export function shouldGroupMessage(
   previous: { sender: string; at: number } | null,
@@ -156,8 +118,6 @@ export function shouldGroupMessage(
 /* -------------------------------------------------------------------------- */
 /* Visitor activity                                                           */
 /* -------------------------------------------------------------------------- */
-
-export type ActivityKind = "page" | "chat";
 
 /**
  * Route path -> the label the activity timeline shows. Paths the app does not
@@ -173,46 +133,4 @@ const PAGE_LABELS: Record<string, string> = {
 export function pageLabel(path: string): string {
   const normalized = path.split("?")[0]?.split("#")[0] || "/";
   return PAGE_LABELS[normalized] ?? normalized;
-}
-
-export interface VisitorActivity {
-  id: string | number;
-  kind: ActivityKind;
-  page: string;
-  label: string;
-  created_at: string;
-}
-
-export function isVisitorActivity(value: unknown): value is VisitorActivity {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    (typeof candidate.id === "number" || typeof candidate.id === "string") &&
-    (candidate.kind === "page" || candidate.kind === "chat") &&
-    typeof candidate.page === "string" &&
-    typeof candidate.label === "string" &&
-    typeof candidate.created_at === "string"
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Attachments                                                                */
-/* -------------------------------------------------------------------------- */
-
-export const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
-export const MAX_ATTACHMENTS = 3;
-
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-/**
- * The assistant reads text only, so an attachment is carried to the model (and
- * to the admin, through the persisted transcript) by name. Kept in one place so
- * the appended line is identical in the widget and in the stored body.
- */
-export function attachmentTranscriptLine(name: string, size: number): string {
-  return `[attachment] ${name} (${formatBytes(size)})`;
 }

@@ -6,7 +6,7 @@ import { ThemeProvider } from "./lib/theme";
 import "./styles/tokens.css";
 import "./styles/theme.css";
 import "./styles/minimal.css";
-import "./styles/red-black.css";
+import "./styles/monochrome.css";
 import "./styles/motion.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

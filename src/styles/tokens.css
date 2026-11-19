@@ -1,7 +1,7 @@
 /* ==========================================================================
    THEME TOKENS: the single source of truth for colour.
    Imported first in main.tsx. Nothing else in the project declares a theme
-   colour: theme.css, minimal.css, red-black.css and the component sheets only
+   colour: theme.css, minimal.css, monochrome.css and the component sheets only
    *consume* these variables, so a theme is retuned in this file and nowhere
    else.
 

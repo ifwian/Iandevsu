@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 /**
  * Feeds the card spotlight (neutral radial highlight that follows the pointer,
- * styled in red-black.css). One delegated listener for the whole page: it
+ * styled in monochrome.css). One delegated listener for the whole page: it
  * writes --mx / --my, in px relative to the card, onto whichever `.card` or
  * `.project-card` the pointer is over. Mouse and pen only; touch has no hover.
  */

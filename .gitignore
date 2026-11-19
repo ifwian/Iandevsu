@@ -20,9 +20,3 @@ dist/
 *_rows.csv
 tmp_*.html
 projects-template.zip
-# Stray copies left at the repo root / components dir by earlier ports. The real
-# components are src/components/chat/ChatText.tsx and src/components/ui/Stack.tsx.
-/ChatText.tsx
-/src/components/Stack.jsx
-/src/components/Stack.css
-/src/components/Stack.d.ts

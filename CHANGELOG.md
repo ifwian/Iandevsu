@@ -55,11 +55,11 @@ None (nothing was safe to delete without a build to verify).
 
 ## Remaining observations (not changed)
 - `index.html` loads Tailwind via the Play CDN (`cdn.tailwindcss.com`) with an inline config, while `tailwindcss` and `@tailwindcss/vite` are installed but `theme.css` does not import Tailwind. Switching to the build-time plugin is recommended for production but needs a build to verify, so I left it.
-- `api/chat.ts` duplicates profile facts from `src/content/profile.ts` (intentional, documented in README).
+- `api/chat.ts` duplicates profile facts from `src/content/profile.ts` (intentional; see the comment at the top of `api/chat.ts`).
 
 ## Setup
 See README.md: Node 20.19+/22.12+, `npm install`, `cp .env.example .env.local`, `npm run dev`. Database: run `supabase/schema.sql` on a fresh Supabase project.
 
 
 ## Phase 3 — Theme system
-See TESTING-REPORT.md and HANDOFF.md (Phase 3).
+Theme tokens live in `src/styles/tokens.css` and theme state in `src/lib/theme.tsx`.

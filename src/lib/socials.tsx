@@ -24,9 +24,9 @@ export interface SocialItem {
  * import it. Same reasoning as `lib/navigation.ts`.
  *
  * The marks are drawn rather than imported: lucide-react 1.0 dropped the
- * trademarked brand icons, so `Github`/`Linkedin`/`Instagram` do not exist in it,
- * and `.clinerules` requires the local SVG. They all render at 24x24 on the same
- * 1.7 stroke, so the three sit on one optical baseline at any size.
+ * trademarked brand icons, so `Github`/`Linkedin`/`Instagram` do not exist in it.
+ * They all render at 24x24 on the same 1.7 stroke, so the three sit on one
+ * optical baseline at any size.
  *
  * Order is display order in both surfaces, and it is the reading order a screen
  * reader announces, so it is not reordered casually.

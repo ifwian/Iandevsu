@@ -32,9 +32,9 @@ import {
 export type Theme = "dark" | "light" | "system";
 export type ResolvedTheme = "dark" | "light";
 
-export const THEME_STORAGE_KEY = "theme";
+const THEME_STORAGE_KEY = "theme";
 /** Dark is the default. A visitor who has never chosen gets dark. */
-export const DEFAULT_THEME: Theme = "dark";
+const DEFAULT_THEME: Theme = "dark";
 
 /** Mirrors --bg in tokens.css; used for <meta name="theme-color"> fallback. */
 const FALLBACK_BG: Record<ResolvedTheme, string> = { dark: "#09090a", light: "#ffffff" };

@@ -1,5 +1,5 @@
 import { forwardRef, type HTMLAttributes } from "react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 
 /**
  * Card primitives with the shadcn/ui API (Card, CardHeader, CardTitle, ...),

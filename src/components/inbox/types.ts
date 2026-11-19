@@ -63,12 +63,6 @@ export interface VisitorInfo {
   visitorId: string;
 }
 
-/* chat_messages.id is a bigint: PostgREST may hand back number or string. */
-function isRowId(value: unknown): value is string | number {
-  if (typeof value === "number") return Number.isFinite(value);
-  return typeof value === "string" && value.trim().length > 0;
-}
-
 /** Absent, null, or a string -- the contact columns are optional. */
 function isOptionalText(value: unknown): boolean {
   return value === undefined || value === null || typeof value === "string";
@@ -93,37 +87,6 @@ export function isConversation(value: unknown): value is Conversation {
     // form (and the migration) would vanish from the list entirely.
     isOptionalText(candidate.visitor_name) &&
     isOptionalText(candidate.visitor_email)
-  );
-}
-
-export function isInboxMessage(value: unknown): value is InboxMessage {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    isRowId(candidate.id) &&
-    typeof candidate.conversation_id === "string" &&
-    // 'system' must be accepted. Takeover announcements are stored with that
-    // role, and rejecting it here silently dropped them from the transcript the
-    // admin is reading.
-    (candidate.role === "visitor" ||
-      candidate.role === "assistant" ||
-      candidate.role === "admin" ||
-      candidate.role === "system") &&
-    typeof candidate.body === "string" &&
-    typeof candidate.created_at === "string"
-  );
-}
-
-export function isVisitorInfo(value: unknown): value is VisitorInfo {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.firstSeenAt === "string" &&
-    typeof candidate.sessionStartedAt === "string" &&
-    typeof candidate.visitorId === "string" &&
-    isOptionalText(candidate.name) &&
-    isOptionalText(candidate.email) &&
-    isOptionalText(candidate.currentPage)
   );
 }
 
